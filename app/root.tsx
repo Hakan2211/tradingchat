@@ -1,15 +1,28 @@
 import {
-  isRouteErrorResponse,
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
   type LinksFunction,
+  type LoaderFunction,
+  type LoaderFunctionArgs,
 } from 'react-router';
 
 import './app.css';
 import { GeneralErrorBoundary } from './components/errorBoundary/errorBoundary';
+import { honeypot } from './utils/honeypot.server';
+import { HoneypotProvider } from 'remix-utils/honeypot/react';
+import { getEnv } from './utils/env.server';
+import { csrf } from './utils/csrf.server';
+import { AuthenticityTokenProvider } from 'remix-utils/csrf/react';
+
+type LoaderData = {
+  honeyProps: any;
+  ENV: any;
+  csrfToken: string;
+};
 
 export const links: LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -24,9 +37,18 @@ export const links: LinksFunction = () => [
   },
 ];
 
-// export async function loader() {
-//   throw new Error('test');
-// }
+export const loader = (async ({ request }: LoaderFunctionArgs) => {
+  const honeyProps = await honeypot.getInputProps();
+  const [csrfToken, csrfCookieHeader] = await csrf.commitToken(request);
+  const data: LoaderData = { honeyProps, ENV: getEnv(), csrfToken };
+
+  return new Response(JSON.stringify(data), {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(csrfCookieHeader ? { 'set-cookie': csrfCookieHeader } : {}),
+    },
+  });
+}) satisfies LoaderFunction;
 
 function Document({ children }: { children: React.ReactNode }) {
   return (
@@ -46,11 +68,34 @@ function Document({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function App() {
+function App() {
+  const data = useLoaderData<typeof loader>();
+  if (!data) throw new Error('No data available');
+  const typedData = data as unknown as LoaderData;
+
   return (
     <Document>
       <Outlet />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `window.ENV = ${JSON.stringify(typedData.ENV)}`,
+        }}
+      />
     </Document>
+  );
+}
+
+export default function AppWithProviders() {
+  const data = useLoaderData<typeof loader>();
+  if (!data) throw new Error('No data available');
+  const typedData = data as unknown as LoaderData;
+
+  return (
+    <AuthenticityTokenProvider token={typedData.csrfToken}>
+      <HoneypotProvider {...typedData.honeyProps}>
+        <App />
+      </HoneypotProvider>
+    </AuthenticityTokenProvider>
   );
 }
 
