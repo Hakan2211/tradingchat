@@ -19,6 +19,9 @@ import { signup, getUser } from '#/utils/auth.server';
 import { z } from 'zod';
 import { useIsSubmitting } from '#/utils/misc';
 import ErrorAlert from '#/components/errorAlert/errorAlert';
+import { parseWithZod, getZodConstraint } from '@conform-to/zod';
+import { useForm, getFormProps, getInputProps } from '@conform-to/react';
+import { AnimatePresence } from 'framer-motion';
 
 const RegisterSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -40,51 +43,41 @@ export async function action({ request }: ActionFunctionArgs) {
   await validateCSRF(formData, request.headers);
   checkHoneypot(formData);
 
-  const email = formData.get('email');
-  const password = formData.get('password');
-  const name = formData.get('name');
-  const username = formData.get('username');
-
-  const submission = RegisterSchema.safeParse({
-    email,
-    password,
-    name,
-    username,
+  const submission = parseWithZod(formData, {
+    schema: RegisterSchema,
   });
-  if (!submission.success) {
-    return new Response(
-      JSON.stringify({ errors: submission.error.flatten() }),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      }
-    );
+
+  if (submission.status !== 'success') {
+    return submission.reply();
   }
 
-  const result = await signup(submission.data);
+  const result = await signup(submission.value);
 
   // Check if result is an error object
   if (result && 'error' in result) {
-    return new Response(
-      JSON.stringify({ formErrors: [result.error], fieldErrors: {} }),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      }
-    );
+    return submission.reply({
+      formErrors: [result.error],
+    });
   }
 
   return result;
 }
 
-export default function Register({
-  className,
-  ...props
-}: {
-  className?: string;
-}) {
+export default function Register() {
   const isSubmitting = useIsSubmitting();
   const actionData = useActionData();
+
+  const [form, fields] = useForm({
+    lastResult: actionData,
+    constraint: getZodConstraint(RegisterSchema),
+    onValidate({ formData }) {
+      return parseWithZod(formData, {
+        schema: RegisterSchema,
+      });
+    },
+    shouldValidate: 'onBlur',
+    shouldRevalidate: 'onInput',
+  });
   return (
     <Card>
       <CardHeader>
@@ -92,62 +85,61 @@ export default function Register({
         <CardDescription>Create an account to get started</CardDescription>
       </CardHeader>
       <CardContent>
-        <Form method="POST" noValidate>
+        <Form
+          method="POST"
+          {...getFormProps(form)}
+          onSubmit={form.onSubmit}
+          noValidate={false}
+        >
           <AuthenticityTokenInput />
           <HoneypotInputs />
           <div className="flex flex-col gap-6">
-            <ErrorAlert
-              id="form-errors"
-              errors={actionData?.errors?.formErrors}
-            />
+            <AnimatePresence>
+              {form.errors && (
+                <ErrorAlert id={form.errorId} errors={form.errors} />
+              )}
+            </AnimatePresence>
             <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor={fields.name.id}>Name</Label>
               <Input
-                id="name"
-                name="name"
-                type="text"
+                {...getInputProps(fields.name, { type: 'text' })}
                 placeholder="John Doe"
-                required
               />
               <ErrorAlert
-                id="name-errors"
-                errors={actionData?.errors?.fieldErrors?.name}
+                id={fields.name.errorId}
+                errors={fields.name.errors}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor={fields.username.id}>Username</Label>
               <Input
-                id="username"
-                name="username"
-                type="text"
+                {...getInputProps(fields.username, { type: 'text' })}
                 placeholder="johndoe"
-                required
               />
               <ErrorAlert
-                id="username-errors"
-                errors={actionData?.errors?.fieldErrors?.username}
+                id={fields.username.errorId}
+                errors={fields.username.errors}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor={fields.email.id}>Email</Label>
               <Input
-                id="email"
-                name="email"
-                type="email"
+                {...getInputProps(fields.email, { type: 'email' })}
                 placeholder="m@example.com"
-                required
               />
               <ErrorAlert
-                id="email-errors"
-                errors={actionData?.errors?.fieldErrors?.email}
+                id={fields.email.errorId}
+                errors={fields.email.errors}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required />
+              <Label htmlFor={fields.password.id}>Password</Label>
+              <Input
+                {...getInputProps(fields.password, { type: 'password' })}
+              />
               <ErrorAlert
-                id="password-errors"
-                errors={actionData?.errors?.fieldErrors?.password}
+                id={fields.password.errorId}
+                errors={fields.password.errors}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>

@@ -9,6 +9,8 @@
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
+    "@conform-to/react": "^1.7.0",
+    "@conform-to/zod": "^1.7.0",
     "@epic-web/remember": "^1.1.0",
     "@hookform/resolvers": "^5.1.1",
     "@oslojs/crypto": "^1.0.1",
@@ -53,6 +55,7 @@
     "embla-carousel-react": "^8.6.0",
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.0",
+    "framer-motion": "^12.18.1",
     "input-otp": "^1.4.2",
     "isbot": "^5.1.27",
     "lucide-react": "^0.515.0",

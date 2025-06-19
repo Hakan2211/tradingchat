@@ -20,6 +20,8 @@ import { login, getUser } from '#/utils/auth.server';
 import { z } from 'zod';
 import { useIsSubmitting } from '#/utils/misc';
 import ErrorAlert from '#/components/errorAlert/errorAlert';
+import { parseWithZod, getZodConstraint } from '@conform-to/zod';
+import { useForm, getFormProps, getInputProps } from '@conform-to/react';
 
 const LoginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -36,34 +38,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
-  const email = formData.get('email');
-  const password = formData.get('password');
   await validateCSRF(formData, request.headers);
   checkHoneypot(formData);
 
-  const submission = LoginSchema.safeParse({ email, password });
+  const submission = parseWithZod(formData, {
+    schema: LoginSchema,
+  });
 
-  if (!submission.success) {
-    return new Response(
-      JSON.stringify({ errors: submission.error.flatten() }),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      }
-    );
+  if (submission.status !== 'success') {
+    return submission.reply();
   }
 
-  const result = await login(submission.data);
+  const result = await login(submission.value);
 
   // Check if result is an error object
   if (result && 'error' in result) {
-    return new Response(
-      JSON.stringify({ formErrors: [result.error], fieldErrors: {} }),
-      {
-        status: 400,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      }
-    );
+    return submission.reply({
+      formErrors: [result.error],
+    });
   }
 
   return result;
@@ -72,6 +64,19 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function Login({ className, ...props }: { className?: string }) {
   const isSubmitting = useIsSubmitting();
   const actionData = useActionData();
+
+  const [form, fields] = useForm({
+    lastResult: actionData,
+    constraint: getZodConstraint(LoginSchema),
+    onValidate({ formData }) {
+      return parseWithZod(formData, {
+        schema: LoginSchema,
+      });
+    },
+    shouldValidate: 'onBlur',
+    shouldRevalidate: 'onInput',
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -81,31 +86,30 @@ export default function Login({ className, ...props }: { className?: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Form method="POST">
+        <Form
+          method="POST"
+          {...getFormProps(form)}
+          onSubmit={form.onSubmit}
+          noValidate={false}
+        >
           <div className="flex flex-col gap-6">
-            <ErrorAlert
-              id="form-errors"
-              errors={actionData?.errors?.formErrors}
-            />
+            <ErrorAlert id={form.errorId} errors={form.errors} />
             <HoneypotInputs />
             <AuthenticityTokenInput />
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor={fields.email.id}>Email</Label>
               <Input
-                id="email"
-                name="email"
-                type="email"
+                {...getInputProps(fields.email, { type: 'email' })}
                 placeholder="m@example.com"
-                required
               />
               <ErrorAlert
-                id="email-errors"
-                errors={actionData?.errors?.fieldErrors?.email}
+                id={fields.email.errorId}
+                errors={fields.email.errors}
               />
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor={fields.password.id}>Password</Label>
                 <a
                   href="#"
                   className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
@@ -113,10 +117,12 @@ export default function Login({ className, ...props }: { className?: string }) {
                   Forgot your password?
                 </a>
               </div>
-              <Input id="password" name="password" type="password" required />
+              <Input
+                {...getInputProps(fields.password, { type: 'password' })}
+              />
               <ErrorAlert
-                id="password-errors"
-                errors={actionData?.errors?.fieldErrors?.password}
+                id={fields.password.errorId}
+                errors={fields.password.errors}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
