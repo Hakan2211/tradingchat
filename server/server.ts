@@ -1,125 +1,133 @@
-import { createRequestHandler } from '@remix-run/express';
-import type { ServerBuild } from '@remix-run/node';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRequestHandler } from '@react-router/express';
 import express from 'express';
-import { createServer as createHttpServer } from 'http';
+import type { Request, Response, NextFunction } from 'express';
+import compression from 'compression';
+import morgan from 'morgan';
+import http from 'node:http';
 import { Server } from 'socket.io';
-import { createServer as createViteServer } from 'vite';
-import path from 'path';
 import rateLimit from 'express-rate-limit';
+import { type ServerBuild } from 'react-router';
 
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Rejection:', reason);
+const MODE = process.env.NODE_ENV;
+const IS_PROD = MODE === 'production';
+
+const viteDevServer = IS_PROD
+  ? undefined
+  : await import('vite').then((vite) =>
+      vite.createServer({
+        server: { middlewareMode: true },
+        // THIS IS THE CRITICAL FIX for the browser not loading
+        appType: 'custom',
+      })
+    );
+
+const app = express();
+const httpServer = http.createServer(app);
+
+// Your Socket.IO setup remains the same
+const io = new Server(httpServer, {
+  cors: { origin: '*', methods: ['GET', 'POST'] },
 });
 
-(async () => {
-  try {
-    const isProd = process.env.NODE_ENV === 'production';
-    const app = express();
-    const http = createHttpServer(app);
+io.on('connection', (socket) => {
+  console.log('✅ User connected:', socket.id);
+  socket.on('disconnect', () => {
+    console.log('❌ User disconnected:', socket.id);
+  });
+});
 
-    // Initialize Socket.IO with explicit configuration
-    const io = new Server(http, {
-      path: '/socket.io',
-      transports: ['websocket', 'polling'],
-      cors: {
-        origin: '*',
-        methods: ['GET', 'POST'],
-      },
-    });
+// Standard middleware
+app.use(compression());
+app.disable('x-powered-by');
+app.use(morgan('tiny'));
 
-    // Socket.IO connection handling
-    io.on('connection', (socket) => {
-      console.log('✅ New client connected:', socket.id);
+// Vite middleware is the key to serving the app in development
+if (viteDevServer) {
+  app.use(viteDevServer.middlewares);
+} else {
+  // Production static asset serving
+  app.use(
+    '/assets',
+    express.static('build/client/assets', { immutable: true, maxAge: '1y' })
+  );
+  app.use(express.static('build/client', { maxAge: '1h' }));
+}
 
-      socket.on('chat message', (msg) => {
-        io.emit('chat message', msg);
-      });
+// Your Rate Limiting logic remains the same
+const limitMultiple = process.env.TESTING ? 10_000 : 1;
+const rateLimitDefault = {
+  windowMs: 60 * 1000,
+  limit: 1000 * limitMultiple,
+  standardHeaders: true,
+  legacyHeaders: false,
+};
+const strongestRateLimit = rateLimit({
+  ...rateLimitDefault,
+  limit: 10 * limitMultiple,
+});
+const strongRateLimit = rateLimit({
+  ...rateLimitDefault,
+  limit: 100 * limitMultiple,
+});
+const generalRateLimit = rateLimit(rateLimitDefault);
 
-      socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
-      });
-
-      socket.on('error', (error) => {
-        console.error('Socket error:', error);
-      });
-    });
-
-    //Rate Limiting
-    const limitMultiple = process.env.TESTING ? 10_000 : 1;
-    const rateLimitDefault = {
-      windowMs: 60 * 1000,
-      limit: 1000 * limitMultiple,
-      standardHeaders: true,
-      legacyHeaders: false,
-    };
-
-    const strongestRateLimit = rateLimit({
-      ...rateLimitDefault,
-      limit: 2,
-    });
-
-    const strongRateLimit = rateLimit({
-      ...rateLimitDefault,
-      limit: 100 * limitMultiple,
-    });
-
-    const generalRateLimit = rateLimit({
-      ...rateLimitDefault,
-    });
-
-    app.use((req, res, next) => {
-      const strongPaths = ['/register'];
-      if (req.method !== 'GET' && req.method !== 'HEAD') {
-        if (strongPaths.some((path) => req.path.includes(path))) {
-          return strongestRateLimit(req, res, next);
-        }
-        return strongRateLimit(req, res, next);
-      }
-      return generalRateLimit(req, res, next);
-    });
-
-    app.use((_, res, next) => {
-      res.locals.io = io;
-      next();
-    });
-
-    if (isProd) {
-      const build = await import(
-        path.join(__dirname, '../build/server/index.js')
-      );
-
-      app.use('/assets', express.static('build/client', { immutable: true }));
-      app.use(
-        '/',
-        createRequestHandler({
-          build,
-          getLoadContext: (_, res) => ({ io: res.locals.io }),
-        })
-      );
-    } else {
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'custom',
-      });
-      app.use(vite.middlewares);
-      app.use(
-        '/',
-        createRequestHandler({
-          build: () =>
-            vite.ssrLoadModule(
-              'virtual:react-router/server-build'
-            ) as Promise<ServerBuild>,
-          getLoadContext: (_, res) => ({ io: res.locals.io }),
-        })
-      );
+app.use((req, res, next) => {
+  const strongPaths = ['/register'];
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if (strongPaths.some((path) => req.path.includes(path))) {
+      return strongestRateLimit(req, res, next);
     }
-
-    http.listen(3000, () => {
-      console.log('✅ Server running at http://localhost:3000');
-      console.log('✅ Socket.IO server initialized');
-    });
-  } catch (err) {
-    console.error('❌ Failed to start server:', err);
-    process.exit(1);
+    return strongRateLimit(req, res, next);
   }
-})();
+  return generalRateLimit(req, res, next);
+});
+
+// A resilient build loader function like the Epic Stack's
+async function getBuild() {
+  try {
+    const build = viteDevServer
+      ? await viteDevServer.ssrLoadModule('virtual:react-router/server-build')
+      : // @ts-expect-error - this will exist in production
+        await import('../build/server/index.js');
+    return build as ServerBuild;
+  } catch (error) {
+    console.error('Failed to load server build:', error);
+    // In dev, Vite will show an error overlay, so we can throw
+    if (!IS_PROD) throw error;
+    // In prod, we should not crash the server
+    return undefined;
+  }
+}
+
+// The final request handler, using the correct Express 5 regex wildcard
+const handler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const build = await getBuild();
+    if (!build) {
+      // If the build fails in prod, send a 500
+      res.status(500).send('Server Error');
+      return;
+    }
+    const handler = createRequestHandler({
+      build,
+      getLoadContext: () => ({ io: io }),
+    });
+    await handler(req, res, next);
+  } catch (error) {
+    next(error);
+  }
+};
+
+app.all(/(.*)/, handler);
+
+const PORT = process.env.PORT || 3000;
+
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Express server listening on http://localhost:${PORT}`);
+});

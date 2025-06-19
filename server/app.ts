@@ -1,4 +1,4 @@
-import { createRequestHandler } from '@remix-run/express';
+import { createRequestHandler } from '@react-router/express';
 import type { Server } from 'socket.io';
 import path from 'path';
 import { getEnv } from '../app/utils/env.server';
