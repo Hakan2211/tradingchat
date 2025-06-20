@@ -6,7 +6,8 @@
     "build": "vite build && vite build --ssr",
     "dev": "tsx watch server/server.ts",
     "start": "NODE_ENV=production node ./build/server/index.js",
-    "typecheck": "react-router typegen && tsc"
+    "typecheck": "react-router typegen && tsc",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@conform-to/react": "^1.7.0",

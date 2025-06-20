@@ -69,6 +69,7 @@ export async function getUser(request: Request): Promise<User | null> {
       email: true,
       username: true,
       name: true,
+      bio: true,
       createdAt: true,
       updatedAt: true,
     },

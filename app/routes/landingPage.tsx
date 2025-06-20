@@ -1,12 +1,26 @@
 import { Button } from '#/components/ui/button';
-import type { Route } from './+types/home';
-import { Link } from 'react-router';
+import { getUser } from '#/utils/auth.server';
 
-export function meta({}: Route.MetaArgs) {
+import {
+  Link,
+  redirect,
+  type LoaderFunctionArgs,
+  type MetaFunction,
+} from 'react-router';
+
+export const meta: MetaFunction = () => {
   return [
     { title: 'New React Router App' },
     { name: 'description', content: 'Welcome to React Router!' },
   ];
+};
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const user = await getUser(request);
+  if (user) {
+    return redirect('/home');
+  }
+  return null;
 }
 
 export default function Home() {

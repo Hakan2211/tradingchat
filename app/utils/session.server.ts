@@ -51,5 +51,8 @@ sessionStorage.commitSession = async function commitSession(
   return setCookieHeader;
 };
 
+// Extract the commitSession function for export
+const { commitSession } = sessionStorage;
+
 // Re-export the methods for use in other files
-export { getSession, destroySession };
+export { getSession, destroySession, commitSession };

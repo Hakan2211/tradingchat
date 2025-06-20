@@ -12,6 +12,11 @@ export default [
     route('/home', 'routes/app/home.tsx'),
   ]),
 
+  route('/user/:id', 'routes/user/user.tsx', [
+    index('routes/user/user-index.tsx'),
+    route('edit', 'routes/user/user-edit.tsx'),
+  ]),
+
   layout('routes/layouts/auth-layout.tsx', [
     route('/login', 'routes/auth/login.tsx'),
     route('/register', 'routes/auth/register.tsx'),
