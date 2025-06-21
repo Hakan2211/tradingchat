@@ -10,33 +10,45 @@ import {
 import { Input } from '#/components/ui/input';
 import { Label } from '#/components/ui/label';
 import { invariantResponse } from '#/utils/misc';
-import { Form, Link, redirect, useActionData } from 'react-router';
+import {
+  Form,
+  Link,
+  redirect,
+  useActionData,
+  useSearchParams,
+} from 'react-router';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
 import { HoneypotInputs } from 'remix-utils/honeypot/react';
 import { checkHoneypot } from '#/utils/honeypot.server';
 import { AuthenticityTokenInput } from 'remix-utils/csrf/react';
 import { validateCSRF } from '#/utils/csrf.server';
-import { login, getUser } from '#/utils/auth.server';
+import { login, requireAnonymous } from '#/utils/auth.server';
 import { z } from 'zod';
 import { useIsSubmitting } from '#/utils/misc';
 import ErrorAlert from '#/components/errorAlert/errorAlert';
 import { parseWithZod, getZodConstraint } from '@conform-to/zod';
 import { useForm, getFormProps, getInputProps } from '@conform-to/react';
+import {
+  getSessionExpirationDate,
+  getSession,
+  sessionKey,
+  sessionStorage,
+} from '#/utils/session.server';
+import { safeRedirect } from 'remix-utils/safe-redirect';
 
 const LoginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
+  redirectTo: z.string().optional(),
 });
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const user = await getUser(request);
-  if (user) {
-    return redirect('/home');
-  }
+  await requireAnonymous(request);
   return null;
 }
 
 export async function action({ request }: ActionFunctionArgs) {
+  await requireAnonymous(request);
   const formData = await request.formData();
   await validateCSRF(formData, request.headers);
   checkHoneypot(formData);
@@ -54,20 +66,33 @@ export async function action({ request }: ActionFunctionArgs) {
   // Check if result is an error object
   if (result && 'error' in result) {
     return submission.reply({
-      formErrors: [result.error],
+      formErrors: [result.error ?? ''],
     });
   }
 
-  return result;
+  const { dbSession } = result;
+  const session = await getSession();
+  session.set(sessionKey, dbSession.id);
+
+  return redirect(safeRedirect(submission.value.redirectTo, '/home'), {
+    headers: {
+      'Set-Cookie': await sessionStorage.commitSession(session, {
+        expires: getSessionExpirationDate(),
+      }),
+    },
+  });
 }
 
 export default function Login({ className, ...props }: { className?: string }) {
   const isSubmitting = useIsSubmitting();
   const actionData = useActionData();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirectTo');
 
   const [form, fields] = useForm({
     lastResult: actionData,
     constraint: getZodConstraint(LoginSchema),
+    defaultValue: { redirectTo },
     onValidate({ formData }) {
       return parseWithZod(formData, {
         schema: LoginSchema,
@@ -92,6 +117,7 @@ export default function Login({ className, ...props }: { className?: string }) {
           onSubmit={form.onSubmit}
           noValidate={false}
         >
+          <input {...getInputProps(fields.redirectTo, { type: 'hidden' })} />
           <div className="flex flex-col gap-6">
             <ErrorAlert id={form.errorId} errors={form.errors} />
             <HoneypotInputs />
@@ -137,7 +163,14 @@ export default function Login({ className, ...props }: { className?: string }) {
           <div className="mt-4 text-center text-sm">
             {/* Don&apos;t have an account? */}
             New here?{' '}
-            <Link to="/register" className="underline underline-offset-4">
+            <Link
+              to={
+                redirectTo
+                  ? `/register?redirectTo=${encodeURIComponent(redirectTo)}`
+                  : '/register'
+              }
+              className="underline underline-offset-4"
+            >
               Sign up
             </Link>
           </div>

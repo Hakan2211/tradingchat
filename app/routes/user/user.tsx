@@ -18,7 +18,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       email: true,
       bio: true,
       createdAt: true,
-      image: { select: { id: true } },
+      image: { select: { id: true, updatedAt: true } },
     },
   });
 

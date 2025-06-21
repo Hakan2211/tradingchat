@@ -70,3 +70,7 @@ export function useIsSubmitting({
     navigation.formMethod === formMethod
   );
 }
+
+export function getUserImagePath(imageId: string) {
+  return `/resources/images/${imageId}`;
+}

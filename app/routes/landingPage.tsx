@@ -1,5 +1,5 @@
 import { Button } from '#/components/ui/button';
-import { getUser } from '#/utils/auth.server';
+import { requireAnonymous } from '#/utils/auth.server';
 
 import {
   Link,
@@ -16,10 +16,7 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const user = await getUser(request);
-  if (user) {
-    return redirect('/home');
-  }
+  await requireAnonymous(request);
   return null;
 }
 

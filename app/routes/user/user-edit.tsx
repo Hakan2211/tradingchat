@@ -18,52 +18,133 @@ import { Textarea } from '#/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
 import { Camera } from 'lucide-react';
 import { GeneralErrorBoundary } from '#/components/errorBoundary/errorBoundary';
-import { useIsSubmitting } from '#/utils/misc';
-import { getSession, commitSession } from '#/utils/session.server';
+import { getUserImagePath, useIsSubmitting } from '#/utils/misc';
 import ErrorAlert from '#/components/errorAlert/errorAlert';
 import type { loader as userLoader } from './user';
-import { requireUserId } from '#/utils/auth.server';
+import { requireUser } from '#/utils/auth.server';
 import { invariantResponse } from '#/utils/misc';
 import { prisma } from '#/utils/db.server';
+import { processImage } from '#/utils/image.server';
+import { parseFormData, type FileUpload } from '@mjackson/form-data-parser';
+
+const MAX_IMAGE_SIZE = 1024 * 1024 * 5; // 5MB
 
 const UserFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   username: z.string().min(3, 'Username must be at least 3 characters'),
   bio: z.string().max(500, 'Bio must be 500 characters or less').optional(),
+  profileImage: z
+    .instanceof(File)
+    .refine((file) => file.size > 0, 'A profile picture is required.')
+    .refine(
+      (file) => file.size <= MAX_IMAGE_SIZE,
+      'Image size must be less than 5MB.'
+    )
+    .optional(),
 });
 
+const TransformedUserFormSchema = UserFormSchema.transform(
+  async ({ profileImage, ...restOfData }) => {
+    if (!profileImage) {
+      return { ...restOfData, imageData: undefined };
+    }
+    const imageBuffer = Buffer.from(await profileImage.arrayBuffer());
+    const optimizedImage = await processImage(imageBuffer);
+    return {
+      ...restOfData,
+      imageData: {
+        blob: optimizedImage.data,
+        contentType: optimizedImage.contentType,
+      },
+    };
+  }
+);
+
 export async function loader({ params, request }: LoaderFunctionArgs) {
-  const loggedInUserId = await requireUserId(request);
+  const user = await requireUser(request);
   invariantResponse(
-    loggedInUserId === params.id,
+    user.id === params.id,
     'You are not authorized to edit this profile.',
     { status: 403 }
   );
-  return null;
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
-  const loggedInUserId = await requireUserId(request);
-  invariantResponse(loggedInUserId === params.id, 'Forbidden', { status: 403 });
+  const user = await requireUser(request);
+  invariantResponse(user.id === params.id, 'Forbidden', { status: 403 });
 
-  const formData = await request.formData();
-  const submission = parseWithZod(formData, { schema: UserFormSchema });
+  let formData;
+  try {
+    formData = await parseFormData(request, {
+      maxFileSize: MAX_IMAGE_SIZE,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('File size exceeds')) {
+      return reply({
+        initialValue: {
+          profileImage: null,
+        },
+        error: {
+          profileImage: [
+            'The image you selected is too large. Please choose a file smaller than 5MB.',
+          ],
+        },
+      });
+    }
+    // If it's a different, unexpected error, let the ErrorBoundary handle it.
+    throw error;
+  }
+
+  const submission = await parseWithZod(formData, {
+    schema: TransformedUserFormSchema,
+    async: true,
+  });
 
   if (submission.status !== 'success') {
     return submission.reply();
   }
 
-  await prisma.user.update({
-    where: { id: loggedInUserId },
-    data: submission.value,
+  const { imageData, ...userData } = submission.value;
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Update the user's text fields.
+    await tx.user.update({
+      where: { id: user.id },
+      data: userData,
+    });
+
+    // 2. If a new image was uploaded, we replace the old one entirely.
+    if (imageData) {
+      // First, delete the user's old image, if one exists.
+      // We don't care if this fails (e.g., if they had no image before).
+      await tx.userImage.delete({ where: { userId: user.id } }).catch(() => {});
+
+      // Next, create a brand new UserImage row.
+      // This row will have a new, unique, auto-generated `id`.
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          image: {
+            create: {
+              altText: `${userData.name}'s avatar`,
+              contentType: imageData.contentType,
+              blob: imageData.blob,
+            },
+          },
+        },
+      });
+    }
   });
 
-  const session = await getSession(request.headers.get('Cookie'));
-  //   session.flash('toast', { message: 'Profile updated successfully!' });
-  const response = redirect(`/user/${loggedInUserId}`);
-  response.headers.append('Set-Cookie', await commitSession(session));
-  return response;
+  return redirect(`/user/${params.id}`);
 }
+
+// Flash messages and redirects remain the same.
+//const session = await getSession(request.headers.get('Cookie'));
+// session.flash('toast', { message: 'Profile updated successfully!' });
+// const response = redirect(`/user/${loggedInUserId}`);
+//response.headers.append('Set-Cookie', await commitSession(session));
+//return response;}
 
 export default function ProfileEdit() {
   const { user } = useRouteLoaderData('routes/user/user') as Awaited<
@@ -77,7 +158,10 @@ export default function ProfileEdit() {
 
   const [form, fields] = useForm({
     lastResult,
-    defaultValue: user,
+    defaultValue: {
+      ...user,
+      profileImage: undefined,
+    },
     constraint: getZodConstraint(UserFormSchema),
     onValidate: ({ formData }) =>
       parseWithZod(formData, { schema: UserFormSchema }),
@@ -118,7 +202,9 @@ export default function ProfileEdit() {
                   <AvatarImage
                     src={
                       previewImage ||
-                      (user?.image ? `/api/images/${user.image.id}` : undefined)
+                      (user?.image
+                        ? getUserImagePath(user.image.id)
+                        : undefined)
                     }
                   />
                   <AvatarFallback>{/* ... */}</AvatarFallback>
@@ -132,13 +218,16 @@ export default function ProfileEdit() {
                 </button>
                 <input
                   ref={fileInputRef}
-                  type="file"
-                  name="profileImage" // Give it a name to be submitted
+                  {...getInputProps(fields.profileImage, { type: 'file' })}
                   accept="image/*"
                   onChange={handleImageUpload}
                   className="hidden"
                 />
               </div>
+              <ErrorAlert
+                id={fields.profileImage.errorId}
+                errors={fields.profileImage.errors}
+              />
             </div>
 
             <div className="lg:col-span-3 space-y-8">
@@ -184,4 +273,10 @@ export default function ProfileEdit() {
 
 export function ErrorBoundary() {
   return <GeneralErrorBoundary />;
+}
+function reply(arg0: {
+  initialValue: { profileImage: null };
+  error: { profileImage: string[] };
+}) {
+  throw new Error('Function not implemented.');
 }

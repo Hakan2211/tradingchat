@@ -1,11 +1,15 @@
-import { Link, useRouteLoaderData } from 'react-router';
+import {
+  Link,
+  useRouteLoaderData,
+  type LoaderFunctionArgs,
+} from 'react-router';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
 import { Button } from '#/components/ui/button';
 import { Badge } from '#/components/ui/badge';
 import { Mail } from 'lucide-react';
 import type { loader } from './user';
 import { GeneralErrorBoundary } from '#/components/errorBoundary/errorBoundary';
-import { invariantResponse } from '#/utils/misc';
+import { getUserImagePath } from '#/utils/misc';
 
 export default function UserIndexView() {
   const { user } = useRouteLoaderData('routes/user/user') as Awaited<
@@ -59,7 +63,7 @@ export default function UserIndexView() {
           <div className="lg:col-span-2 flex flex-col items-center">
             <Avatar className="w-40 h-40 rounded-full ring-4 ring-gray-100 overflow-hidden">
               <AvatarImage
-                src={user?.image ? `/api/user-images/${user.image.id}` : ''}
+                src={user?.image ? getUserImagePath(user.image.id) : ''}
                 alt={user?.name ?? ''}
               />
               <AvatarFallback className="text-2xl ...">

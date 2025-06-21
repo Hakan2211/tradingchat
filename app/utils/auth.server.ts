@@ -15,66 +15,69 @@ import {
 
 const prisma = new PrismaClient();
 
-async function getSessionId(request: Request) {
-  const cookie = request.headers.get('Cookie');
-  const session = await getSession(cookie);
-  const sessionId = session.get(sessionKey);
+export async function getUserId(request: Request) {
+  const authSession = await sessionStorage.getSession(
+    request.headers.get('cookie')
+  );
+  const sessionId = authSession.get(sessionKey);
   if (!sessionId) return null;
-  return sessionId;
+  const session = await prisma.session.findUnique({
+    select: { userId: true },
+    where: { id: sessionId, expirationDate: { gt: new Date() } },
+  });
+  if (!session?.userId) {
+    throw redirect('/', {
+      headers: {
+        'set-cookie': await sessionStorage.destroySession(authSession),
+      },
+    });
+  }
+  return session.userId;
+}
+
+export async function requireAnonymous(request: Request) {
+  const userId = await getUserId(request);
+  if (userId) {
+    throw redirect('/home');
+  }
 }
 
 /**
  * Returns the userId from the request session or throws a redirect
  * to the login page if the user is not authenticated.
  */
-export async function requireUserId(request: Request): Promise<string> {
-  const cookie = request.headers.get('Cookie');
-  const session = await getSession(cookie);
-  const sessionId = session.get(sessionKey);
-
-  if (!sessionId) {
-    throw redirect('/login');
+export async function requireUserId(
+  request: Request,
+  { redirectTo }: { redirectTo?: string | null } = {}
+) {
+  const userId = await getUserId(request);
+  if (!userId) {
+    const requestUrl = new URL(request.url);
+    redirectTo =
+      redirectTo === null
+        ? null
+        : redirectTo ?? `${requestUrl.pathname}${requestUrl.search}`;
+    const loginParams = redirectTo ? new URLSearchParams({ redirectTo }) : null;
+    const loginRedirect = ['/login', loginParams?.toString()]
+      .filter(Boolean)
+      .join('?');
+    throw redirect(loginRedirect);
   }
-
-  const dbSession = await prisma.session.findUnique({
-    where: { id: sessionId, expirationDate: { gt: new Date() } },
-    select: { userId: true },
-  });
-
-  if (!dbSession) {
-    // The session is invalid or expired, destroy the cookie and redirect
-    throw redirect('/login', {
-      headers: {
-        'Set-Cookie': await destroySession(session),
-      },
-    });
-  }
-
-  return dbSession.userId;
+  return userId;
 }
 
-/**
- * Returns the user object from the request session or null if not logged in.
- */
-export async function getUser(request: Request): Promise<User | null> {
-  const userId = await requireUserId(request).catch(() => null);
-  if (!userId) {
-    return null;
-  }
-
+export async function requireUser(request: Request) {
+  const userId = await requireUserId(request);
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
-      email: true,
       username: true,
-      name: true,
-      bio: true,
-      createdAt: true,
-      updatedAt: true,
     },
   });
-
+  if (!user) {
+    throw await logout(request);
+  }
   return user;
 }
 
@@ -116,18 +119,9 @@ export async function login({
     },
     select: { id: true },
   });
-
-  const session = await getSession();
-  session.set(sessionKey, dbSession.id);
-
-  return redirect('/home', {
-    headers: {
-      // Use the overridden commitSession from sessionStorage
-      'Set-Cookie': await sessionStorage.commitSession(session, {
-        expires: getSessionExpirationDate(),
-      }),
-    },
-  });
+  // const session = await getSession();
+  // session.set(sessionKey, dbSession.id);
+  return { dbSession };
 }
 
 export async function signup({
@@ -173,17 +167,9 @@ export async function signup({
     },
     select: { id: true },
   });
-
-  const session = await getSession();
-  session.set(sessionKey, dbSession.id);
-
-  return redirect('/home', {
-    headers: {
-      'Set-Cookie': await sessionStorage.commitSession(session, {
-        expires: getSessionExpirationDate(),
-      }),
-    },
-  });
+  // const session = await getSession();
+  // session.set(sessionKey, dbSession.id);
+  return { dbSession };
 }
 
 export async function logout(request: Request) {

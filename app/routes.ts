@@ -3,10 +3,15 @@ import {
   index,
   layout,
   route,
+  prefix,
 } from '@react-router/dev/routes';
 
 export default [
   index('routes/landingPage.tsx'),
+
+  ...prefix('resources', [
+    route('/images/:id', 'routes/resources/imagesResource.tsx'),
+  ]),
 
   layout('routes/layouts/app-layout.tsx', [
     route('/home', 'routes/app/home.tsx'),
