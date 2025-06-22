@@ -17,11 +17,28 @@ import { HoneypotProvider } from 'remix-utils/honeypot/react';
 import { getEnv } from './utils/env.server';
 import { csrf } from './utils/csrf.server';
 import { AuthenticityTokenProvider } from 'remix-utils/csrf/react';
+import { getUserId } from './utils/auth.server';
+import { prisma } from './utils/db.server';
 
 type LoaderData = {
   honeyProps: any;
   ENV: any;
   csrfToken: string;
+  user: {
+    id: string;
+    name: string | null;
+    username: string | null;
+    email: string;
+    image: { id: string; updatedAt: Date } | null;
+    roles: {
+      name: string;
+      permissions: {
+        action: string;
+        entity: string;
+        access: string;
+      }[];
+    }[];
+  } | null;
 };
 
 export const links: LinksFunction = () => [
@@ -40,7 +57,30 @@ export const links: LinksFunction = () => [
 export const loader = (async ({ request }: LoaderFunctionArgs) => {
   const honeyProps = await honeypot.getInputProps();
   const [csrfToken, csrfCookieHeader] = await csrf.commitToken(request);
-  const data: LoaderData = { honeyProps, ENV: getEnv(), csrfToken };
+
+  const userId = await getUserId(request);
+  const user = userId
+    ? await prisma.user.findUniqueOrThrow({
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          email: true,
+          image: { select: { id: true, updatedAt: true } },
+          roles: {
+            select: {
+              name: true,
+              permissions: {
+                select: { action: true, entity: true, access: true },
+              },
+            },
+          },
+        },
+        where: { id: userId },
+      })
+    : null;
+
+  const data: LoaderData = { honeyProps, ENV: getEnv(), csrfToken, user };
 
   return new Response(JSON.stringify(data), {
     headers: {

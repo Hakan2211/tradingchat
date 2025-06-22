@@ -146,17 +146,18 @@ export async function signup({
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
+    select: { id: true },
     data: {
-      email,
-      username,
+      email: email.toLowerCase(),
+      username: username?.toLowerCase(),
       name,
+      roles: { connect: { name: 'user' } },
       password: {
         create: {
           hash: hashedPassword,
         },
       },
     },
-    select: { id: true },
   });
 
   // Create a new session for the new user

@@ -1,42 +1,86 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  console.log('Seeding database...');
+async function seed() {
+  // Use `upsert` to create or update, preventing duplicates.
+  // This makes the script safe to run multiple times.
 
-  // Check if test user already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email: 'test@example.com' },
-  });
+  // 1. Create Permissions
+  // Action: what can you do? (create, read, update, delete)
+  // Entity: what are you doing it to? (user, post, invoice)
+  // Access: whose can you affect? (own, any)
+  const permissions = [
+    // User Permissions
+    { action: 'create', entity: 'user', access: 'any' },
+    { action: 'read', entity: 'user', access: 'any' },
+    { action: 'update', entity: 'user', access: 'own' },
+    { action: 'update', entity: 'user', access: 'any' },
+    { action: 'delete', entity: 'user', access: 'any' },
+    // Add any other models you have...
+    // { action: 'create', entity: 'post', access: 'own' },
+  ];
 
-  if (!existingUser) {
-    const hashedPassword = await bcrypt.hash('password123', 10);
-
-    const user = await prisma.user.create({
-      data: {
-        email: 'test@example.com',
-        name: 'Test User',
-        username: 'testuser',
-        bio: 'This is a test user for development purposes.',
-        password: {
-          create: {
-            hash: hashedPassword,
-          },
+  for (const permission of permissions) {
+    await prisma.permission.upsert({
+      where: {
+        action_entity_access: {
+          action: permission.action,
+          entity: permission.entity,
+          access: permission.access,
         },
       },
+      update: {},
+      create: permission,
     });
-
-    console.log('Created test user:', user);
-  } else {
-    console.log('Test user already exists:', existingUser);
   }
 
-  console.log('Seeding completed!');
+  // 2. Create Roles
+  await prisma.role.upsert({
+    where: { name: 'admin' },
+    update: {},
+    create: { name: 'admin', description: 'The admin has all permissions' },
+  });
+
+  await prisma.role.upsert({
+    where: { name: 'user' },
+    update: {},
+    create: {
+      name: 'user',
+      description: 'The basic user has limited permissions',
+    },
+  });
+
+  // 3. Connect Roles to Permissions
+  // Admin gets all permissions
+  const allPermissions = await prisma.permission.findMany({
+    select: { id: true },
+  });
+  await prisma.role.update({
+    where: { name: 'admin' },
+    data: { permissions: { set: allPermissions } },
+  });
+
+  // User gets specific, limited permissions
+  const userPermissions = await prisma.permission.findMany({
+    where: {
+      OR: [
+        { action: 'update', entity: 'user', access: 'own' },
+        // Add other basic user permissions here, e.g.:
+        // { action: 'create', entity: 'post', access: 'own' },
+      ],
+    },
+    select: { id: true },
+  });
+  await prisma.role.update({
+    where: { name: 'user' },
+    data: { permissions: { set: userPermissions } },
+  });
+
+  console.log('🌱 Database has been seeded');
 }
 
-main()
+seed()
   .catch((e) => {
     console.error(e);
     process.exit(1);

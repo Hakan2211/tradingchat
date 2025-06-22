@@ -10,11 +10,19 @@ import { Mail } from 'lucide-react';
 import type { loader } from './user';
 import { GeneralErrorBoundary } from '#/components/errorBoundary/errorBoundary';
 import { getUserImagePath } from '#/utils/misc';
+import { useUser, userHasPermission } from '#/utils/userPermissionRole';
 
 export default function UserIndexView() {
+  const loggedInUser = useUser();
+
   const { user } = useRouteLoaderData('routes/user/user') as Awaited<
     ReturnType<typeof loader>
   >;
+
+  const canUpdateAny = userHasPermission(loggedInUser, 'update:user:any');
+  const canUpdateOwn = userHasPermission(loggedInUser, 'update:user:own');
+
+  const canEdit = canUpdateAny || (canUpdateOwn && loggedInUser.id === user.id);
 
   const getInitials = (name: string): string => {
     const words = name
@@ -49,12 +57,15 @@ export default function UserIndexView() {
       <div className="px-8 py-6 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gray-900">My Profile</h1>
-          <Button
-            asChild
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <Link to="edit">Edit Profile</Link>
-          </Button>
+
+          {canEdit && (
+            <Button
+              asChild
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Link to="edit">Edit Profile</Link>
+            </Button>
+          )}
         </div>
       </div>
 

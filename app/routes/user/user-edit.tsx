@@ -6,6 +6,7 @@ import {
   redirect,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
+  useLoaderData,
 } from 'react-router';
 import { useForm, getFormProps, getInputProps } from '@conform-to/react';
 import { parseWithZod, getZodConstraint } from '@conform-to/zod';
@@ -21,11 +22,10 @@ import { GeneralErrorBoundary } from '#/components/errorBoundary/errorBoundary';
 import { getUserImagePath, useIsSubmitting } from '#/utils/misc';
 import ErrorAlert from '#/components/errorAlert/errorAlert';
 import type { loader as userLoader } from './user';
-import { requireUser } from '#/utils/auth.server';
-import { invariantResponse } from '#/utils/misc';
 import { prisma } from '#/utils/db.server';
 import { processImage } from '#/utils/image.server';
 import { parseFormData, type FileUpload } from '@mjackson/form-data-parser';
+import { requirePermission } from '#/utils/permission.server';
 
 const MAX_IMAGE_SIZE = 1024 * 1024 * 5; // 5MB
 
@@ -61,17 +61,19 @@ const TransformedUserFormSchema = UserFormSchema.transform(
 );
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
-  const user = await requireUser(request);
-  invariantResponse(
-    user.id === params.id,
-    'You are not authorized to edit this profile.',
-    { status: 403 }
-  );
+  await requirePermission(request, 'update:user', params.id);
+  const userToEdit = await prisma.user.findUniqueOrThrow({
+    where: { id: params.id },
+  });
+  return {};
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
-  const user = await requireUser(request);
-  invariantResponse(user.id === params.id, 'Forbidden', { status: 403 });
+  const authorizedUserId = await requirePermission(
+    request,
+    'update:user',
+    params.id
+  );
 
   let formData;
   try {
@@ -109,7 +111,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   await prisma.$transaction(async (tx) => {
     // 1. Update the user's text fields.
     await tx.user.update({
-      where: { id: user.id },
+      where: { id: authorizedUserId },
       data: userData,
     });
 
@@ -117,12 +119,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
     if (imageData) {
       // First, delete the user's old image, if one exists.
       // We don't care if this fails (e.g., if they had no image before).
-      await tx.userImage.delete({ where: { userId: user.id } }).catch(() => {});
+      await tx.userImage
+        .delete({ where: { userId: authorizedUserId } })
+        .catch(() => {});
 
       // Next, create a brand new UserImage row.
       // This row will have a new, unique, auto-generated `id`.
       await tx.user.update({
-        where: { id: user.id },
+        where: { id: authorizedUserId },
         data: {
           image: {
             create: {
@@ -150,6 +154,7 @@ export default function ProfileEdit() {
   const { user } = useRouteLoaderData('routes/user/user') as Awaited<
     ReturnType<typeof userLoader>
   >;
+
   const lastResult = useActionData<typeof action>();
   const isSubmitting = useIsSubmitting();
 
