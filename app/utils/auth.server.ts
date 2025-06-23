@@ -4,6 +4,7 @@ import { redirect } from 'react-router';
 import type { User } from '#/types/userTypes';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 import {
   getSession,
@@ -135,12 +136,28 @@ export async function signup({
   name: string;
   username?: string;
 }) {
-  const existingUser = await prisma.user.findFirst({
-    where: { OR: [{ email }, { username }] },
+  // 1. Check for the email specifically.
+  const existingUserByEmail = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
   });
 
-  if (existingUser) {
-    return { error: 'User with that email or username already exists' };
+  if (existingUserByEmail) {
+    // Return a structured error for the email
+    return { error: 'A user with this email already exists.', field: 'email' };
+  }
+
+  // 2. Check for the username specifically.
+  if (username) {
+    const existingUserByUsername = await prisma.user.findUnique({
+      where: { username },
+      select: { id: true },
+    });
+
+    if (existingUserByUsername) {
+      // Return a structured error for the username
+      return { error: 'This username is already taken.', field: 'username' };
+    }
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -173,6 +190,56 @@ export async function signup({
   return { dbSession };
 }
 
+export async function resetUserPassword({
+  email,
+  password,
+}: {
+  email: User['email'];
+  password: string;
+}) {
+  const hashedPassword = await getPasswordHash(password);
+  return prisma.user.update({
+    where: { email: email ?? undefined },
+    data: {
+      password: {
+        update: {
+          hash: hashedPassword,
+        },
+      },
+    },
+  });
+}
+
+export async function verifyUserPassword(
+  where: { username: string } | { id: string },
+  password: string
+) {
+  const userWithPassword = await prisma.user.findUnique({
+    where,
+    select: { id: true, password: { select: { hash: true } } },
+  });
+
+  if (!userWithPassword || !userWithPassword.password) {
+    return null;
+  }
+
+  const isValid = await bcrypt.compare(
+    password,
+    userWithPassword.password.hash
+  );
+
+  if (!isValid) {
+    return null;
+  }
+
+  return { id: userWithPassword.id };
+}
+
+export async function getPasswordHash(password: string) {
+  const hash = await bcrypt.hash(password, 10);
+  return hash;
+}
+
 export async function logout(request: Request) {
   const cookie = request.headers.get('Cookie');
   const session = await getSession(cookie);
@@ -191,4 +258,40 @@ export async function logout(request: Request) {
       'Set-Cookie': await destroySession(session),
     },
   });
+}
+
+export function getPasswordHashParts(password: string) {
+  const hash = crypto
+    .createHash('sha1')
+    .update(password, 'utf8')
+    .digest('hex')
+    .toUpperCase();
+  return [hash.slice(0, 5), hash.slice(5)] as const;
+}
+
+export async function checkIsCommonPassword(password: string) {
+  const [prefix, suffix] = getPasswordHashParts(password);
+
+  try {
+    const response = await fetch(
+      `https://api.pwnedpasswords.com/range/${prefix}`,
+      { signal: AbortSignal.timeout(1000) }
+    );
+
+    if (!response.ok) return false;
+
+    const data = await response.text();
+    return data.split(/\r?\n/).some((line) => {
+      const [hashSuffix, ignoredPrevalenceCount] = line.split(':');
+      return hashSuffix === suffix;
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      console.warn('Password check timed out');
+      return false;
+    }
+
+    console.warn('Unknown error during password check', error);
+    return false;
+  }
 }

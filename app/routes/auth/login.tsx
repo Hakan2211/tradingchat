@@ -136,12 +136,12 @@ export default function Login({ className, ...props }: { className?: string }) {
             <div className="grid gap-2">
               <div className="flex items-center">
                 <Label htmlFor={fields.password.id}>Password</Label>
-                <a
-                  href="#"
+                <Link
+                  to="/forgot-password"
                   className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
                 >
                   Forgot your password?
-                </a>
+                </Link>
               </div>
               <Input
                 {...getInputProps(fields.password, { type: 'password' })}

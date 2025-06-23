@@ -67,11 +67,18 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Check if result is an error object
   if (result && 'error' in result) {
+    // Check if the error result includes a specific field
+    if (result.field) {
+      return submission.reply({
+        // Attach the error to the specific field
+        fieldErrors: { [result.field]: [result.error] },
+      });
+    }
+    // Fallback for generic errors
     return submission.reply({
-      formErrors: [result.error ?? ''],
+      formErrors: [result.error ?? 'An unknown error occurred'],
     });
   }
-
   const { dbSession } = result;
   const session = await getSession();
   session.set(sessionKey, dbSession.id);
