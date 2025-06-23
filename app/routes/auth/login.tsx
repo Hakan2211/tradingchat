@@ -35,6 +35,7 @@ import {
   sessionStorage,
 } from '#/utils/session.server';
 import { safeRedirect } from 'remix-utils/safe-redirect';
+import { redirectWithToast } from '#/utils/toaster.server';
 
 const LoginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -74,13 +75,31 @@ export async function action({ request }: ActionFunctionArgs) {
   const session = await getSession();
   session.set(sessionKey, dbSession.id);
 
-  return redirect(safeRedirect(submission.value.redirectTo, '/home'), {
-    headers: {
-      'Set-Cookie': await sessionStorage.commitSession(session, {
-        expires: getSessionExpirationDate(),
-      }),
-    },
+  // 2. GET THE SESSION COOKIE HEADER
+  const sessionCookie = await sessionStorage.commitSession(session, {
+    expires: getSessionExpirationDate(),
   });
+
+  const redirectResponse = redirectWithToast(
+    safeRedirect(submission.value.redirectTo, '/home'),
+    {
+      title: 'Welcome back!',
+      description: 'You have successfully logged in.',
+      type: 'success',
+    },
+    { headers: { 'Set-Cookie': sessionCookie } }
+  );
+
+  // --- ADD THIS DEBUGGING CODE ---
+  console.log('--- HEADERS BEING SENT TO BROWSER ---');
+  const response = await redirectResponse;
+  response.headers.forEach((value, key) => {
+    console.log(`${key}: ${value}`);
+  });
+  console.log('------------------------------------');
+  // ------------------------------
+
+  return redirectResponse;
 }
 
 export default function Login({ className, ...props }: { className?: string }) {

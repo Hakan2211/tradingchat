@@ -19,11 +19,16 @@ import { csrf } from './utils/csrf.server';
 import { AuthenticityTokenProvider } from 'remix-utils/csrf/react';
 import { getUserId } from './utils/auth.server';
 import { prisma } from './utils/db.server';
+import { getToast, type Toast } from '#/utils/toaster.server';
+import { Toaster } from '#/components/ui/sonner';
+import { useToast } from '#/components/sonnerToaster/toaster';
+import { combineHeaders } from '#/utils/misc';
 
 type LoaderData = {
   honeyProps: any;
   ENV: any;
   csrfToken: string;
+  toast: Toast | null;
   user: {
     id: string;
     name: string | null;
@@ -57,6 +62,7 @@ export const links: LinksFunction = () => [
 export const loader = (async ({ request }: LoaderFunctionArgs) => {
   const honeyProps = await honeypot.getInputProps();
   const [csrfToken, csrfCookieHeader] = await csrf.commitToken(request);
+  const { toast, headers: toastHeaders } = await getToast(request);
 
   const userId = await getUserId(request);
   const user = userId
@@ -80,13 +86,24 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
       })
     : null;
 
-  const data: LoaderData = { honeyProps, ENV: getEnv(), csrfToken, user };
+  const data: LoaderData = {
+    honeyProps,
+    ENV: getEnv(),
+    csrfToken,
+    user,
+    toast,
+  };
+
+  const csrfHeader = csrfCookieHeader
+    ? new Headers({ 'set-cookie': csrfCookieHeader })
+    : null;
+
+  // Combine the CSRF headers and the Toast headers
+  const combined = combineHeaders(csrfHeader, toastHeaders);
+  combined.set('Content-Type', 'application/json');
 
   return new Response(JSON.stringify(data), {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(csrfCookieHeader ? { 'set-cookie': csrfCookieHeader } : {}),
-    },
+    headers: combined,
   });
 }) satisfies LoaderFunction;
 
@@ -113,6 +130,8 @@ function App() {
   if (!data) throw new Error('No data available');
   const typedData = data as unknown as LoaderData;
 
+  useToast(typedData.toast);
+
   return (
     <Document>
       <Outlet />
@@ -121,6 +140,7 @@ function App() {
           __html: `window.ENV = ${JSON.stringify(typedData.ENV)}`,
         }}
       />
+      <Toaster position="top-center" closeButton />
     </Document>
   );
 }

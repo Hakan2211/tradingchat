@@ -35,6 +35,7 @@ import {
   sessionStorage,
 } from '#/utils/session.server';
 import { safeRedirect } from 'remix-utils/safe-redirect';
+import { redirectWithToast } from '#/utils/toaster.server';
 
 const RegisterSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -83,13 +84,20 @@ export async function action({ request }: ActionFunctionArgs) {
   const session = await getSession();
   session.set(sessionKey, dbSession.id);
 
-  return redirect(safeRedirect(submission.value.redirectTo, '/home'), {
-    headers: {
-      'Set-Cookie': await sessionStorage.commitSession(session, {
-        expires: getSessionExpirationDate(),
-      }),
-    },
+  // 2. GET THE SESSION COOKIE HEADER
+  const sessionCookie = await sessionStorage.commitSession(session, {
+    expires: getSessionExpirationDate(),
   });
+
+  return redirectWithToast(
+    safeRedirect(submission.value.redirectTo, '/home'),
+    {
+      title: 'Welcome!',
+      description: 'Your account has been created successfully.',
+      type: 'success',
+    },
+    { headers: { 'Set-Cookie': sessionCookie } }
+  );
 }
 
 export default function Register() {
