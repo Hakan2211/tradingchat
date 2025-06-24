@@ -4,8 +4,22 @@
 # React Router
 /.react-router/
 /build/
+/server-build
+.cache
+
+
 
 /generated/prisma
+/prisma/data.db
+/prisma/data.db-journal
+/tests/prisma
 
 .env
-.env.local
+.env.local\
+
+# Easy way to create temporary files/folders that won't accidentally be added to git
+*.local.*
+
+
+tmp.ignored.js
+tmp.ignored.sql
