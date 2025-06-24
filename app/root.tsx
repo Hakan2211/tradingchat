@@ -23,15 +23,12 @@ import { prisma } from './utils/db.server';
 import { getToast, type Toast } from '#/utils/toaster.server';
 import { Toaster } from '#/components/ui/sonner';
 import { useToast } from '#/components/sonnerToaster/toaster';
-import { combineHeaders, getDomainUrl } from '#/utils/misc';
-import {
-  ThemeSwitch,
-  useTheme,
-  useOptionalTheme,
-} from './routes/resources/theme-switch';
+import { getDomainUrl } from '#/utils/misc';
+import { useTheme } from './routes/resources/theme-switch';
 import { ClientHintCheck, getHints } from './utils/client-hints';
-import { useNonce } from './utils/nonce.provider';
 import { getTheme, type Theme } from './utils/theme.server';
+import { NavigationTracker } from '#/components/navigationTracker/navigation-tracker';
+import { combineHeaders } from '#/utils/misc';
 
 type RequestInfo = {
   hints: {
@@ -109,7 +106,7 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
       })
     : null;
 
-  const data: LoaderData = {
+  const loaderData: LoaderData = {
     honeyProps,
     ENV: getEnv(),
     csrfToken,
@@ -125,15 +122,12 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
     },
   };
 
-  // Set headers for CSRF and toast
-  if (csrfCookieHeader) {
-    data.headers = { 'set-cookie': csrfCookieHeader };
-  }
-  if (toastHeaders) {
-    data.headers = { ...data.headers, ...Object.fromEntries(toastHeaders) };
-  }
+  const headers = combineHeaders(
+    csrfCookieHeader ? new Headers({ 'set-cookie': csrfCookieHeader }) : null,
+    toastHeaders
+  );
 
-  return data;
+  return data(loaderData, { headers });
 }) satisfies LoaderFunction;
 
 function Document({
@@ -173,6 +167,7 @@ function App() {
   return (
     <Document theme={theme}>
       <Outlet />
+      <NavigationTracker />
       <script
         dangerouslySetInnerHTML={{
           __html: `window.ENV = ${JSON.stringify(typedData.ENV)}`,

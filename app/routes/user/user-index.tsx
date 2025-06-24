@@ -11,6 +11,7 @@ import type { loader } from './user';
 import { GeneralErrorBoundary } from '#/components/errorBoundary/errorBoundary';
 import { getUserImagePath } from '#/utils/misc';
 import { useUser, userHasPermission } from '#/utils/userPermissionRole';
+import { RedirectBackButton } from '#/components/navigationTracker/redirect-back-button';
 
 export default function UserIndexView() {
   const loggedInUser = useUser();
@@ -67,6 +68,7 @@ export default function UserIndexView() {
             </Button>
           )}
         </div>
+        <RedirectBackButton className="mt-4" fallback="/home" />
       </div>
 
       <div className="p-8">
