@@ -1,4 +1,5 @@
 import {
+  data,
   Links,
   Meta,
   Outlet,
@@ -22,13 +23,34 @@ import { prisma } from './utils/db.server';
 import { getToast, type Toast } from '#/utils/toaster.server';
 import { Toaster } from '#/components/ui/sonner';
 import { useToast } from '#/components/sonnerToaster/toaster';
-import { combineHeaders } from '#/utils/misc';
+import { combineHeaders, getDomainUrl } from '#/utils/misc';
+import {
+  ThemeSwitch,
+  useTheme,
+  useOptionalTheme,
+} from './routes/resources/theme-switch';
+import { ClientHintCheck, getHints } from './utils/client-hints';
+import { useNonce } from './utils/nonce.provider';
+import { getTheme, type Theme } from './utils/theme.server';
+
+type RequestInfo = {
+  hints: {
+    theme: Theme | null;
+    timeZone: string;
+  };
+  origin: string;
+  pathname: string;
+  userPrefs: {
+    theme: Theme | null;
+  };
+};
 
 type LoaderData = {
   honeyProps: any;
   ENV: any;
   csrfToken: string;
   toast: Toast | null;
+  requestInfo: RequestInfo;
   user: {
     id: string;
     name: string | null;
@@ -44,6 +66,7 @@ type LoaderData = {
       }[];
     }[];
   } | null;
+  headers?: Record<string, string>;
 };
 
 export const links: LinksFunction = () => [
@@ -92,29 +115,42 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
     csrfToken,
     user,
     toast,
+    requestInfo: {
+      hints: getHints(request),
+      origin: getDomainUrl(request),
+      pathname: new URL(request.url).pathname,
+      userPrefs: {
+        theme: await getTheme(request),
+      },
+    },
   };
 
-  const csrfHeader = csrfCookieHeader
-    ? new Headers({ 'set-cookie': csrfCookieHeader })
-    : null;
+  // Set headers for CSRF and toast
+  if (csrfCookieHeader) {
+    data.headers = { 'set-cookie': csrfCookieHeader };
+  }
+  if (toastHeaders) {
+    data.headers = { ...data.headers, ...Object.fromEntries(toastHeaders) };
+  }
 
-  // Combine the CSRF headers and the Toast headers
-  const combined = combineHeaders(csrfHeader, toastHeaders);
-  combined.set('Content-Type', 'application/json');
-
-  return new Response(JSON.stringify(data), {
-    headers: combined,
-  });
+  return data;
 }) satisfies LoaderFunction;
 
-function Document({ children }: { children: React.ReactNode }) {
+function Document({
+  children,
+  theme,
+}: {
+  children: React.ReactNode;
+  theme?: Theme | null;
+}) {
   return (
-    <html lang="en">
+    <html lang="en" className={theme ?? ''}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        <ClientHintCheck nonce="" />
       </head>
       <body>
         {children}
@@ -130,17 +166,19 @@ function App() {
   if (!data) throw new Error('No data available');
   const typedData = data as unknown as LoaderData;
 
+  const theme = useTheme();
+
   useToast(typedData.toast);
 
   return (
-    <Document>
+    <Document theme={theme}>
       <Outlet />
       <script
         dangerouslySetInnerHTML={{
           __html: `window.ENV = ${JSON.stringify(typedData.ENV)}`,
         }}
       />
-      <Toaster position="top-center" closeButton />
+      <Toaster position="top-center" closeButton theme={theme ?? 'light'} />
     </Document>
   );
 }

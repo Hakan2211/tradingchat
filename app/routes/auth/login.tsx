@@ -90,15 +90,6 @@ export async function action({ request }: ActionFunctionArgs) {
     { headers: { 'Set-Cookie': sessionCookie } }
   );
 
-  // --- ADD THIS DEBUGGING CODE ---
-  console.log('--- HEADERS BEING SENT TO BROWSER ---');
-  const response = await redirectResponse;
-  response.headers.forEach((value, key) => {
-    console.log(`${key}: ${value}`);
-  });
-  console.log('------------------------------------');
-  // ------------------------------
-
   return redirectResponse;
 }
 

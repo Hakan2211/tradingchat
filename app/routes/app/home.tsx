@@ -3,10 +3,13 @@ import {
   Form,
   Link,
   useLoaderData,
+  useRouteLoaderData,
   type LoaderFunctionArgs,
 } from 'react-router';
 import { prisma } from '#/utils/db.server';
 import { requireUserId } from '#/utils/auth.server';
+import { useTheme, ThemeSwitch } from '#/routes/resources/theme-switch';
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
   const users = await prisma.user.findMany();
@@ -14,7 +17,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Home() {
-  const { userId, users } = useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>();
+  const rootData = useRouteLoaderData('root');
+  const { userId, users } = data;
 
   return (
     <div>
@@ -38,6 +43,7 @@ export default function Home() {
           </Link>
         ))}
       </div>
+      <ThemeSwitch userPreference={rootData?.requestInfo?.userPrefs?.theme} />
     </div>
   );
 }

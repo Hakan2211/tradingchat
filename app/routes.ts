@@ -12,6 +12,7 @@ export default [
   //--------------Resources Routes-----------------------
   ...prefix('resources', [
     route('/images/:id', 'routes/resources/imagesResource.tsx'),
+    route('/theme-switch', 'routes/resources/theme-switch.tsx'),
   ]),
 
   //--------------App Routes-----------------------
