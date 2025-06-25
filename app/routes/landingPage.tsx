@@ -27,6 +27,7 @@ export default function Home() {
       <div>
         <h1>Welcome to the Landing Page</h1>
         <p>This is the landing page for the app.</p>
+        <p>Lets get started</p>
         <Link to="/login">
           <Button>Login</Button>
         </Link>
