@@ -9,14 +9,8 @@ import {
 } from '#/components/ui/card';
 import { Input } from '#/components/ui/input';
 import { Label } from '#/components/ui/label';
-import { invariantResponse } from '#/utils/misc';
-import {
-  Form,
-  Link,
-  redirect,
-  useActionData,
-  useSearchParams,
-} from 'react-router';
+
+import { Form, Link, useActionData, useSearchParams } from 'react-router';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
 import { HoneypotInputs } from 'remix-utils/honeypot/react';
 import { checkHoneypot } from '#/utils/honeypot.server';
@@ -113,80 +107,91 @@ export default function Login({ className, ...props }: { className?: string }) {
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-2xl">Login</CardTitle>
-        <CardDescription>
-          Enter your email below to login to your account
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form
-          method="POST"
-          {...getFormProps(form)}
-          onSubmit={form.onSubmit}
-          noValidate={false}
-        >
-          <input {...getInputProps(fields.redirectTo, { type: 'hidden' })} />
-          <div className="flex flex-col gap-6">
-            <ErrorAlert id={form.errorId} errors={form.errors} />
-            <HoneypotInputs />
-            <AuthenticityTokenInput />
-            <div className="grid gap-2">
-              <Label htmlFor={fields.email.id}>Email</Label>
-              <Input
-                {...getInputProps(fields.email, { type: 'email' })}
-                placeholder="m@example.com"
+    <>
+      <div className="bg-muted relative hidden lg:block">
+        <img
+          src="/images/resilience-runner.webp"
+          alt="A person typing on a laptop in a dark room, with code on the screen"
+          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
+        />
+      </div>
+      <div className="flex flex-col items-center justify-center p-6 md:p-10">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle className="text-2xl">Login</CardTitle>
+            <CardDescription>
+              Enter your email below to login to your account
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form
+              method="POST"
+              {...getFormProps(form)}
+              onSubmit={form.onSubmit}
+              noValidate={false}
+            >
+              <input
+                {...getInputProps(fields.redirectTo, { type: 'hidden' })}
               />
-              <ErrorAlert
-                id={fields.email.errorId}
-                errors={fields.email.errors}
-              />
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor={fields.password.id}>Password</Label>
-                <Link
-                  to="/forgot-password"
-                  className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+              <div className="flex flex-col gap-6">
+                <ErrorAlert id={form.errorId} errors={form.errors} />
+                <HoneypotInputs />
+                <AuthenticityTokenInput />
+                <div className="grid gap-2">
+                  <Label htmlFor={fields.email.id}>Email</Label>
+                  <Input
+                    {...getInputProps(fields.email, { type: 'email' })}
+                    placeholder="m@example.com"
+                  />
+                  <ErrorAlert
+                    id={fields.email.errorId}
+                    errors={fields.email.errors}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center">
+                    <Label htmlFor={fields.password.id}>Password</Label>
+                    <Link
+                      to="/forgot-password"
+                      className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                    >
+                      Forgot your password?
+                    </Link>
+                  </div>
+                  <Input
+                    {...getInputProps(fields.password, { type: 'password' })}
+                  />
+                  <ErrorAlert
+                    id={fields.password.errorId}
+                    errors={fields.password.errors}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting}
                 >
-                  Forgot your password?
+                  {isSubmitting ? 'Logging In...' : 'Login'}
+                </Button>
+              </div>
+              <div className="mt-4 text-center text-sm">
+                New here?{' '}
+                <Link
+                  to={
+                    redirectTo
+                      ? `/register?redirectTo=${encodeURIComponent(redirectTo)}`
+                      : '/register'
+                  }
+                  className="underline underline-offset-4"
+                >
+                  Sign up
                 </Link>
               </div>
-              <Input
-                {...getInputProps(fields.password, { type: 'password' })}
-              />
-              <ErrorAlert
-                id={fields.password.errorId}
-                errors={fields.password.errors}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Logging In...' : 'Login'}
-            </Button>
-            {/* <Link to="/auth/google">
-              <Button variant="outline" className="w-full">
-                Login with Google
-              </Button>
-            </Link> */}
-          </div>
-          <div className="mt-4 text-center text-sm">
-            {/* Don&apos;t have an account? */}
-            New here?{' '}
-            <Link
-              to={
-                redirectTo
-                  ? `/register?redirectTo=${encodeURIComponent(redirectTo)}`
-                  : '/register'
-              }
-              className="underline underline-offset-4"
-            >
-              Sign up
-            </Link>
-          </div>
-        </Form>
-      </CardContent>
-    </Card>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }
 

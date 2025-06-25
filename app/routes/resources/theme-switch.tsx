@@ -17,6 +17,14 @@ import {
   useRequestInfo,
 } from '../../utils/request-info';
 import { type Theme, setTheme } from '../../utils/theme.server';
+import { Button } from '#/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu';
+
 const ThemeFormSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']),
   // this is useful for progressive enhancement
@@ -59,35 +67,47 @@ export function ThemeSwitch({
 
   const optimisticMode = useOptimisticThemeMode();
   const mode = optimisticMode ?? userPreference ?? 'system';
-  const nextMode =
-    mode === 'system' ? 'light' : mode === 'light' ? 'dark' : 'system';
-  const modeLabel = {
-    light: <Sun className="size-4" />,
-    dark: <Moon className="size-4" />,
-    system: <Laptop className="size-4" />,
+
+  const handleThemeChange = (theme: Theme) => {
+    const formData = new FormData();
+    formData.append('theme', theme);
+    fetcher.submit(formData, {
+      method: 'POST',
+      action: '/resources/theme-switch',
+    });
   };
 
   return (
-    <fetcher.Form
-      method="POST"
-      {...getFormProps(form)}
-      action="/resources/theme-switch"
-    >
-      <ServerOnly>
-        {() => (
-          <input type="hidden" name="redirectTo" value={requestInfo.pathname} />
-        )}
-      </ServerOnly>
-      <input type="hidden" name="theme" value={nextMode} />
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="flex size-8 cursor-pointer items-center justify-center"
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-4 px-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:gap-0"
+          aria-label={`Switch theme. Current theme: ${mode}`}
         >
-          {modeLabel[mode as keyof typeof modeLabel]}
-        </button>
-      </div>
-    </fetcher.Form>
+          {mode === 'light' && <Sun className="size-4" />}
+          {mode === 'dark' && <Moon className="size-4" />}
+          {mode === 'system' && <Laptop className="size-4" />}
+          <span className="capitalize group-data-[collapsible=icon]:hidden">
+            {mode}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start">
+        <DropdownMenuItem onSelect={() => handleThemeChange('light')}>
+          <Sun className="mr-2 size-4" />
+          <span>Light</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => handleThemeChange('dark')}>
+          <Moon className="mr-2 size-4" />
+          <span>Dark</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => handleThemeChange('system')}>
+          <Laptop className="mr-2 size-4" />
+          <span>System</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

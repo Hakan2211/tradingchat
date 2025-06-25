@@ -9,13 +9,7 @@ import {
 } from '#/components/ui/card';
 import { Input } from '#/components/ui/input';
 import { Label } from '#/components/ui/label';
-import {
-  Form,
-  Link,
-  redirect,
-  useActionData,
-  useSearchParams,
-} from 'react-router';
+import { Form, Link, useActionData, useSearchParams } from 'react-router';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
 import { AuthenticityTokenInput } from 'remix-utils/csrf/react';
 import { validateCSRF } from '#/utils/csrf.server';
@@ -119,95 +113,107 @@ export default function Register() {
     shouldRevalidate: 'onInput',
   });
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-2xl">Sign Up</CardTitle>
-        <CardDescription>Create an account to get started</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form
-          method="POST"
-          {...getFormProps(form)}
-          onSubmit={form.onSubmit}
-          noValidate={false}
-        >
-          <AuthenticityTokenInput />
-          <HoneypotInputs />
-          <input {...getInputProps(fields.redirectTo, { type: 'hidden' })} />
-          <div className="flex flex-col gap-6">
-            <AnimatePresence>
-              {form.errors && (
-                <ErrorAlert id={form.errorId} errors={form.errors} />
-              )}
-            </AnimatePresence>
-            <div className="grid gap-2">
-              <Label htmlFor={fields.name.id}>Name</Label>
-              <Input
-                {...getInputProps(fields.name, { type: 'text' })}
-                placeholder="John Doe"
-              />
-              <ErrorAlert
-                id={fields.name.errorId}
-                errors={fields.name.errors}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor={fields.username.id}>Username</Label>
-              <Input
-                {...getInputProps(fields.username, { type: 'text' })}
-                placeholder="johndoe"
-              />
-              <ErrorAlert
-                id={fields.username.errorId}
-                errors={fields.username.errors}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor={fields.email.id}>Email</Label>
-              <Input
-                {...getInputProps(fields.email, { type: 'email' })}
-                placeholder="m@example.com"
-              />
-              <ErrorAlert
-                id={fields.email.errorId}
-                errors={fields.email.errors}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor={fields.password.id}>Password</Label>
-              <Input
-                {...getInputProps(fields.password, { type: 'password' })}
-              />
-              <ErrorAlert
-                id={fields.password.errorId}
-                errors={fields.password.errors}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Signing Up...' : 'Sign Up'}
-            </Button>
-            {/* <Link to="/auth/google">
-              <Button variant="outline" className="w-full">
-                Sign up with Google
-              </Button>
-            </Link> */}
-          </div>
-          <div className="mt-4 text-center text-sm">
-            Already have an account?{' '}
-            <Link
-              to={
-                redirectTo
-                  ? `/login?redirectTo=${encodeURIComponent(redirectTo)}`
-                  : '/login'
-              }
-              className="underline underline-offset-4"
+    <>
+      <div className="bg-muted relative hidden lg:block">
+        <img
+          src="/images/athlete.webp"
+          alt="A person sitting at a desk with a laptop and a cup of coffee"
+          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
+        />
+      </div>
+      <div className="flex flex-col items-center justify-center p-6 md:p-10">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle className="text-2xl">Sign Up</CardTitle>
+            <CardDescription>Create an account to get started</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form
+              method="POST"
+              {...getFormProps(form)}
+              onSubmit={form.onSubmit}
+              noValidate={false}
             >
-              Login
-            </Link>
-          </div>
-        </Form>
-      </CardContent>
-    </Card>
+              <AuthenticityTokenInput />
+              <HoneypotInputs />
+              <input
+                {...getInputProps(fields.redirectTo, { type: 'hidden' })}
+              />
+              <div className="flex flex-col gap-6">
+                <AnimatePresence>
+                  {form.errors && (
+                    <ErrorAlert id={form.errorId} errors={form.errors} />
+                  )}
+                </AnimatePresence>
+                <div className="grid gap-2">
+                  <Label htmlFor={fields.name.id}>Name</Label>
+                  <Input
+                    {...getInputProps(fields.name, { type: 'text' })}
+                    placeholder="John Doe"
+                  />
+                  <ErrorAlert
+                    id={fields.name.errorId}
+                    errors={fields.name.errors}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={fields.username.id}>Username</Label>
+                  <Input
+                    {...getInputProps(fields.username, { type: 'text' })}
+                    placeholder="johndoe"
+                  />
+                  <ErrorAlert
+                    id={fields.username.errorId}
+                    errors={fields.username.errors}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={fields.email.id}>Email</Label>
+                  <Input
+                    {...getInputProps(fields.email, { type: 'email' })}
+                    placeholder="m@example.com"
+                  />
+                  <ErrorAlert
+                    id={fields.email.errorId}
+                    errors={fields.email.errors}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor={fields.password.id}>Password</Label>
+                  <Input
+                    {...getInputProps(fields.password, { type: 'password' })}
+                  />
+                  <ErrorAlert
+                    id={fields.password.errorId}
+                    errors={fields.password.errors}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Signing Up...' : 'Sign Up'}
+                </Button>
+              </div>
+              <div className="mt-4 text-center text-sm">
+                Already have an account?{' '}
+                <Link
+                  to={
+                    redirectTo
+                      ? `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+                      : '/login'
+                  }
+                  className="underline underline-offset-4"
+                >
+                  Login
+                </Link>
+              </div>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }
 

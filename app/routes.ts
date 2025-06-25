@@ -28,9 +28,12 @@ export default [
 
   //--------------Auth Routes-----------------------
 
-  layout('routes/layouts/auth-layout.tsx', [
+  layout('routes/layouts/split-screen-auth-layout.tsx', [
     route('/login', 'routes/auth/login.tsx'),
     route('/register', 'routes/auth/register.tsx'),
+  ]),
+
+  layout('routes/layouts/auth-layout.tsx', [
     route('/logout', 'routes/auth/logout.tsx'),
     route('/forgot-password', 'routes/auth/forgot-password.tsx'),
     route('/reset-password', 'routes/auth/reset-password.tsx'),

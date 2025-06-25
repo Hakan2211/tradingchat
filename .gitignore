@@ -13,6 +13,8 @@
 /prisma/data.db
 /prisma/data.db-journal
 /tests/prisma
+/prisma/dev.db
+/prisma/dev.db-journal
 
 .env
 .env.local\

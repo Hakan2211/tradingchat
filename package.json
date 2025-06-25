@@ -85,6 +85,7 @@
     "zod": "^3.25.64"
   },
   "devDependencies": {
+    "@epic-web/config": "^1.21.0",
     "@react-router/dev": "^7.5.3",
     "@tailwindcss/vite": "^4.1.4",
     "@types/compression": "^1.8.1",
