@@ -1,9 +1,7 @@
-'use client';
-
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { PanelLeftIcon } from 'lucide-react';
+import { PanelLeftIcon, ChevronFirst, ChevronLast } from 'lucide-react';
 
 import { useIsMobile } from '#/hooks/use-mobile';
 import { cn } from '#/lib/utils';
@@ -258,7 +256,7 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, open } = useSidebar();
 
   return (
     <Button
@@ -273,7 +271,11 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <PanelLeftIcon />
+      {open ? (
+        <ChevronFirst className="size-5.5" aria-hidden="true" />
+      ) : (
+        <ChevronLast className="size-5.5" aria-hidden="true" />
+      )}
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );
@@ -362,7 +364,7 @@ function SidebarSeparator({
     <Separator
       data-slot="sidebar-separator"
       data-sidebar="separator"
-      className={cn('bg-sidebar-border mx-2 w-auto', className)}
+      className={cn('bg-sidebar-border w-auto', className)}
       {...props}
     />
   );

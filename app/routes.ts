@@ -18,12 +18,14 @@ export default [
   //--------------App Routes-----------------------
   layout('routes/layouts/app-layout.tsx', [
     route('/home', 'routes/app/home.tsx'),
-  ]),
 
-  //--------------User Routes-----------------------
-  route('/user/:id', 'routes/user/user.tsx', [
-    index('routes/user/user-index.tsx'),
-    route('edit', 'routes/user/user-edit.tsx'),
+    //-----Room Routes------
+    route('/chat/:roomId', 'routes/app/chat/chat-room.tsx'),
+    //-----User Routes------
+    route('/user/:id', 'routes/user/user.tsx', [
+      index('routes/user/user-index.tsx'),
+      route('edit', 'routes/user/user-edit.tsx'),
+    ]),
   ]),
 
   //--------------Auth Routes-----------------------

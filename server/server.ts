@@ -1,5 +1,3 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createRequestHandler } from '@react-router/express';
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
@@ -33,6 +31,17 @@ const io = new Server(httpServer, {
 
 io.on('connection', (socket) => {
   console.log('✅ User connected:', socket.id);
+
+  socket.on('joinRoom', (roomId: string) => {
+    socket.join(roomId);
+    console.log(`Socket ${socket.id} joined room ${roomId}`);
+  });
+
+  socket.on('leaveRoom', (roomId: string) => {
+    socket.leave(roomId);
+    console.log(`Socket ${socket.id} left room ${roomId}`);
+  });
+
   socket.on('disconnect', () => {
     console.log('❌ User disconnected:', socket.id);
   });

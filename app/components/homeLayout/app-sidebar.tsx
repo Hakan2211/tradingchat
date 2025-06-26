@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { NavMain, type NavMainItem } from '#/components/homeLayout/nav-main';
 import { NavUser } from '#/components/homeLayout/nav-user';
 import {
   Sidebar,
@@ -7,9 +6,11 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarRail,
+  SidebarSeparator,
 } from '#/components/ui/sidebar';
 import { ThemeSwitch } from '#/routes/resources/theme-switch';
 import { useRequestInfo } from '#/utils/request-info';
+import { NavRooms, type NavRoomItem } from '#/components/homeLayout/nav-room';
 
 type AppSidebarProps = {
   user: {
@@ -23,12 +24,13 @@ type AppSidebarProps = {
       altText?: string | null;
     } | null;
   };
-  navItems: NavMainItem[];
+
+  rooms: NavRoomItem[];
 };
 
 export function AppSidebar({
   user,
-  navItems,
+  rooms,
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const requestInfo = useRequestInfo();
@@ -38,8 +40,12 @@ export function AppSidebar({
       <SidebarHeader>
         <NavUser user={user} />
       </SidebarHeader>
-      <SidebarContent>{/* <NavMain items={navItems} /> */}</SidebarContent>
+      <SidebarSeparator />
+      <SidebarContent>
+        <NavRooms items={rooms} />
+      </SidebarContent>
       <SidebarRail />
+      <SidebarSeparator />
       <SidebarFooter>
         <ThemeSwitch userPreference={requestInfo?.userPrefs?.theme} />
       </SidebarFooter>
