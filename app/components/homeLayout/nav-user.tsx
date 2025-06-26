@@ -64,7 +64,9 @@ export function NavUser({ user }: NavUserProps) {
                     width={32}
                     height={32}
                   />
-                  <AvatarFallback>{userInitial}</AvatarFallback>
+                  <AvatarFallback className="rounded-lg aspect-square bg-emerald-700 text-primary-foreground">
+                    {userInitial}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">

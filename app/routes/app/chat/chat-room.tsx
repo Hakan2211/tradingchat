@@ -26,6 +26,7 @@ import {
   Eye,
   CircleHelp,
 } from 'lucide-react';
+import { ChatMessage } from '#/components/chat/chat-message';
 
 type MessageWithUser = {
   id: string;
@@ -60,7 +61,7 @@ const MessageSchema = z.object({
 });
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await requireUserId(request);
+  const userId = await requireUserId(request);
   const { roomId } = params;
   invariantResponse(roomId, 'Room ID is required', { status: 404 });
 
@@ -86,7 +87,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   });
   invariantResponse(room, 'Room not found', { status: 404 });
 
-  return { room };
+  return { room, userId };
 }
 
 export async function action({ request, params, context }: ActionFunctionArgs) {
@@ -125,7 +126,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
 // 2. THE REFURBISHED CHAT ROOM COMPONENT
 export default function ChatRoom() {
-  const { room } = useLoaderData<typeof loader>();
+  const { room, userId } = useLoaderData<typeof loader>();
   const [messages, setMessages] = React.useState<MessageWithUser[]>(
     room.messages
   );
@@ -194,7 +195,11 @@ export default function ChatRoom() {
       <ScrollArea className="flex-1" ref={scrollViewportRef}>
         <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
           {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+            <ChatMessage
+              key={message.id}
+              message={message}
+              isCurrentUser={message.user.id === userId}
+            />
           ))}
         </div>
       </ScrollArea>
