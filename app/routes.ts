@@ -26,6 +26,7 @@ export default [
       index('routes/user/user-index.tsx'),
       route('edit', 'routes/user/user-edit.tsx'),
     ]),
+    route('/bookmarks', 'routes/app/bookmarks.tsx'),
   ]),
 
   //--------------Auth Routes-----------------------

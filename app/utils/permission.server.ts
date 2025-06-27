@@ -69,7 +69,11 @@ export async function requireUserWithRole(request: Request, name: string) {
  */
 export async function requirePermission(
   request: Request,
-  permission: 'update:user' | 'delete:user', // etc.
+  permission:
+    | 'update:user'
+    | 'delete:user'
+    | 'delete:message'
+    | 'update:message',
   ownerId?: string
 ) {
   const userId = await requireUserId(request);
