@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { getFormProps, getInputProps, useForm } from '@conform-to/react';
 import { getZodConstraint, parseWithZod } from '@conform-to/zod';
 import { io as socketIo } from 'socket.io-client';
-
 import type { Server } from 'socket.io';
 import { prisma } from '#/utils/db.server';
 import { requireUserId } from '#/utils/auth.server';
@@ -25,13 +24,22 @@ import {
   Eye,
   CircleHelp,
   X,
+  Paperclip,
+  ImageIcon,
 } from 'lucide-react';
 import { ChatMessage } from '#/components/chat/chat-message';
 import { requirePermission } from '#/utils/permission.server';
+import { parseFormData, type FileUpload } from '@mjackson/form-data-parser';
+import { processImage } from '#/utils/image.server';
+import { uploadImageToR2, deleteImageFromR2 } from '#/utils/r2.server';
+import { getChatImagePath } from '#/utils/misc';
+import { DateBadge, shouldShowDateBadge } from '#/components/chat/dateBadge';
+
+const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 10MB
 
 type MessageWithUser = {
   id: string;
-  content: string;
+  content: string | null;
   createdAt: Date;
   roomId: string;
   isDeleted: boolean;
@@ -40,15 +48,23 @@ type MessageWithUser = {
     userId: string;
     messageId: string;
   }[];
+  image: {
+    id: string;
+    altText: string | null;
+  } | null;
   user: {
     id: string;
     name: string | null;
     image: { id: string } | null;
   } | null;
   replyTo: {
-    content: string;
+    content: string | null;
     user: { name: string | null } | null;
     createdAt: Date;
+    image: {
+      id: string;
+      altText: string | null;
+    } | null;
   } | null;
 };
 
@@ -68,14 +84,22 @@ function RoomIcon({ iconName }: { iconName?: string | null }) {
   );
 }
 
+//----------------------Schemas-------------------------------------------------------------------------------
 const MessageSchema = z.object({
-  content: z.string().min(1, 'Message cannot be empty').max(1000),
+  content: z
+    .string()
+    .max(1000, 'Message cannot be more than 1000 characters')
+    .optional(),
   replyToId: z.string().optional(),
 });
 
 const EditMessageSchema = z.object({
   messageId: z.string(),
   content: z.string().min(1, 'Message cannot be empty').max(1000),
+});
+
+const ChatImageSchema = z.object({
+  chatImage: z.instanceof(File).optional(),
 });
 
 //----------------------Loader Function-------------------------------------------------------------------------------
@@ -131,6 +155,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
               messageId: true,
             },
           },
+          image: {
+            select: { id: true, altText: true },
+          },
           user: {
             select: { id: true, name: true, image: { select: { id: true } } },
           },
@@ -141,6 +168,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
                 select: { name: true },
               },
               createdAt: true,
+              image: { select: { id: true, altText: true } },
             },
           },
         },
@@ -153,12 +181,44 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   return { room, user };
 }
 
+//----------------------Action Function-------------------------------------------------------------------------------
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const userId = await requireUserId(request);
   const { roomId } = params;
   invariantResponse(roomId, 'Cannot submit message without a room ID');
 
-  const formData = await request.formData();
+  const formData = await parseFormData(request, {
+    maxFileSize: MAX_CHAT_IMAGE_SIZE,
+  });
+
+  // Check for an uploaded image
+  const imageFile = formData.get('chatImage') as FileUpload | string | null;
+  let newImageRecord = null;
+
+  if (imageFile && typeof imageFile !== 'string' && imageFile.size > 0) {
+    // 1. Process with Sharp (you already have this)
+    const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
+    const { data: optimizedBuffer, contentType } = await processImage(
+      imageBuffer
+    );
+
+    // 2. Upload to R2
+    const { objectKey } = await uploadImageToR2(
+      optimizedBuffer,
+      contentType,
+      userId
+    );
+
+    // 3. Create the image record in Prisma
+    newImageRecord = await prisma.chatImage.create({
+      data: {
+        contentType,
+        objectKey,
+        altText: imageFile.name,
+      },
+    });
+  }
+
   const intent = formData.get('intent');
 
   // --- DELETE INTENT LOGIC ---
@@ -175,6 +235,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
         _count: {
           select: { replies: true }, // Prisma can count related records for us
         },
+        image: { select: { id: true, objectKey: true } },
       },
     });
     invariantResponse(message, 'Message not found', { status: 404 });
@@ -188,32 +249,50 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
     const hasReplies = message._count.replies > 0;
     const { io } = context as { io: Server };
+    const objectKeyToDelete = message.image?.objectKey;
 
     // 2. THE CONDITIONAL LOGIC
     if (hasReplies) {
       // --- SOFT DELETE PATH ---
-      const updatedMessage = await prisma.message.update({
-        where: { id: messageId },
-        data: {
-          content: '[message deleted]',
-          isDeleted: true,
-          userId: null,
-        },
-        select: {
-          id: true,
-          content: true,
-          isDeleted: true,
-          user: {
-            select: { id: true, name: true, image: { select: { id: true } } },
-          },
-        },
-      });
-      // Broadcast an "edit" because the message still exists, but its content changed.
+      // We still delete the image from R2, as the message is effectively gone.
+      const [updatedMessage] = await Promise.all([
+        prisma.$transaction(async (tx) => {
+          // First, delete the ChatImage record if it exists
+          if (message.image) {
+            await tx.chatImage.delete({
+              where: { id: message.image.id },
+            });
+          }
+
+          // Then update the message
+          return tx.message.update({
+            where: { id: messageId },
+            data: {
+              content: '[message deleted]',
+              isDeleted: true,
+              userId: null,
+            },
+            select: {
+              id: true,
+              content: true,
+              isDeleted: true,
+            },
+          });
+        }),
+        objectKeyToDelete
+          ? deleteImageFromR2(objectKeyToDelete)
+          : Promise.resolve(),
+      ]);
       io.to(roomId).emit('messageEdited', updatedMessage);
     } else {
       // --- HARD DELETE PATH ---
-      await prisma.message.delete({ where: { id: messageId } });
-      // Broadcast a "delete" because the message is truly gone.
+      // Here we delete the message and the R2 object.
+      await Promise.all([
+        prisma.message.delete({ where: { id: messageId } }),
+        objectKeyToDelete
+          ? deleteImageFromR2(objectKeyToDelete)
+          : Promise.resolve(),
+      ]);
       io.to(roomId).emit('messageDeleted', { messageId });
     }
 
@@ -282,12 +361,19 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   if (submission.status !== 'success') {
     return submission.reply();
   }
+
+  invariantResponse(
+    submission.value.content || newImageRecord,
+    'A message must have content or an image.'
+  );
+
   const newMessage = await prisma.message.create({
     data: {
-      content: submission.value.content,
+      content: submission.value.content || undefined,
       roomId,
       userId,
       replyToId: submission.value.replyToId,
+      imageId: newImageRecord?.id,
     },
     select: {
       id: true,
@@ -295,6 +381,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       createdAt: true,
       roomId: true,
       isDeleted: true,
+      image: { select: { id: true, altText: true } },
       user: {
         select: { id: true, name: true, image: { select: { id: true } } },
       },
@@ -303,14 +390,17 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
           content: true,
           user: { select: { name: true } },
           createdAt: true,
+          image: { select: { id: true, altText: true } },
         },
       },
       bookmarks: true,
     },
   });
 
+  const messageToBroadcast = newMessage;
+
   const { io } = context as { io: Server };
-  io.to(roomId).emit('newMessage', newMessage);
+  io.to(roomId).emit('newMessage', messageToBroadcast);
 
   return submission.reply();
 }
@@ -328,11 +418,15 @@ export default function ChatRoom() {
     null
   );
 
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+
   const messageFetcher = useFetcher<typeof action>();
   const deleteFetcher = useFetcher<typeof action>();
   const bookmarkFetcher = useFetcher<typeof action>();
   const formRef = React.useRef<HTMLFormElement>(null);
-
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = React.useRef<HTMLInputElement>(null);
+  const stagedFileRef = React.useRef<File | null>(null);
   // Ref for the scroll area's viewport
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
 
@@ -381,7 +475,7 @@ export default function ChatRoom() {
 
     const handleMessageEdited = (updatedMessage: {
       id: string;
-      content: string;
+      content: string | null;
     }) => {
       setMessages((prevMessages) =>
         prevMessages.map((msg) =>
@@ -404,6 +498,41 @@ export default function ChatRoom() {
     };
   }, [room.id, room.messages]);
 
+  // --- Image Upload Logic ---
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      stagedFileRef.current = file;
+      setPreviewUrl(URL.createObjectURL(file));
+      textareaRef.current?.focus();
+    }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    // Access the clipboard items
+    const items = event.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      // We only care about image files
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          event.preventDefault();
+          stagedFileRef.current = file;
+          setPreviewUrl(URL.createObjectURL(file));
+          // Set the file input value so the form can submit it
+          if (imageInputRef.current) {
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            imageInputRef.current.files = dataTransfer.files;
+          }
+          textareaRef.current?.focus();
+          break; // Stop after handling the first image
+        }
+      }
+    }
+  };
+
   // --- Auto-scroll Logic for the new ScrollArea ---
   React.useEffect(() => {
     const viewport = scrollViewportRef.current;
@@ -420,8 +549,10 @@ export default function ChatRoom() {
     ) {
       formRef.current?.reset();
       setReplyingTo(null);
+      setPreviewUrl(null);
+      stagedFileRef.current = null;
     }
-  }, [messageFetcher.state, messageFetcher.data, formRef, setReplyingTo]);
+  }, [messageFetcher.state, messageFetcher.data, setReplyingTo]);
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
@@ -436,20 +567,33 @@ export default function ChatRoom() {
       {/* Messages Area using ScrollArea */}
       <ScrollArea className="flex-1" ref={scrollViewportRef}>
         <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
-          {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              isCurrentUser={message.user?.id === user.id}
-              currentUser={user}
-              onStartReply={handleStartReply}
-              deleteFetcher={deleteFetcher}
-              editingMessageId={editingMessageId}
-              onStartEdit={handleStartEdit}
-              onCancelEdit={handleCancelEdit}
-              bookmarkFetcher={bookmarkFetcher}
-            />
-          ))}
+          {messages.map((message, index) => {
+            const currentMessageDate = new Date(message.createdAt);
+            const previousMessageDate =
+              index > 0 ? new Date(messages[index - 1].createdAt) : null;
+
+            const showDateBadge = shouldShowDateBadge(
+              currentMessageDate,
+              previousMessageDate
+            );
+
+            return (
+              <React.Fragment key={message.id}>
+                {showDateBadge && <DateBadge date={currentMessageDate} />}
+                <ChatMessage
+                  message={message}
+                  isCurrentUser={message.user?.id === user.id}
+                  currentUser={user}
+                  onStartReply={handleStartReply}
+                  deleteFetcher={deleteFetcher}
+                  editingMessageId={editingMessageId}
+                  onStartEdit={handleStartEdit}
+                  onCancelEdit={handleCancelEdit}
+                  bookmarkFetcher={bookmarkFetcher}
+                />
+              </React.Fragment>
+            );
+          })}
         </div>
       </ScrollArea>
 
@@ -462,9 +606,32 @@ export default function ChatRoom() {
                 <p className="font-semibold text-muted-foreground">
                   Replying to {replyingTo.user?.name}
                 </p>
-                <p className="truncate text-muted-foreground/80">
-                  "{replyingTo.content}"
-                </p>
+
+                {replyingTo.content && (
+                  <p className="truncate text-muted-foreground/80">
+                    "{replyingTo.content}"
+                  </p>
+                )}
+
+                {replyingTo.image && (
+                  <div className="flex items-center gap-2 text-muted-foreground/80">
+                    <ImageIcon className="size-4 shrink-0" />
+                    <img
+                      src={getChatImagePath(replyingTo.image.id)}
+                      alt={replyingTo.image.altText ?? 'Replied image'}
+                      className="h-8 w-8 rounded-sm object-cover"
+                    />
+                    {/* Only show the word "Image" if there's no text to avoid redundancy */}
+                    {!replyingTo.content && <span>Image</span>}
+                  </div>
+                )}
+
+                {/* 3. Fallback for deleted messages */}
+                {!replyingTo.content && !replyingTo.image && (
+                  <p className="truncate text-muted-foreground/80 italic">
+                    [message deleted]
+                  </p>
+                )}
               </div>
               <Button
                 variant="ghost"
@@ -478,6 +645,7 @@ export default function ChatRoom() {
           )}
           <messageFetcher.Form
             method="post"
+            encType="multipart/form-data"
             {...getFormProps(form)}
             ref={formRef}
             className="relative rounded-xl border border-border bg-background shadow-sm"
@@ -485,20 +653,71 @@ export default function ChatRoom() {
             {replyingTo && (
               <input type="hidden" name="replyToId" value={replyingTo.id} />
             )}
+
+            {/* Image Preview */}
+            {previewUrl && (
+              <div className="relative mb-2 w-fit">
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="h-24 w-auto rounded-md object-cover"
+                />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
+                  onClick={() => {
+                    setPreviewUrl(null);
+                    stagedFileRef.current = null;
+                    if (imageInputRef.current) imageInputRef.current.value = '';
+                  }}
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Hidden file input */}
+            <input
+              type="file"
+              name="chatImage"
+              ref={imageInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
             <TextareaAutosize
+              ref={textareaRef}
               // Use Conform's getInputProps for accessibility and validation
               {...getInputProps(fields.content, { type: 'text' })}
               className="w-full resize-none border-0 bg-transparent p-3 pr-16 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
               placeholder={`Message #${room.name}`}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  formRef.current?.requestSubmit(); // Programmatic submit
+                  const hasText = e.currentTarget.value.trim() !== '';
+                  const hasImage = !!previewUrl || !!stagedFileRef.current;
+                  if ((hasText || hasImage) && formRef.current) {
+                    e.preventDefault();
+                    formRef.current.requestSubmit();
+                  }
                 }
               }}
+              onPaste={handlePaste}
               minRows={1}
               maxRows={6}
             />
+            <div className="absolute bottom-2 right-12">
+              {/* Button to trigger the file input */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() => imageInputRef.current?.click()}
+              >
+                <Paperclip className="size-4" />
+              </Button>
+            </div>
             <div className="absolute bottom-2 right-2">
               <Button
                 type="submit"

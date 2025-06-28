@@ -8,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '#/components/ui/popover';
-import { EllipsisVertical, Reply } from 'lucide-react';
+import { EllipsisVertical, Reply, ImageIcon } from 'lucide-react';
 import { userHasPermission } from '#/utils/userPermissionRole';
 import { useFetcher } from 'react-router';
 import { z } from 'zod';
@@ -17,26 +17,60 @@ import { getZodConstraint, parseWithZod } from '@conform-to/zod';
 import { Button } from '../ui/button';
 import TextareaAutosize from 'react-textarea-autosize';
 import * as React from 'react';
+import { getChatImagePath } from '#/utils/misc';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from '#/components/ui/dialog';
+
 //replyblock UI
 function QuotedMessage({
   message,
 }: {
   message: {
-    content: string;
+    content: string | null;
     user: { name: string | null } | null;
     createdAt: Date;
+    image: {
+      id: string;
+      altText: string | null;
+    } | null;
   };
 }) {
   return (
     <div className="mb-1 rounded-lg border-l-4 border-muted-foreground/50 bg-muted/50 p-2 text-sm">
-      <div className="flex items-center gap-3">
-        <p className="font-semibold">{message.user?.name || 'Unknown User'}</p>
-        {/* Format and display the timestamp */}
-        <p className="text-xs text-muted-foreground">
-          {format(new Date(message.createdAt), 'p')}
-        </p>
+      <div className="flex-1 space-y-1 truncate">
+        <div className="flex items-center gap-3">
+          <p className="font-semibold">
+            {message.user?.name || 'Unknown User'}
+          </p>
+
+          <p className="text-xs text-muted-foreground">
+            {format(new Date(message.createdAt), 'p')}
+          </p>
+        </div>
+        {message.content && (
+          <p className="truncate text-muted-foreground">{message.content}</p>
+        )}
+
+        {message.image && !message.content && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <ImageIcon className="size-4 shrink-0" />
+            <span>Image</span>
+          </div>
+        )}
       </div>
-      <p className="truncate text-muted-foreground">{message.content}</p>
+
+      {message.image && (
+        <img
+          src={getChatImagePath(message.image.id)}
+          alt={message.image.altText ?? 'Replied image'}
+          className="h-10 w-10 shrink-0 rounded-sm object-cover"
+        />
+      )}
     </div>
   );
 }
@@ -44,7 +78,7 @@ function QuotedMessage({
 type ChatMessageProps = {
   message: {
     id: string;
-    content: string;
+    content: string | null;
     createdAt: Date;
     roomId: string;
     isDeleted: boolean;
@@ -53,15 +87,23 @@ type ChatMessageProps = {
       userId: string;
       messageId: string;
     }[];
+    image: {
+      id: string;
+      altText: string | null;
+    } | null;
     user: {
       id: string;
       name: string | null;
       image: { id: string } | null;
     } | null;
     replyTo: {
-      content: string;
+      content: string | null;
       user: { name: string | null } | null;
       createdAt: Date;
+      image: {
+        id: string;
+        altText: string | null;
+      } | null;
     } | null;
   };
   isCurrentUser: boolean;
@@ -102,7 +144,7 @@ function EditMessageForm({
     id: `edit-form-${message.id}`,
     constraint: getZodConstraint(EditMessageSchema),
     defaultValue: {
-      content: message.content,
+      content: message.content || '',
       messageId: message.id,
       intent: 'editMessage' as const,
     },
@@ -185,7 +227,7 @@ export function ChatMessage({
     return (
       <div className="pl-11">
         <div className="flex items-center gap-2 italic text-muted-foreground text-sm">
-          <p>{message.content}</p>
+          <p>{message.content || '[message deleted]'}</p>
         </div>
       </div>
     );
@@ -229,19 +271,47 @@ export function ChatMessage({
                 </div>
               )}
 
-              <div
-                className={cn(
-                  'max-w-md rounded-lg px-3 py-2',
-                  message.replyTo ? '-mt-1' : '',
-                  isCurrentUser
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
-                )}
-              >
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {message.content}
-                </p>
-              </div>
+              {message.content && (
+                <div
+                  className={cn(
+                    'max-w-md rounded-lg px-3 py-2',
+                    message.replyTo ? '-mt-1' : '',
+                    isCurrentUser
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted'
+                  )}
+                >
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {message.content}
+                  </p>
+                </div>
+              )}
+
+              {/* Render the image if it exists */}
+              {message.image?.id && (
+                <Dialog>
+                  <DialogTitle className="sr-only">
+                    {message.image.altText ?? 'Chat image'}
+                  </DialogTitle>
+                  <DialogTrigger asChild>
+                    <img
+                      src={getChatImagePath(message.image.id)}
+                      alt={message.image.altText ?? 'Chat image'}
+                      className="max-w-xs cursor-pointer rounded-lg object-cover transition hover:opacity-90"
+                    />
+                  </DialogTrigger>
+                  <DialogContent className="p-0 border-0 max-w-4xl max-h-[90vh]">
+                    <img
+                      src={getChatImagePath(message.image.id)}
+                      alt={message.image.altText ?? 'Chat image'}
+                      className="w-full h-full object-contain rounded-lg"
+                    />
+                  </DialogContent>
+                  <DialogDescription className="sr-only">
+                    {message.image.altText ?? 'Chat image'}
+                  </DialogDescription>
+                </Dialog>
+              )}
             </div>
             <Popover>
               <PopoverTrigger asChild>

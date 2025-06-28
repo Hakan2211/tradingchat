@@ -75,6 +75,10 @@ export function getUserImagePath(imageId: string) {
   return `/resources/images/${imageId}`;
 }
 
+export function getChatImagePath(imageId: string) {
+  return `/resources/chat-images/${imageId}`;
+}
+
 export function getDomainUrl(request: Request) {
   const host =
     request.headers.get('X-Forwarded-Host') ??

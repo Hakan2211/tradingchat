@@ -3,8 +3,8 @@
 import { format } from 'date-fns';
 import { Link, useFetcher } from 'react-router';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
-import { getUserImagePath } from '#/utils/misc';
-import { BookmarkIcon, CornerDownRight } from 'lucide-react';
+import { getUserImagePath, getChatImagePath } from '#/utils/misc';
+import { BookmarkIcon, CornerDownRight, ImageIcon } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -12,14 +12,25 @@ import {
   CardHeader,
 } from '#/components/ui/card';
 import { Button } from '#/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from '#/components/ui/dialog';
 
 type BookmarkedMessageCardProps = {
   bookmark: {
     createdAt: Date;
     message: {
       id: string;
-      content: string;
+      content: string | null;
       roomId: string;
+      image: {
+        id: string;
+        altText: string | null;
+      } | null;
       user: {
         id: string;
         name: string | null;
@@ -67,9 +78,43 @@ export function BookmarkedMessageCard({
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-4 pt-0">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">
-          {message.content}
-        </p>
+        {message.content && (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed mb-3">
+            {message.content}
+          </p>
+        )}
+
+        {message.image?.id && (
+          <Dialog>
+            <DialogTitle className="sr-only">
+              {message.image.altText ?? 'Bookmarked image'}
+            </DialogTitle>
+            <DialogTrigger asChild>
+              <img
+                src={getChatImagePath(message.image.id)}
+                alt={message.image.altText ?? 'Bookmarked image'}
+                className="max-w-xs cursor-pointer rounded-lg object-cover transition hover:opacity-90"
+              />
+            </DialogTrigger>
+            <DialogContent className="p-0 border-0 max-w-4xl max-h-[90vh]">
+              <img
+                src={getChatImagePath(message.image.id)}
+                alt={message.image.altText ?? 'Bookmarked image'}
+                className="w-full h-full object-contain rounded-lg"
+              />
+            </DialogContent>
+            <DialogDescription className="sr-only">
+              {message.image.altText ?? 'Bookmarked image'}
+            </DialogDescription>
+          </Dialog>
+        )}
+
+        {!message.content && message.image && (
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <ImageIcon className="size-4" />
+            <span>Image</span>
+          </div>
+        )}
       </CardContent>
       <CardFooter className="p-3">
         <Link
