@@ -22,7 +22,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
         select: {
           id: true,
           content: true,
-          roomId: true, // <-- Make sure this is selected
+          roomId: true,
+          image: {
+            select: { id: true, altText: true },
+          },
           user: {
             select: { id: true, name: true, image: { select: { id: true } } },
           },
