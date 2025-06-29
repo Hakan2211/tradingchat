@@ -14,6 +14,7 @@ export default [
     route('/images/:id', 'routes/resources/imagesResource.tsx'),
     route('/chat-images/:id', 'routes/resources/chatImageResource.tsx'),
     route('/theme-switch', 'routes/resources/theme-switch.tsx'),
+    route('/userlist-toggle', 'routes/resources/userlist-toggle.tsx'),
   ]),
 
   //--------------App Routes-----------------------

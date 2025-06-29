@@ -26,6 +26,7 @@ import {
   X,
   Paperclip,
   ImageIcon,
+  UsersRound,
 } from 'lucide-react';
 import { ChatMessage } from '#/components/chat/chat-message';
 import { requirePermission } from '#/utils/permission.server';
@@ -34,6 +35,9 @@ import { processImage } from '#/utils/image.server';
 import { uploadImageToR2, deleteImageFromR2 } from '#/utils/r2.server';
 import { getChatImagePath } from '#/utils/misc';
 import { DateBadge, shouldShowDateBadge } from '#/components/chat/dateBadge';
+import { UserList } from '#/components/chat/userList';
+import { getUserListVisibility } from '#/utils/userlist.server';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 10MB
 
@@ -132,6 +136,27 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     },
   });
 
+  // Fetch all users for the user list
+  const allUsers = await prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      image: { select: { id: true } },
+      roles: {
+        select: {
+          name: true,
+        },
+      },
+      messages: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+    orderBy: { name: 'asc' },
+  });
+
   const room = await prisma.room.findUnique({
     where: { id: roomId },
     select: {
@@ -178,7 +203,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   });
   invariantResponse(room, 'Room not found', { status: 404 });
 
-  return { room, user };
+  const userListVisibility = await getUserListVisibility(request);
+
+  return { room, user, allUsers, userListVisibility };
 }
 
 //----------------------Action Function-------------------------------------------------------------------------------
@@ -405,20 +432,24 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   return submission.reply();
 }
 
+//----------------------Component Function UI----------------------------------------------------------------------
+
 export default function ChatRoom() {
-  const { room, user } = useLoaderData<typeof loader>();
+  const { room, user, allUsers, userListVisibility } =
+    useLoaderData<typeof loader>();
   const [messages, setMessages] = React.useState<MessageWithUser[]>(
     room.messages
   );
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(
     null
   );
-
   const [replyingTo, setReplyingTo] = React.useState<MessageWithUser | null>(
     null
   );
-
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const [isUsersListVisible, setIsUsersListVisible] =
+    React.useState(userListVisibility);
+  const userListFetcher = useFetcher<typeof action>();
 
   const messageFetcher = useFetcher<typeof action>();
   const deleteFetcher = useFetcher<typeof action>();
@@ -429,6 +460,13 @@ export default function ChatRoom() {
   const stagedFileRef = React.useRef<File | null>(null);
   // Ref for the scroll area's viewport
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
+
+  const userListWidth = '16rem';
+  const animationTransition = {
+    type: 'spring' as const,
+    stiffness: 150,
+    damping: 20,
+  };
 
   const [form, fields] = useForm({
     id: 'send-message-form',
@@ -533,6 +571,17 @@ export default function ChatRoom() {
     }
   };
 
+  const handleToggleUserList = () => {
+    const newVisibility = !isUsersListVisible;
+    setIsUsersListVisible(newVisibility); // Update UI instantly
+
+    // Tell the server to set the cookie for future visits
+    userListFetcher.submit(
+      { visible: newVisibility.toString() },
+      { method: 'POST', action: '/resources/userlist-toggle' }
+    );
+  };
+
   // --- Auto-scroll Logic for the new ScrollArea ---
   React.useEffect(() => {
     const viewport = scrollViewportRef.current;
@@ -555,182 +604,225 @@ export default function ChatRoom() {
   }, [messageFetcher.state, messageFetcher.data, setReplyingTo]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
-      {/* Header */}
-      <header className="flex-none border-b p-4">
-        <h1 className="text-xl font-bold capitalize flex items-center gap-2">
-          <RoomIcon iconName={room.icon} />
-          {room.name}
-        </h1>
-      </header>
+    <motion.div
+      className="flex h-[calc(100vh-4rem)] relative overflow-x-hidden"
+      animate={{ paddingRight: isUsersListVisible ? userListWidth : '0rem' }}
+      transition={animationTransition}
+    >
+      {/* Main Chat Area */}
+      <div className="flex flex-grow flex-col">
+        {/* Header */}
+        <header className="flex-none border-b p-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold capitalize flex items-center gap-2">
+              <RoomIcon iconName={room.icon} />
+              {room.name}
+            </h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleToggleUserList}
+              className={
+                isUsersListVisible
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }
+            >
+              <UsersRound className="size-4" />
+            </Button>
+          </div>
+        </header>
 
-      {/* Messages Area using ScrollArea */}
-      <ScrollArea className="flex-1" ref={scrollViewportRef}>
-        <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
-          {messages.map((message, index) => {
-            const currentMessageDate = new Date(message.createdAt);
-            const previousMessageDate =
-              index > 0 ? new Date(messages[index - 1].createdAt) : null;
+        {/* Messages Area using ScrollArea */}
+        <ScrollArea className="flex-1" ref={scrollViewportRef}>
+          <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+            {messages.map((message, index) => {
+              const currentMessageDate = new Date(message.createdAt);
+              const previousMessageDate =
+                index > 0 ? new Date(messages[index - 1].createdAt) : null;
 
-            const showDateBadge = shouldShowDateBadge(
-              currentMessageDate,
-              previousMessageDate
-            );
+              const showDateBadge = shouldShowDateBadge(
+                currentMessageDate,
+                previousMessageDate
+              );
 
-            return (
-              <React.Fragment key={message.id}>
-                {showDateBadge && <DateBadge date={currentMessageDate} />}
-                <ChatMessage
-                  message={message}
-                  isCurrentUser={message.user?.id === user.id}
-                  currentUser={user}
-                  onStartReply={handleStartReply}
-                  deleteFetcher={deleteFetcher}
-                  editingMessageId={editingMessageId}
-                  onStartEdit={handleStartEdit}
-                  onCancelEdit={handleCancelEdit}
-                  bookmarkFetcher={bookmarkFetcher}
-                />
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </ScrollArea>
+              return (
+                <React.Fragment key={message.id}>
+                  {showDateBadge && <DateBadge date={currentMessageDate} />}
+                  <ChatMessage
+                    message={message}
+                    isCurrentUser={message.user?.id === user.id}
+                    currentUser={user}
+                    onStartReply={handleStartReply}
+                    deleteFetcher={deleteFetcher}
+                    editingMessageId={editingMessageId}
+                    onStartEdit={handleStartEdit}
+                    onCancelEdit={handleCancelEdit}
+                    bookmarkFetcher={bookmarkFetcher}
+                  />
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </ScrollArea>
 
-      {/* Footer with TextareaAutosize */}
-      <footer className="flex-none border-t bg-background/80 p-4 backdrop-blur-sm">
-        <div className="mx-auto max-w-3xl">
-          {replyingTo && (
-            <div className="mb-2 flex items-center justify-between rounded-md border bg-muted p-2 text-sm">
-              <div className="truncate">
-                <p className="font-semibold text-muted-foreground">
-                  Replying to {replyingTo.user?.name}
-                </p>
-
-                {replyingTo.content && (
-                  <p className="truncate text-muted-foreground/80">
-                    "{replyingTo.content}"
-                  </p>
-                )}
-
-                {replyingTo.image && (
-                  <div className="flex items-center gap-2 text-muted-foreground/80">
-                    <ImageIcon className="size-4 shrink-0" />
-                    <img
-                      src={getChatImagePath(replyingTo.image.id)}
-                      alt={replyingTo.image.altText ?? 'Replied image'}
-                      className="h-8 w-8 rounded-sm object-cover"
-                    />
-                    {/* Only show the word "Image" if there's no text to avoid redundancy */}
-                    {!replyingTo.content && <span>Image</span>}
-                  </div>
-                )}
-
-                {/* 3. Fallback for deleted messages */}
-                {!replyingTo.content && !replyingTo.image && (
-                  <p className="truncate text-muted-foreground/80 italic">
-                    [message deleted]
-                  </p>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7 shrink-0"
-                onClick={() => setReplyingTo(null)}
-              >
-                <X className="size-4" />
-              </Button>
-            </div>
-          )}
-          <messageFetcher.Form
-            method="post"
-            encType="multipart/form-data"
-            {...getFormProps(form)}
-            ref={formRef}
-            className="relative rounded-xl border border-border bg-background shadow-sm"
-          >
+        {/* Footer with TextareaAutosize */}
+        <footer className="flex-none border-t bg-background/80 p-4 backdrop-blur-sm">
+          <div className="mx-auto max-w-3xl">
             {replyingTo && (
-              <input type="hidden" name="replyToId" value={replyingTo.id} />
-            )}
+              <div className="mb-2 flex items-center justify-between rounded-md border bg-muted p-2 text-sm">
+                <div className="truncate">
+                  <p className="font-semibold text-muted-foreground">
+                    Replying to {replyingTo.user?.name}
+                  </p>
 
-            {/* Image Preview */}
-            {previewUrl && (
-              <div className="relative mb-2 w-fit">
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="h-24 w-auto rounded-md object-cover"
-                />
+                  {replyingTo.content && (
+                    <p className="truncate text-muted-foreground/80">
+                      "{replyingTo.content}"
+                    </p>
+                  )}
+
+                  {replyingTo.image && (
+                    <div className="flex items-center gap-2 text-muted-foreground/80">
+                      <ImageIcon className="size-4 shrink-0" />
+                      <img
+                        src={getChatImagePath(replyingTo.image.id)}
+                        alt={replyingTo.image.altText ?? 'Replied image'}
+                        className="h-8 w-8 rounded-sm object-cover"
+                      />
+                      {/* Only show the word "Image" if there's no text to avoid redundancy */}
+                      {!replyingTo.content && <span>Image</span>}
+                    </div>
+                  )}
+
+                  {/* 3. Fallback for deleted messages */}
+                  {!replyingTo.content && !replyingTo.image && (
+                    <p className="truncate text-muted-foreground/80 italic">
+                      [message deleted]
+                    </p>
+                  )}
+                </div>
                 <Button
-                  variant="destructive"
+                  variant="ghost"
                   size="icon"
-                  className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
-                  onClick={() => {
-                    setPreviewUrl(null);
-                    stagedFileRef.current = null;
-                    if (imageInputRef.current) imageInputRef.current.value = '';
-                  }}
+                  className="size-7 shrink-0"
+                  onClick={() => setReplyingTo(null)}
                 >
                   <X className="size-4" />
                 </Button>
               </div>
             )}
+            <messageFetcher.Form
+              method="post"
+              encType="multipart/form-data"
+              {...getFormProps(form)}
+              ref={formRef}
+              className="relative rounded-xl border border-border bg-background shadow-sm"
+            >
+              {replyingTo && (
+                <input type="hidden" name="replyToId" value={replyingTo.id} />
+              )}
 
-            {/* Hidden file input */}
-            <input
-              type="file"
-              name="chatImage"
-              ref={imageInputRef}
-              className="hidden"
-              accept="image/*"
-              onChange={handleFileChange}
-            />
-            <TextareaAutosize
-              ref={textareaRef}
-              // Use Conform's getInputProps for accessibility and validation
-              {...getInputProps(fields.content, { type: 'text' })}
-              className="w-full resize-none border-0 bg-transparent p-3 pr-16 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
-              placeholder={`Message #${room.name}`}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  const hasText = e.currentTarget.value.trim() !== '';
-                  const hasImage = !!previewUrl || !!stagedFileRef.current;
-                  if ((hasText || hasImage) && formRef.current) {
-                    e.preventDefault();
-                    formRef.current.requestSubmit();
+              {/* Image Preview */}
+              {previewUrl && (
+                <div className="relative mb-2 w-fit">
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="h-24 w-auto rounded-md object-cover"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
+                    onClick={() => {
+                      setPreviewUrl(null);
+                      stagedFileRef.current = null;
+                      if (imageInputRef.current)
+                        imageInputRef.current.value = '';
+                    }}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                name="chatImage"
+                ref={imageInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+              />
+              <TextareaAutosize
+                ref={textareaRef}
+                // Use Conform's getInputProps for accessibility and validation
+                {...getInputProps(fields.content, { type: 'text' })}
+                className="w-full resize-none border-0 bg-transparent p-3 pr-16 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
+                placeholder={`Message #${room.name}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    const hasText = e.currentTarget.value.trim() !== '';
+                    const hasImage = !!previewUrl || !!stagedFileRef.current;
+                    if ((hasText || hasImage) && formRef.current) {
+                      e.preventDefault();
+                      formRef.current.requestSubmit();
+                    }
                   }
-                }
-              }}
-              onPaste={handlePaste}
-              minRows={1}
-              maxRows={6}
-            />
-            <div className="absolute bottom-2 right-12">
-              {/* Button to trigger the file input */}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                onClick={() => imageInputRef.current?.click()}
-              >
-                <Paperclip className="size-4" />
-              </Button>
-            </div>
-            <div className="absolute bottom-2 right-2">
-              <Button
-                type="submit"
-                size="icon"
-                className="size-8"
-                disabled={messageFetcher.state !== 'idle'}
-              >
-                <SendHorizonalIcon className="size-4 -rotate-90" />
-              </Button>
-            </div>
-          </messageFetcher.Form>
-        </div>
-      </footer>
-    </div>
+                }}
+                onPaste={handlePaste}
+                minRows={1}
+                maxRows={6}
+              />
+              <div className="absolute bottom-2 right-12">
+                {/* Button to trigger the file input */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  <Paperclip className="size-4" />
+                </Button>
+              </div>
+              <div className="absolute bottom-2 right-2">
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="size-8"
+                  disabled={messageFetcher.state !== 'idle'}
+                >
+                  <SendHorizonalIcon className="size-4 -rotate-90" />
+                </Button>
+              </div>
+            </messageFetcher.Form>
+          </div>
+        </footer>
+      </div>
+
+      {/* Users List Sidebar */}
+      <AnimatePresence>
+        {isUsersListVisible && (
+          <motion.div
+            className="w-48 border-l bg-muted/30 lg:w-64 absolute top-0 right-0 h-full"
+            style={{ width: userListWidth }}
+            key="user-list-sidebar"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{
+              type: 'spring',
+              stiffness: 150,
+              damping: 20,
+            }}
+          >
+            <UserList members={allUsers} currentUserId={user.id} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

@@ -1,23 +1,22 @@
+// prisma/seed.ts
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function seed() {
   console.log('🌱 Seeding...');
-  // 1. Create Permissions
+  console.time('DB has been seeded');
+
+  // 1. Create Permissions (no changes needed here, your existing permissions are good)
   const permissions = [
-    // User Permissions (from your original file)
     { action: 'create', entity: 'user', access: 'any' },
     { action: 'read', entity: 'user', access: 'any' },
     { action: 'update', entity: 'user', access: 'own' },
     { action: 'update', entity: 'user', access: 'any' },
     { action: 'delete', entity: 'user', access: 'own' },
     { action: 'delete', entity: 'user', access: 'any' },
-
-    // --- ADD MESSAGE PERMISSIONS ---
     { action: 'delete', entity: 'message', access: 'own' },
     { action: 'delete', entity: 'message', access: 'any' },
-    // We'll add edit permissions now to be ready for the next step
     { action: 'update', entity: 'message', access: 'own' },
     { action: 'update', entity: 'message', access: 'any' },
   ];
@@ -35,21 +34,28 @@ async function seed() {
       create: permission,
     });
   }
+  console.log('✅ Permissions seeded');
 
-  // 2. Create Roles (no changes needed)
+  // 2. Create Roles
   await prisma.role.upsert({
     where: { name: 'admin' },
     update: {},
     create: { name: 'admin' },
+  });
+  // --- ADD THE MODERATOR ROLE ---
+  await prisma.role.upsert({
+    where: { name: 'moderator' },
+    update: {},
+    create: { name: 'moderator' },
   });
   await prisma.role.upsert({
     where: { name: 'user' },
     update: {},
     create: { name: 'user' },
   });
+  console.log('✅ Roles seeded');
 
   // 3. Connect Roles to Permissions
-  // Admin gets all permissions (your existing code handles this perfectly)
   const allPermissions = await prisma.permission.findMany({
     select: { id: true },
   });
@@ -58,12 +64,27 @@ async function seed() {
     data: { permissions: { set: allPermissions } },
   });
 
-  // User gets specific, limited permissions
+  // --- SET PERMISSIONS FOR THE NEW MODERATOR ROLE ---
+  const moderatorPermissions = await prisma.permission.findMany({
+    where: {
+      OR: [
+        { action: 'update', entity: 'user', access: 'own' }, // Can edit their own profile
+        { action: 'delete', entity: 'message', access: 'any' }, // Can delete ANY message
+        { action: 'update', entity: 'message', access: 'any' }, // Can edit ANY message
+      ],
+    },
+    select: { id: true },
+  });
+  await prisma.role.update({
+    where: { name: 'moderator' },
+    data: { permissions: { set: moderatorPermissions } },
+  });
+
+  // --- SET PERMISSIONS FOR THE USER ROLE ---
   const userPermissions = await prisma.permission.findMany({
     where: {
       OR: [
         { action: 'update', entity: 'user', access: 'own' },
-        // --- GRANT USER THE "OWN" MESSAGE PERMISSIONS ---
         { action: 'delete', entity: 'message', access: 'own' },
         { action: 'update', entity: 'message', access: 'own' },
       ],
@@ -75,7 +96,8 @@ async function seed() {
     data: { permissions: { set: userPermissions } },
   });
 
-  console.log('✅ Database has been seeded');
+  console.log('✅ Roles connected to permissions');
+  console.timeEnd('DB has been seeded');
 }
 
 seed()
