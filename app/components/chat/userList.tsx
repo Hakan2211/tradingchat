@@ -5,6 +5,7 @@ import { ScrollArea } from '#/components/ui/scroll-area';
 import { Badge } from '#/components/ui/badge';
 import { getUserImagePath } from '#/utils/misc';
 import { useMemo } from 'react';
+import { PresenceIndicator } from './presenceIndicator';
 
 type User = {
   id: string;
@@ -17,30 +18,46 @@ type User = {
 export function UserList({
   members,
   currentUserId,
+  onlineUserIds,
 }: {
   members: User[];
   currentUserId?: string;
+  onlineUserIds: Set<string>;
 }) {
   const groupedUsers = useMemo(() => {
     const admins: User[] = [];
     const moderators: User[] = [];
-    const onlineUsers: User[] = []; // Renamed from 'users' to be clearer
+    const online: User[] = [];
 
     members.forEach((member) => {
-      if (member.roles.some((role) => role.name === 'admin')) {
+      if (member.roles.some((role) => role.name === 'admin'))
         admins.push(member);
-      } else if (member.roles.some((role) => role.name === 'moderator')) {
+      else if (member.roles.some((role) => role.name === 'moderator'))
         moderators.push(member);
-      } else {
-        onlineUsers.push(member);
-      }
+      else online.push(member);
     });
 
-    return { admins, moderators, onlineUsers };
-  }, [members]);
+    // Function to sort a group by online status then by name
+    const sortGroup = (group: User[]) => {
+      return group.sort((a, b) => {
+        const aIsOnline = onlineUserIds.has(a.id);
+        const bIsOnline = onlineUserIds.has(b.id);
+        if (aIsOnline && !bIsOnline) return -1;
+        if (!aIsOnline && bIsOnline) return 1;
+        return (a.name ?? '').localeCompare(b.name ?? '');
+      });
+    };
+
+    return {
+      admins: sortGroup(admins),
+      moderators: sortGroup(moderators),
+      online: sortGroup(online),
+    };
+  }, [members, onlineUserIds]);
 
   const UserListItem = ({ user }: { user: User }) => {
     const isCurrentUser = user.id === currentUserId;
+    const isOnline = onlineUserIds.has(user.id);
     return (
       <Link
         to={`/user/${user.id}`}
@@ -58,6 +75,7 @@ export function UserList({
               {user.name?.[0]?.toUpperCase() ?? 'U'}
             </AvatarFallback>
           </Avatar>
+          <PresenceIndicator isOnline={isOnline} />
         </div>
         <div className="flex-1 truncate">
           <div className="flex items-center gap-1">
@@ -110,18 +128,18 @@ export function UserList({
           )}
 
           {/* Render Online Users */}
-          {groupedUsers.onlineUsers.length > 0 && (
+          {groupedUsers.online.length > 0 && (
             <div>
               <h3 className="px-2 text-xs font-semibold uppercase text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <span>Online</span>
                   <span className="text-xs text-muted-foreground">—</span>
                   <span className="text-xs text-muted-foreground">
-                    {groupedUsers.onlineUsers.length}
+                    {groupedUsers.online.length}
                   </span>
                 </div>
               </h3>
-              {groupedUsers.onlineUsers.map((user) => (
+              {groupedUsers.online.map((user) => (
                 <UserListItem key={user.id} user={user} />
               ))}
             </div>

@@ -449,6 +449,11 @@ export default function ChatRoom() {
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [isUsersListVisible, setIsUsersListVisible] =
     React.useState(userListVisibility);
+
+  const [onlineUserIds, setOnlineUserIds] = React.useState<Set<string>>(
+    new Set()
+  );
+
   const userListFetcher = useFetcher<typeof action>();
 
   const messageFetcher = useFetcher<typeof action>();
@@ -496,8 +501,29 @@ export default function ChatRoom() {
 
   React.useEffect(() => {
     setMessages(room.messages);
-    const socket = socketIo();
+    const socket = socketIo({ auth: { userId: user.id } });
     socket.emit('joinRoom', room.id);
+
+    // --- ADD PRESENCE EVENT LISTENERS ---
+    // Listen for the initial list of all online users
+    socket.on('online.users', (userIds: string[]) => {
+      setOnlineUserIds(new Set(userIds));
+    });
+    // Listen for a new user coming online
+    socket.on('user.online', ({ userId: onlineUserId }: { userId: string }) => {
+      setOnlineUserIds((prevIds) => new Set(prevIds).add(onlineUserId));
+    });
+    // Listen for a user going offline
+    socket.on(
+      'user.offline',
+      ({ userId: offlineUserId }: { userId: string }) => {
+        setOnlineUserIds((prevIds) => {
+          const newIds = new Set(prevIds);
+          newIds.delete(offlineUserId);
+          return newIds;
+        });
+      }
+    );
 
     const handleNewMessage = (newMessage: MessageWithUser) => {
       setMessages((prevMessages) => [...prevMessages, newMessage]);
@@ -532,9 +558,12 @@ export default function ChatRoom() {
       socket.off('newMessage', handleNewMessage);
       socket.off('messageDeleted', handleMessageDeleted);
       socket.off('messageEdited', handleMessageEdited);
+      socket.off('online.users');
+      socket.off('user.online');
+      socket.off('user.offline');
       socket.disconnect();
     };
-  }, [room.id, room.messages]);
+  }, [room.id, room.messages, user.id]);
 
   // --- Image Upload Logic ---
 
@@ -819,7 +848,11 @@ export default function ChatRoom() {
               damping: 20,
             }}
           >
-            <UserList members={allUsers} currentUserId={user.id} />
+            <UserList
+              members={allUsers}
+              currentUserId={user.id}
+              onlineUserIds={onlineUserIds}
+            />
           </motion.div>
         )}
       </AnimatePresence>

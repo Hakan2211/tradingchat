@@ -24,6 +24,8 @@ const viteDevServer = IS_PROD
 const app = express();
 const httpServer = http.createServer(app);
 
+const onlineUsers = new Map<string, Set<string>>();
+
 // Your Socket.IO setup remains the same
 const io = new Server(httpServer, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
@@ -31,6 +33,21 @@ const io = new Server(httpServer, {
 
 io.on('connection', (socket) => {
   console.log('✅ User connected:', socket.id);
+  const userId = socket.handshake.auth.userId as string | undefined;
+
+  if (userId) {
+    // If this is the user's first connection, they are now "online"
+    if (!onlineUsers.has(userId)) {
+      onlineUsers.set(userId, new Set());
+      // Broadcast to all other clients that this user is now online
+      io.emit('user.online', { userId });
+      console.log(`User ${userId} came online.`);
+    }
+    // Add the new socket ID to this user's set of connections
+    onlineUsers.get(userId)?.add(socket.id);
+  }
+
+  socket.emit('online.users', Array.from(onlineUsers.keys()));
 
   socket.on('joinRoom', (roomId: string) => {
     socket.join(roomId);
@@ -44,6 +61,19 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('❌ User disconnected:', socket.id);
+    if (userId) {
+      const userSockets = onlineUsers.get(userId);
+      if (userSockets) {
+        userSockets.delete(socket.id);
+        // If the user has no more active connections, they are "offline"
+        if (userSockets.size === 0) {
+          onlineUsers.delete(userId);
+          // Broadcast that this user is now offline
+          io.emit('user.offline', { userId });
+          console.log(`User ${userId} went offline.`);
+        }
+      }
+    }
   });
 });
 
