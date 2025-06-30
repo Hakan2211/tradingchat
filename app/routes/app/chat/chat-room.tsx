@@ -12,7 +12,7 @@ import { io as socketIo } from 'socket.io-client';
 import type { Server } from 'socket.io';
 import { prisma } from '#/utils/db.server';
 import { requireUserId } from '#/utils/auth.server';
-import { invariantResponse } from '#/utils/misc';
+import { getUserImagePath, invariantResponse } from '#/utils/misc';
 import { Button } from '#/components/ui/button';
 import { ScrollArea } from '#/components/ui/scroll-area';
 import TextareaAutosize from 'react-textarea-autosize';
@@ -38,6 +38,8 @@ import { DateBadge, shouldShowDateBadge } from '#/components/chat/dateBadge';
 import { UserList } from '#/components/chat/userList';
 import { getUserListVisibility } from '#/utils/userlist.server';
 import { motion, AnimatePresence } from 'framer-motion';
+import { UserStatus } from '@prisma/client';
+import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
 
 const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 10MB
 
@@ -148,6 +150,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           name: true,
         },
       },
+      status: true,
       messages: {
         orderBy: { createdAt: 'desc' },
         take: 1,
@@ -163,6 +166,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       id: true,
       name: true,
       icon: true,
+      members: {
+        select: {
+          id: true,
+          name: true,
+          image: { select: { id: true } },
+        },
+      },
       messages: {
         select: {
           id: true,
@@ -450,6 +460,14 @@ export default function ChatRoom() {
   const [isUsersListVisible, setIsUsersListVisible] =
     React.useState(userListVisibility);
 
+  const [userStatuses, setUserStatuses] = React.useState<
+    Map<string, UserStatus>
+  >(() => {
+    const initialStatuses = new Map<string, UserStatus>();
+    allUsers.forEach((u) => initialStatuses.set(u.id, u.status));
+    return initialStatuses;
+  });
+
   const [onlineUserIds, setOnlineUserIds] = React.useState<Set<string>>(
     new Set()
   );
@@ -525,6 +543,24 @@ export default function ChatRoom() {
       }
     );
 
+    // --- ADD new listener for status changes ---
+    socket.on(
+      'user.status.changed',
+      ({
+        userId: changedUserId,
+        status,
+      }: {
+        userId: string;
+        status: UserStatus;
+      }) => {
+        setUserStatuses((prevStatuses) => {
+          const newStatuses = new Map(prevStatuses);
+          newStatuses.set(changedUserId, status);
+          return newStatuses;
+        });
+      }
+    );
+
     const handleNewMessage = (newMessage: MessageWithUser) => {
       setMessages((prevMessages) => [...prevMessages, newMessage]);
     };
@@ -561,6 +597,7 @@ export default function ChatRoom() {
       socket.off('online.users');
       socket.off('user.online');
       socket.off('user.offline');
+      socket.off('user.status.changed');
       socket.disconnect();
     };
   }, [room.id, room.messages, user.id]);
@@ -632,6 +669,31 @@ export default function ChatRoom() {
     }
   }, [messageFetcher.state, messageFetcher.data, setReplyingTo]);
 
+  const isDm = room.name.startsWith('dm:');
+  let headerTitle: string;
+  let headerIcon: React.ReactNode;
+
+  if (isDm) {
+    // Find the other user in the DM
+    const dmPartner = room.members.find((member) => member.id !== user.id);
+    headerTitle = dmPartner?.name ?? 'Direct Message';
+    // Use the other user's avatar for the icon
+    headerIcon = (
+      <Avatar className="h-7 w-7">
+        <AvatarImage
+          src={
+            dmPartner?.image ? getUserImagePath(dmPartner.image.id) : undefined
+          }
+        />
+        <AvatarFallback>{headerTitle[0].toUpperCase()}</AvatarFallback>
+      </Avatar>
+    );
+  } else {
+    // For regular rooms, use the existing logic
+    headerTitle = room.name;
+    headerIcon = <RoomIcon iconName={room.icon} />;
+  }
+
   return (
     <motion.div
       className="flex h-[calc(100vh-4rem)] relative overflow-x-hidden"
@@ -644,8 +706,8 @@ export default function ChatRoom() {
         <header className="flex-none border-b p-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold capitalize flex items-center gap-2">
-              <RoomIcon iconName={room.icon} />
-              {room.name}
+              {headerIcon}
+              {headerTitle}
             </h1>
             <Button
               variant="ghost"
@@ -790,7 +852,7 @@ export default function ChatRoom() {
                 // Use Conform's getInputProps for accessibility and validation
                 {...getInputProps(fields.content, { type: 'text' })}
                 className="w-full resize-none border-0 bg-transparent p-3 pr-16 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
-                placeholder={`Message #${room.name}`}
+                placeholder={`Message #${headerTitle}`}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     const hasText = e.currentTarget.value.trim() !== '';
@@ -852,6 +914,7 @@ export default function ChatRoom() {
               members={allUsers}
               currentUserId={user.id}
               onlineUserIds={onlineUserIds}
+              userStatuses={userStatuses}
             />
           </motion.div>
         )}

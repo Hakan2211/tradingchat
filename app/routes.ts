@@ -15,6 +15,9 @@ export default [
     route('/chat-images/:id', 'routes/resources/chatImageResource.tsx'),
     route('/theme-switch', 'routes/resources/theme-switch.tsx'),
     route('/userlist-toggle', 'routes/resources/userlist-toggle.tsx'),
+    route('/user-status', 'routes/resources/user-status.tsx'),
+    route('/create-dm', 'routes/resources/create-dm.tsx'),
+    route('/hide-dm', 'routes/resources/hide-dm.tsx'),
   ]),
 
   //--------------App Routes-----------------------

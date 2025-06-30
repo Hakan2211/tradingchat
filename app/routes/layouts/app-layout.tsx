@@ -50,25 +50,75 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw await logout(request);
   }
 
-  const rooms = await prisma.room.findMany({
+  const groupRooms = await prisma.room.findMany({
+    where: {
+      NOT: {
+        name: {
+          startsWith: 'dm:',
+        },
+      },
+    },
     select: {
       id: true,
       name: true,
       icon: true,
     },
+    orderBy: {
+      name: 'asc',
+    },
   });
 
-  // Step 5: Return all the data needed for the layout.
-  return { user, rooms };
+  // 2. Fetch ONLY the DMs that this specific user is a member of
+  const userDms = await prisma.room.findMany({
+    where: {
+      name: {
+        startsWith: 'dm:',
+      },
+      members: {
+        some: {
+          id: userId,
+        },
+      },
+      hiddenBy: {
+        none: {
+          userId: userId,
+        },
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      members: {
+        select: { id: true, name: true, image: { select: { id: true } } },
+      },
+    },
+  });
+
+  // 3. Process the user's DMs to get the other participant's info
+  const directMessages = userDms.map((room) => {
+    const otherUser = room.members.find((member) => member.id !== userId);
+    return {
+      id: room.id,
+      name: otherUser?.name ?? 'Direct Message',
+      userImage: otherUser?.image ?? null,
+    };
+  });
+
+  // Pass all the data to the component
+  return { user, groupRooms, directMessages };
 }
 
 // --- 2. LAYOUT COMPONENT (No changes needed here) ---
 export default function AppLayout() {
-  const { user, rooms } = useLoaderData<typeof loader>();
+  const { user, groupRooms, directMessages } = useLoaderData<typeof loader>();
 
   return (
     <SidebarProvider>
-      <AppSidebar user={user} rooms={rooms} />
+      <AppSidebar
+        user={user}
+        rooms={groupRooms}
+        directMessages={directMessages}
+      />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">

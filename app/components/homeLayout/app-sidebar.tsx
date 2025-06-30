@@ -16,6 +16,7 @@ import { useRequestInfo } from '#/utils/request-info';
 import { NavRooms, type NavRoomItem } from '#/components/homeLayout/nav-room';
 import { NavLink } from 'react-router';
 import { Bookmark } from 'lucide-react';
+import { NavDms, type NavDmItem } from '#/components/homeLayout/nav-dms';
 
 type AppSidebarProps = {
   user: {
@@ -31,11 +32,13 @@ type AppSidebarProps = {
   };
 
   rooms: NavRoomItem[];
+  directMessages: NavDmItem[];
 };
 
 export function AppSidebar({
   user,
   rooms,
+  directMessages,
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const requestInfo = useRequestInfo();
@@ -48,6 +51,7 @@ export function AppSidebar({
       <SidebarSeparator />
       <SidebarContent>
         <NavRooms items={rooms} />
+        <NavDms items={directMessages} />
         <SidebarMenu>
           <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
             <NavLink to="/bookmarks" end>

@@ -10,12 +10,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserStatus {
+  ONLINE
+  AWAY
+  DO_NOT_DISTURB
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
   username  String?   @unique
   bio       String?
+  status    UserStatus @default(ONLINE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   password  Password?
@@ -25,6 +32,7 @@ model User {
   messages Message[]
   rooms Room[] @relation("RoomMembers")
   bookmarks Bookmark[]
+  hiddenRooms HiddenRoom[]
 }
 
 model Password {
@@ -107,6 +115,18 @@ model Room{
   updatedAt DateTime @updatedAt
   messages Message[]
   members User[] @relation("RoomMembers")
+  hiddenBy HiddenRoom[]
+}
+
+model HiddenRoom{
+  id String @id @default(cuid())
+  userId String
+  roomId String
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roomId])
 }
 
 
