@@ -17,6 +17,7 @@ import { NavRooms, type NavRoomItem } from '#/components/homeLayout/nav-room';
 import { NavLink } from 'react-router';
 import { Bookmark } from 'lucide-react';
 import { NavDms, type NavDmItem } from '#/components/homeLayout/nav-dms';
+import { useSocketContext } from '#/routes/layouts/app-layout';
 
 type AppSidebarProps = {
   user: {
@@ -32,16 +33,16 @@ type AppSidebarProps = {
   };
 
   rooms: NavRoomItem[];
-  directMessages: NavDmItem[];
 };
 
 export function AppSidebar({
   user,
   rooms,
-  directMessages,
+
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const requestInfo = useRequestInfo();
+  const { directMessages } = useSocketContext();
 
   return (
     <Sidebar collapsible="icon" {...props}>

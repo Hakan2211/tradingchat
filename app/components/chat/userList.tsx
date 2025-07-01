@@ -5,13 +5,7 @@ import { Badge } from '#/components/ui/badge';
 import { getUserImagePath } from '#/utils/misc';
 import React from 'react';
 import { PresenceIndicator } from './presenceIndicator';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '#/components/ui/popover';
 import { type UserStatus } from '@prisma/client';
-import { UserPopoverContent } from './userPopoverContent';
 import { cn } from '#/lib/utils';
 import {
   DropdownMenu,
@@ -24,12 +18,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '#/components/ui/dropdown-menu';
-import {
-  MessageSquare,
-  Circle,
-  User as UserIcon,
-  ChevronRight,
-} from 'lucide-react';
+import { MessageSquare, Circle, User as UserIcon } from 'lucide-react';
 import { Link, useFetcher } from 'react-router';
 
 type User = {
@@ -233,11 +222,16 @@ export function UserList({
     };
   }, [members, onlineUserIds]);
 
+  // Calculate online count considering only socket connection
+  const onlineCount = members.filter((member) =>
+    onlineUserIds.has(member.id)
+  ).length;
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex-none border-b p-4">
         <h2 className="text-md font-semibold">
-          Members — {onlineUserIds.size} Online
+          Members — {onlineCount} Online
         </h2>
       </header>
       <ScrollArea className="flex-1">

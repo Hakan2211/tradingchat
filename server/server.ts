@@ -7,6 +7,8 @@ import http from 'node:http';
 import { Server } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 import { type ServerBuild } from 'react-router';
+import { prisma } from '#/utils/db.server';
+import { UserStatus } from '@prisma/client';
 
 const MODE = process.env.NODE_ENV;
 const IS_PROD = MODE === 'production';
@@ -26,7 +28,6 @@ const httpServer = http.createServer(app);
 
 const onlineUsers = new Map<string, Set<string>>();
 
-// Your Socket.IO setup remains the same
 const io = new Server(httpServer, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
 });
@@ -35,19 +36,37 @@ io.on('connection', (socket) => {
   console.log('✅ User connected:', socket.id);
   const userId = socket.handshake.auth.userId as string | undefined;
 
-  if (userId) {
-    // If this is the user's first connection, they are now "online"
-    if (!onlineUsers.has(userId)) {
-      onlineUsers.set(userId, new Set());
-      // Broadcast to all other clients that this user is now online
-      io.emit('user.online', { userId });
-      console.log(`User ${userId} came online.`);
-    }
-    // Add the new socket ID to this user's set of connections
-    onlineUsers.get(userId)?.add(socket.id);
-  }
+  socket.on('client.ready.get_users', async () => {
+    console.log(`Server: Received request for user list from ${socket.id}`);
 
-  socket.emit('online.users', Array.from(onlineUsers.keys()));
+    try {
+      // This is the same logic as before, but now it only runs when requested.
+      const onlineUserIds = Array.from(onlineUsers.keys());
+      const userStatuses = await prisma.user.findMany({
+        where: { id: { in: onlineUserIds } },
+        select: { id: true, status: true },
+      });
+      const statusesMap = new Map<string, UserStatus>();
+      userStatuses.forEach((u) => statusesMap.set(u.id, u.status));
+
+      // Emit back to the specific client that asked for it.
+      socket.emit('online.users', {
+        userIds: onlineUserIds,
+        statuses: Object.fromEntries(statusesMap),
+      });
+
+      console.log(
+        `Server: Sent user list to ${socket.id} (${onlineUserIds.length} users)`
+      );
+    } catch (error) {
+      console.error(`Server: Error sending user list to ${socket.id}:`, error);
+      // Send an empty response to prevent client from hanging
+      socket.emit('online.users', {
+        userIds: [],
+        statuses: {},
+      });
+    }
+  });
 
   socket.on('joinRoom', (roomId: string) => {
     socket.join(roomId);
@@ -75,6 +94,24 @@ io.on('connection', (socket) => {
       }
     }
   });
+  if (userId) {
+    (async () => {
+      socket.join(`user:${userId}`);
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { status: true },
+      });
+
+      if (!onlineUsers.has(userId)) {
+        onlineUsers.set(userId, new Set());
+        if (user) {
+          io.emit('user.online', { userId, status: user.status });
+          console.log(`User ${userId} came online.`);
+        }
+      }
+      onlineUsers.get(userId)?.add(socket.id);
+    })();
+  }
 });
 
 // Standard middleware

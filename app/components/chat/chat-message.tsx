@@ -26,6 +26,26 @@ import {
   DialogTrigger,
 } from '#/components/ui/dialog';
 
+// Client-only time formatter to prevent hydration mismatches
+function TimeFormatter({ date }: { date: Date }) {
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  return (
+    <span className="text-xs text-muted-foreground">
+      {/*
+        This is the key change:
+        - Render a placeholder on the server and initial client render.
+        - Render the date-fns formatted time only after hydration.
+        - We also wrap the `date` prop in `new Date()` to ensure it's a valid Date object.
+      */}
+      {isClient ? format(new Date(date), 'p') : '--:-- --'}
+    </span>
+  );
+}
 //replyblock UI
 function QuotedMessage({
   message,
@@ -48,9 +68,7 @@ function QuotedMessage({
             {message.user?.name || 'Unknown User'}
           </p>
 
-          <p className="text-xs text-muted-foreground">
-            {format(new Date(message.createdAt), 'p')}
-          </p>
+          <TimeFormatter date={new Date(message.createdAt)} />
         </div>
         {message.content && (
           <p className="truncate text-muted-foreground">{message.content}</p>
@@ -249,9 +267,7 @@ export function ChatMessage({
           </AvatarFallback>
         </Avatar>
         <p className="font-semibold text-sm">{message.user?.name}</p>
-        <p className="text-xs text-muted-foreground">
-          {format(new Date(message.createdAt), 'p')}
-        </p>
+        <TimeFormatter date={new Date(message.createdAt)} />
       </div>
 
       <div className="pl-11">

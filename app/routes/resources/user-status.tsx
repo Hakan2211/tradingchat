@@ -33,5 +33,5 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { io } = context as { io: Server };
   io.emit('user.status.changed', { userId, status });
 
-  return { ok: true };
+  return { status: 'ok', ok: true };
 }

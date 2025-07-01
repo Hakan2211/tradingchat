@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router';
+import { NavLink } from 'react-router';
 import {
   Eye,
   MessageCircleMore,
@@ -23,7 +23,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '#/components/ui/collapsible';
-import * as React from 'react';
 
 export type NavRoomItem = {
   id: string;
@@ -44,25 +43,13 @@ function RoomIcon({ iconName }: { iconName?: string | null }) {
 }
 
 export function NavRooms({ items }: { items: NavRoomItem[] }) {
-  const location = useLocation();
-  // Helper to check if any chat room link is active, to keep the collapsible open
-  const isSectionActive = React.useMemo(() => {
-    return items.some((item) =>
-      location.pathname.startsWith(`/chat/${item.id}`)
-    );
-  }, [items, location.pathname]);
   // Don't render anything if there are no rooms
   if (!items.length) {
     return null;
   }
-
   return (
     <SidebarMenu className="mt-2">
-      <Collapsible
-        asChild
-        defaultOpen={isSectionActive}
-        className="group/collapsible"
-      >
+      <Collapsible asChild defaultOpen={true} className="group/collapsible">
         <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
           {/* The main trigger for the "Chat Rooms" section */}
           <CollapsibleTrigger asChild>

@@ -3,10 +3,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme {
+/* --------------------------------------------------------------------------------------------------
+@theme caused a hydration mismatch in firefox!!!!!!!! So this is why I set the font in the root!
+----------------------------------------------------------------------------------------------------
+*/
+/* @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif,
     'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-}
+} */
 
 html,
 body {

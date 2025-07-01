@@ -33,23 +33,12 @@ export type NavDmItem = {
 
 export function NavDms({ items }: { items: NavDmItem[] }) {
   const hideFetcher = useFetcher();
-  const location = useLocation();
-
-  const isSectionActive = React.useMemo(() => {
-    return items.some((item) =>
-      location.pathname.startsWith(`/chat/${item.id}`)
-    );
-  }, [items, location.pathname]);
 
   if (!items.length) return null;
 
   return (
     <SidebarMenu className="mt-2">
-      <Collapsible
-        asChild
-        defaultOpen={isSectionActive}
-        className="group/collapsible"
-      >
+      <Collapsible asChild defaultOpen={true} className="group/collapsible">
         <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
           {/* The main trigger for the "Direct Messages" section */}
           <CollapsibleTrigger asChild>

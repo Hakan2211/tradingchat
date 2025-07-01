@@ -1,7 +1,7 @@
 import {
   Outlet,
   useLoaderData,
-  Link,
+  useRevalidator,
   type LoaderFunctionArgs,
 } from 'react-router';
 import { prisma } from '#/utils/db.server';
@@ -12,23 +12,226 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from '#/components/ui/sidebar';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '#/components/ui/breadcrumb';
+import { type Socket, io as socketIo } from 'socket.io-client';
+import React from 'react';
+import { UserStatus } from '@prisma/client';
 
-type Room = {
+type DirectMessageItem = {
   id: string;
-  name?: string | null;
+  name: string;
+  userImage: { id: string } | null;
 };
 
-// --- 1. CORRECTED LOADER ---
-export async function loader({ request }: LoaderFunctionArgs) {
+//SocketProvider and Context
+type SocketContextType = {
+  socket: Socket | null;
+  onlineUserIds: Set<string>;
+  userStatuses: Map<string, UserStatus>;
+  isReady: boolean;
+  directMessages: DirectMessageItem[];
+};
+
+const SocketContext = React.createContext<SocketContextType | null>(null);
+
+export const useSocketContext = () => {
+  const context = React.useContext(SocketContext);
+  // Always return consistent values during SSR
+  if (typeof window === 'undefined' || !context) {
+    return {
+      socket: null,
+      onlineUserIds: new Set<string>(),
+      userStatuses: new Map<string, UserStatus>(),
+      isReady: false,
+      directMessages: [],
+    };
+  }
+
+  return context;
+};
+
+function SocketProvider({
+  user,
+  children,
+  initialDms,
+}: {
+  user: { id: string };
+  children: React.ReactNode;
+  initialDms: DirectMessageItem[];
+}) {
+  const revalidator = useRevalidator();
+  const [socket, setSocket] = React.useState<Socket | null>(null);
+  const [onlineUserIds, setOnlineUserIds] = React.useState<Set<string>>(
+    new Set()
+  );
+  const [userStatuses, setUserStatuses] = React.useState<
+    Map<string, UserStatus>
+  >(new Map());
+
+  const [isReady, setIsReady] = React.useState(false);
+  const [isWaitingForUsers, setIsWaitingForUsers] = React.useState(false);
+
+  const [directMessages, setDirectMessages] =
+    React.useState<DirectMessageItem[]>(initialDms);
+
+  // Sync directMessages with initialDms when they change (after revalidation)
+  React.useEffect(() => {
+    setDirectMessages(initialDms);
+  }, [initialDms]);
+
+  React.useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    const newSocket = socketIo(window.location.origin, {
+      auth: { userId: user.id },
+    });
+    setSocket(newSocket);
+
+    const handleDmActivated = (dmData?: {
+      id: string;
+      name: string;
+      userImage: { id: string } | null;
+    }) => {
+      if (dmData) {
+        // Surgical state update: add the new DM to the list
+        setDirectMessages((prev) => {
+          // Check if this DM is already in the list
+          if (prev.some((dm) => dm.id === dmData.id)) {
+            return prev;
+          }
+          return [...prev, dmData];
+        });
+      } else {
+        // Fallback: if no data provided, use revalidation
+        revalidator.revalidate();
+      }
+    };
+
+    const handleDmHidden = (roomId: string) => {
+      // Surgical state update: remove the DM from the list
+      setDirectMessages((prev) => prev.filter((dm) => dm.id !== roomId));
+    };
+
+    // ----- SETUP FOR GLOBAL LISTENERS -----
+
+    const handleOnlineUsers = (data: {
+      userIds: string[];
+      statuses: Record<string, UserStatus>;
+    }) => {
+      setOnlineUserIds(new Set(data.userIds));
+      setUserStatuses(new Map(Object.entries(data.statuses)));
+      setIsReady(true);
+      setIsWaitingForUsers(false); // Clear the waiting state
+    };
+
+    const handleUserOnline = ({
+      userId,
+      status,
+    }: {
+      userId: string;
+      status: UserStatus;
+    }) => {
+      setOnlineUserIds((prev) => new Set(prev).add(userId));
+      setUserStatuses((prev) => new Map(prev).set(userId, status));
+    };
+    const handleUserOffline = ({ userId }: { userId: string }) => {
+      setOnlineUserIds((prev) => {
+        const newIds = new Set(prev);
+        newIds.delete(userId);
+        return newIds;
+      });
+    };
+
+    const handleStatusChanged = ({
+      userId,
+      status,
+    }: {
+      userId: string;
+      status: UserStatus;
+    }) => {
+      setUserStatuses((prev) => new Map(prev).set(userId, status));
+    };
+
+    // Attach all GLOBAL listeners
+
+    newSocket.on('dm.activated', handleDmActivated);
+    newSocket.on('dm.hidden', handleDmHidden);
+    newSocket.on('online.users', handleOnlineUsers);
+    newSocket.on('user.online', handleUserOnline);
+    newSocket.on('user.offline', handleUserOffline);
+    newSocket.on('user.status.changed', handleStatusChanged);
+
+    // Function to request user list with retry logic
+    const requestUserList = () => {
+      if (isWaitingForUsers) {
+        console.log(
+          'SocketProvider: Already waiting for users, skipping duplicate request'
+        );
+        return;
+      }
+
+      setIsWaitingForUsers(true);
+      newSocket.emit('client.ready.get_users');
+      console.log('SocketProvider: Sent request for user list.');
+    };
+
+    // Initial request
+    requestUserList();
+
+    // Set up heartbeat/retry mechanism
+    const heartbeatInterval = setInterval(() => {
+      if (isWaitingForUsers && !isReady) {
+        console.log(
+          'SocketProvider: Heartbeat timeout - retrying user list request'
+        );
+        requestUserList();
+      }
+    }, 5000); // 5 second timeout
+
+    // ----- CLEANUP FOR GLOBAL LISTENERS -----
+    return () => {
+      clearInterval(heartbeatInterval); // Clear the heartbeat interval
+      newSocket.off('dm.activated', handleDmActivated);
+      newSocket.off('dm.hidden', handleDmHidden);
+      newSocket.off('online.users', handleOnlineUsers);
+      newSocket.off('user.online', handleUserOnline);
+      newSocket.off('user.offline', handleUserOffline);
+      newSocket.off('user.status.changed', handleStatusChanged);
+      newSocket.disconnect();
+      setIsReady(false);
+      setIsWaitingForUsers(false);
+      setSocket(null);
+    };
+  }, [user?.id, revalidator]);
+
+  // Provide a stable context value that doesn't change during SSR
+  const contextValue = React.useMemo(
+    () => ({
+      socket: socket,
+      onlineUserIds: onlineUserIds,
+      userStatuses: userStatuses,
+      isReady: isReady,
+      directMessages: directMessages,
+    }),
+    [socket, onlineUserIds, userStatuses, isReady, directMessages]
+  );
+
+  return (
+    <SocketContext.Provider value={contextValue}>
+      {children}
+    </SocketContext.Provider>
+  );
+}
+
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  console.log('AppLayout loader: Starting...');
   const userId = await requireUserId(request);
+
+  // Extract roomId from the URL path since it's in a child route
+  const url = new URL(request.url);
+  const pathSegments = url.pathname.split('/');
+  const currentRoomId = pathSegments[2] === 'chat' ? pathSegments[3] : null;
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -84,6 +287,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
           userId: userId,
         },
       },
+      OR: [
+        {
+          messages: {
+            some: {},
+          },
+        },
+        ...(currentRoomId ? [{ id: currentRoomId }] : []),
+      ],
     },
     select: {
       id: true,
@@ -93,6 +304,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     },
   });
+
+  console.log('AppLayout loader: Found DMs:', userDms.length);
 
   // 3. Process the user's DMs to get the other participant's info
   const directMessages = userDms.map((room) => {
@@ -104,6 +317,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     };
   });
 
+  console.log('AppLayout loader: Processed DMs:', directMessages.length);
+
   // Pass all the data to the component
   return { user, groupRooms, directMessages };
 }
@@ -113,21 +328,18 @@ export default function AppLayout() {
   const { user, groupRooms, directMessages } = useLoaderData<typeof loader>();
 
   return (
-    <SidebarProvider>
-      <AppSidebar
-        user={user}
-        rooms={groupRooms}
-        directMessages={directMessages}
-      />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            {/* <Separator
+    <SocketProvider user={user} initialDms={directMessages}>
+      <SidebarProvider>
+        <AppSidebar user={user} rooms={groupRooms} />
+        <SidebarInset>
+          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+            <div className="flex items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              {/* <Separator
               orientation="vertical"
               className="mr-2 data-[orientation=vertical]:h-4"
             /> */}
-            {/* <Breadcrumb>
+              {/* <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild>
@@ -140,11 +352,12 @@ export default function AppLayout() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb> */}
-          </div>
-        </header>
+            </div>
+          </header>
 
-        <Outlet />
-      </SidebarInset>
-    </SidebarProvider>
+          <Outlet />
+        </SidebarInset>
+      </SidebarProvider>
+    </SocketProvider>
   );
 }

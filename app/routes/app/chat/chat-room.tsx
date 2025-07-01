@@ -8,7 +8,8 @@ import {
 import { z } from 'zod';
 import { getFormProps, getInputProps, useForm } from '@conform-to/react';
 import { getZodConstraint, parseWithZod } from '@conform-to/zod';
-import { io as socketIo } from 'socket.io-client';
+// import { io as socketIo } from 'socket.io-client';
+import { useSocketContext } from '#/routes/layouts/app-layout';
 import type { Server } from 'socket.io';
 import { prisma } from '#/utils/db.server';
 import { requireUserId } from '#/utils/auth.server';
@@ -38,7 +39,6 @@ import { DateBadge, shouldShowDateBadge } from '#/components/chat/dateBadge';
 import { UserList } from '#/components/chat/userList';
 import { getUserListVisibility } from '#/utils/userlist.server';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserStatus } from '@prisma/client';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
 
 const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 10MB
@@ -404,6 +404,42 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     'A message must have content or an image.'
   );
 
+  const { io } = context as { io: Server };
+  const room = await prisma.room.findUnique({
+    where: { id: roomId },
+    select: { name: true, members: { select: { id: true } } },
+  });
+
+  if (room && room.name.startsWith('dm:')) {
+    // Find the other user in the room
+    const otherMember = room.members.find((member) => member.id !== userId);
+    if (otherMember) {
+      // 1. Un-hide the room for the receiver.
+      await prisma.hiddenRoom.deleteMany({
+        where: {
+          roomId: roomId,
+          userId: otherMember.id,
+        },
+      });
+
+      // 2. Get the sender's info for the DM data
+      const sender = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, image: { select: { id: true } } },
+      });
+
+      // 3. Send the actual DM data to the receiver's client
+      if (sender) {
+        const dmData = {
+          id: roomId,
+          name: sender.name ?? 'Direct Message',
+          userImage: sender.image,
+        };
+        io.to(`user:${otherMember.id}`).emit('dm.activated', dmData);
+      }
+    }
+  }
+
   const newMessage = await prisma.message.create({
     data: {
       content: submission.value.content || undefined,
@@ -436,7 +472,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
   const messageToBroadcast = newMessage;
 
-  const { io } = context as { io: Server };
   io.to(roomId).emit('newMessage', messageToBroadcast);
 
   return submission.reply();
@@ -447,6 +482,8 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 export default function ChatRoom() {
   const { room, user, allUsers, userListVisibility } =
     useLoaderData<typeof loader>();
+  const { socket, onlineUserIds, userStatuses, isReady } = useSocketContext();
+
   const [messages, setMessages] = React.useState<MessageWithUser[]>(
     room.messages
   );
@@ -459,18 +496,6 @@ export default function ChatRoom() {
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [isUsersListVisible, setIsUsersListVisible] =
     React.useState(userListVisibility);
-
-  const [userStatuses, setUserStatuses] = React.useState<
-    Map<string, UserStatus>
-  >(() => {
-    const initialStatuses = new Map<string, UserStatus>();
-    allUsers.forEach((u) => initialStatuses.set(u.id, u.status));
-    return initialStatuses;
-  });
-
-  const [onlineUserIds, setOnlineUserIds] = React.useState<Set<string>>(
-    new Set()
-  );
 
   const userListFetcher = useFetcher<typeof action>();
 
@@ -519,50 +544,21 @@ export default function ChatRoom() {
 
   React.useEffect(() => {
     setMessages(room.messages);
-    const socket = socketIo({ auth: { userId: user.id } });
+    if (!socket) {
+      return;
+    }
     socket.emit('joinRoom', room.id);
 
-    // --- ADD PRESENCE EVENT LISTENERS ---
-    // Listen for the initial list of all online users
-    socket.on('online.users', (userIds: string[]) => {
-      setOnlineUserIds(new Set(userIds));
-    });
-    // Listen for a new user coming online
-    socket.on('user.online', ({ userId: onlineUserId }: { userId: string }) => {
-      setOnlineUserIds((prevIds) => new Set(prevIds).add(onlineUserId));
-    });
-    // Listen for a user going offline
-    socket.on(
-      'user.offline',
-      ({ userId: offlineUserId }: { userId: string }) => {
-        setOnlineUserIds((prevIds) => {
-          const newIds = new Set(prevIds);
-          newIds.delete(offlineUserId);
-          return newIds;
-        });
-      }
-    );
-
-    // --- ADD new listener for status changes ---
-    socket.on(
-      'user.status.changed',
-      ({
-        userId: changedUserId,
-        status,
-      }: {
-        userId: string;
-        status: UserStatus;
-      }) => {
-        setUserStatuses((prevStatuses) => {
-          const newStatuses = new Map(prevStatuses);
-          newStatuses.set(changedUserId, status);
-          return newStatuses;
-        });
-      }
-    );
-
     const handleNewMessage = (newMessage: MessageWithUser) => {
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      // Check if the message is for the current room to prevent cross-talk
+      if (newMessage.roomId === room.id) {
+        setMessages((prevMessages) => {
+          if (prevMessages.some((msg) => msg.id === newMessage.id)) {
+            return prevMessages;
+          }
+          return [...prevMessages, newMessage];
+        });
+      }
     };
     socket.on('newMessage', handleNewMessage);
 
@@ -590,17 +586,14 @@ export default function ChatRoom() {
     socket.on('messageEdited', handleMessageEdited);
 
     return () => {
-      socket.emit('leaveRoom', room.id);
-      socket.off('newMessage', handleNewMessage);
-      socket.off('messageDeleted', handleMessageDeleted);
-      socket.off('messageEdited', handleMessageEdited);
-      socket.off('online.users');
-      socket.off('user.online');
-      socket.off('user.offline');
-      socket.off('user.status.changed');
-      socket.disconnect();
+      if (socket) {
+        socket.emit('leaveRoom', room.id);
+        socket.off('newMessage', handleNewMessage);
+        socket.off('messageDeleted', handleMessageDeleted);
+        socket.off('messageEdited', handleMessageEdited);
+      }
     };
-  }, [room.id, room.messages, user.id]);
+  }, [room.id, socket]);
 
   // --- Image Upload Logic ---
 
@@ -910,12 +903,24 @@ export default function ChatRoom() {
               damping: 20,
             }}
           >
-            <UserList
-              members={allUsers}
-              currentUserId={user.id}
-              onlineUserIds={onlineUserIds}
-              userStatuses={userStatuses}
-            />
+            {!isReady ? (
+              <div className="p-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground"></div>
+                  Loading members...
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground/60">
+                  If this takes too long, try refreshing the page
+                </p>
+              </div>
+            ) : (
+              <UserList
+                members={allUsers}
+                currentUserId={user.id}
+                onlineUserIds={onlineUserIds}
+                userStatuses={userStatuses}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
