@@ -32,6 +32,15 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { io } = context as { io: any };
   io.to(`user:${userId}`).emit('dm.hidden', roomId);
 
+  const mainRoom = await prisma.room.findUnique({
+    where: { name: 'Main' },
+    select: { id: true },
+  });
+
+  if (mainRoom?.id === roomId) {
+    return redirect(`/chat/${mainRoom.id}`);
+  }
+
   // Redirect to the home page after hiding a chat is a safe default.
-  return redirect('/home');
+  return redirect(`/chat/${mainRoom?.id}`);
 }

@@ -4,12 +4,13 @@ import { parseWithZod } from '@conform-to/zod';
 import { requireUserId } from '#/utils/auth.server';
 import { prisma } from '#/utils/db.server';
 import { invariantResponse } from '#/utils/misc';
+import type { Server } from 'socket.io';
 
 const CreateDmSchema = z.object({
   targetUserId: z.string(),
 });
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request, context }: ActionFunctionArgs) {
   const currentUserId = await requireUserId(request);
   const formData = await request.formData();
   const submission = parseWithZod(formData, { schema: CreateDmSchema });
@@ -20,21 +21,26 @@ export async function action({ request }: ActionFunctionArgs) {
   const participants = [currentUserId, targetUserId].sort();
   const dmRoomName = `dm:${participants[0]}:${participants[1]}`;
 
-  const room = await prisma.room.upsert({
-    where: {
-      name: dmRoomName,
+  let room = await prisma.room.findFirst({
+    where: { name: dmRoomName },
+    select: {
+      id: true,
     },
-
-    create: {
-      name: dmRoomName,
-      members: {
-        connect: [{ id: currentUserId }, { id: targetUserId }],
-      },
-    },
-
-    update: {},
-    select: { id: true },
   });
+
+  if (!room) {
+    room = await prisma.room.create({
+      data: {
+        name: dmRoomName,
+        members: {
+          connect: [{ id: currentUserId }, { id: targetUserId }],
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
 
   await prisma.hiddenRoom.deleteMany({
     where: {
@@ -43,5 +49,17 @@ export async function action({ request }: ActionFunctionArgs) {
     },
   });
 
-  return redirect(`/chat/${room.id}`);
+  const otherUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { name: true, image: { select: { id: true } } },
+  });
+
+  // Return JSON to the sender so their UI can update and navigate.
+  return {
+    newDm: {
+      id: room.id,
+      name: otherUser?.name ?? 'Direct Message',
+      userImage: otherUser?.image ?? null,
+    },
+  };
 }

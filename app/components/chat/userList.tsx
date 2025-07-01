@@ -19,7 +19,8 @@ import {
   DropdownMenuSubTrigger,
 } from '#/components/ui/dropdown-menu';
 import { MessageSquare, Circle, User as UserIcon } from 'lucide-react';
-import { Link, useFetcher } from 'react-router';
+import { Link, useFetcher, useNavigate } from 'react-router';
+import { useSocketContext } from '#/routes/layouts/app-layout';
 
 type User = {
   id: string;
@@ -43,7 +44,17 @@ const UserListItem = React.memo(function UserListItem({
 }) {
   const statusFetcher = useFetcher();
   const createDmFetcher = useFetcher();
-
+  const navigate = useNavigate();
+  const { addDmToList } = useSocketContext();
+  React.useEffect(() => {
+    if (createDmFetcher.data?.newDm) {
+      const newDm = createDmFetcher.data.newDm;
+      // 1. Surgically update the sidebar state
+      addDmToList(newDm);
+      // 2. Navigate the user to the new room
+      navigate(`/chat/${newDm.id}`);
+    }
+  }, [createDmFetcher.data, addDmToList, navigate]);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

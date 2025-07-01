@@ -2,13 +2,13 @@ import * as React from 'react';
 import {
   useLoaderData,
   useFetcher,
+  useLocation,
   type LoaderFunctionArgs,
   type ActionFunctionArgs,
 } from 'react-router';
 import { z } from 'zod';
 import { getFormProps, getInputProps, useForm } from '@conform-to/react';
 import { getZodConstraint, parseWithZod } from '@conform-to/zod';
-// import { io as socketIo } from 'socket.io-client';
 import { useSocketContext } from '#/routes/layouts/app-layout';
 import type { Server } from 'socket.io';
 import { prisma } from '#/utils/db.server';
@@ -40,6 +40,7 @@ import { UserList } from '#/components/chat/userList';
 import { getUserListVisibility } from '#/utils/userlist.server';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
+import { toast } from 'sonner';
 
 const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 10MB
 
@@ -158,6 +159,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       },
     },
     orderBy: { name: 'asc' },
+  });
+
+  // Clear unread messages for this room and user
+  await prisma.unreadMessage.deleteMany({
+    where: {
+      userId: userId,
+      roomId: roomId,
+    },
   });
 
   const room = await prisma.room.findUnique({
@@ -410,6 +419,8 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     select: { name: true, members: { select: { id: true } } },
   });
 
+  invariantResponse(room, 'Room not found', { status: 404 });
+
   if (room && room.name.startsWith('dm:')) {
     // Find the other user in the room
     const otherMember = room.members.find((member) => member.id !== userId);
@@ -471,8 +482,37 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   });
 
   const messageToBroadcast = newMessage;
-
   io.to(roomId).emit('newMessage', messageToBroadcast);
+
+  const socketsInRoom = await io.in(roomId).fetchSockets();
+  const activeUserIdsInRoom = new Set(
+    socketsInRoom.map((socket) => socket.handshake.auth.userId as string)
+  );
+
+  // 2. Determine who should get a notification.
+  // Recipients are all room members MINUS the sender AND MINUS anyone actively in the room.
+  const recipientsToNotify = room.members.filter(
+    (member) => member.id !== userId && !activeUserIdsInRoom.has(member.id)
+  );
+
+  // 3. Loop through only the recipients who are NOT in the room to create/update their unread records.
+  for (const recipient of recipientsToNotify) {
+    const unreadRecord = await prisma.unreadMessage.upsert({
+      where: { userId_roomId: { userId: recipient.id, roomId } },
+      create: { userId: recipient.id, roomId, count: 1 },
+      update: { count: { increment: 1 } },
+      select: { count: true },
+    });
+
+    // 4. Emit a notification event ONLY to that specific user's personal channel.
+    io.to(`user:${recipient.id}`).emit('notification', {
+      roomId: roomId,
+      unreadCount: unreadRecord.count,
+      sender: {
+        name: newMessage.user?.name ?? 'Someone',
+      },
+    });
+  }
 
   return submission.reply();
 }

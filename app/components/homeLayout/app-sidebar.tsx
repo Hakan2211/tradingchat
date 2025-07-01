@@ -18,6 +18,7 @@ import { NavLink } from 'react-router';
 import { Bookmark } from 'lucide-react';
 import { NavDms, type NavDmItem } from '#/components/homeLayout/nav-dms';
 import { useSocketContext } from '#/routes/layouts/app-layout';
+import { Badge } from '#/components/ui/badge';
 
 type AppSidebarProps = {
   user: {
@@ -33,16 +34,23 @@ type AppSidebarProps = {
   };
 
   rooms: NavRoomItem[];
+  directMessages: NavDmItem[];
 };
 
 export function AppSidebar({
   user,
   rooms,
-
+  directMessages,
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const requestInfo = useRequestInfo();
-  const { directMessages } = useSocketContext();
+  const { directMessages: socketDms, unreadCounts } = useSocketContext();
+
+  const [isClient, setIsClient] = React.useState(false);
+  React.useEffect(() => {
+    // This runs only on the client, after the initial render.
+    setIsClient(true);
+  }, []);
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -51,8 +59,11 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarSeparator />
       <SidebarContent>
-        <NavRooms items={rooms} />
-        <NavDms items={directMessages} />
+        <NavRooms items={rooms} unreadCounts={unreadCounts} />
+        <NavDms
+          items={isClient ? socketDms : directMessages}
+          unreadCounts={unreadCounts}
+        />
         <SidebarMenu>
           <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
             <NavLink to="/bookmarks" end>

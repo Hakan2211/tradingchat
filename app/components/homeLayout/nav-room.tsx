@@ -23,6 +23,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '#/components/ui/collapsible';
+import { Badge } from '#/components/ui/badge';
 
 export type NavRoomItem = {
   id: string;
@@ -42,8 +43,13 @@ function RoomIcon({ iconName }: { iconName?: string | null }) {
   return IconComponent ? <IconComponent /> : <Hash className="size-4" />;
 }
 
-export function NavRooms({ items }: { items: NavRoomItem[] }) {
-  // Don't render anything if there are no rooms
+export function NavRooms({
+  items,
+  unreadCounts,
+}: {
+  items: NavRoomItem[];
+  unreadCounts: Record<string, number>;
+}) {
   if (!items.length) {
     return null;
   }
@@ -65,21 +71,35 @@ export function NavRooms({ items }: { items: NavRoomItem[] }) {
           {/* The content that expands/collapses */}
           <CollapsibleContent>
             <SidebarMenuSub>
-              {items.map((item) => (
-                <SidebarMenuSubItem key={item.id}>
-                  <NavLink to={`/chat/${item.id}`} end>
-                    {({ isActive }) => (
-                      <SidebarMenuSubButton asChild isActive={isActive}>
-                        <div className="flex items-center gap-2">
-                          {/* Render our dynamic icon component */}
-                          <RoomIcon iconName={item.icon} />
-                          <span className="capitalize">{item.name}</span>
-                        </div>
-                      </SidebarMenuSubButton>
-                    )}
-                  </NavLink>
-                </SidebarMenuSubItem>
-              ))}
+              {items.map((item) => {
+                const unreadCount = unreadCounts[item.id] || 0;
+
+                return (
+                  <SidebarMenuSubItem
+                    className="group flex items-center justify-between"
+                    key={item.id}
+                  >
+                    <NavLink className="flex-grow" to={`/chat/${item.id}`} end>
+                      {({ isActive }) => (
+                        <SidebarMenuSubButton asChild isActive={isActive}>
+                          <div className="flex w-full items-center justify-between">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              {/* Render our dynamic icon component */}
+                              <RoomIcon iconName={item.icon} />
+                              <span className="capitalize">{item.name}</span>
+                            </div>
+                            {unreadCount > 0 && (
+                              <Badge variant="outline" className="ml-2">
+                                {unreadCount}
+                              </Badge>
+                            )}
+                          </div>
+                        </SidebarMenuSubButton>
+                      )}
+                    </NavLink>
+                  </SidebarMenuSubItem>
+                );
+              })}
             </SidebarMenuSub>
           </CollapsibleContent>
         </SidebarMenuItem>

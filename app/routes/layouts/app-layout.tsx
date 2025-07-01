@@ -2,6 +2,8 @@ import {
   Outlet,
   useLoaderData,
   useRevalidator,
+  useParams,
+  useLocation,
   type LoaderFunctionArgs,
 } from 'react-router';
 import { prisma } from '#/utils/db.server';
@@ -15,6 +17,7 @@ import {
 import { type Socket, io as socketIo } from 'socket.io-client';
 import React from 'react';
 import { UserStatus } from '@prisma/client';
+import { toast } from 'sonner';
 
 type DirectMessageItem = {
   id: string;
@@ -29,6 +32,8 @@ type SocketContextType = {
   userStatuses: Map<string, UserStatus>;
   isReady: boolean;
   directMessages: DirectMessageItem[];
+  unreadCounts: Record<string, number>;
+  addDmToList: (dm: DirectMessageItem) => void;
 };
 
 const SocketContext = React.createContext<SocketContextType | null>(null);
@@ -43,6 +48,8 @@ export const useSocketContext = () => {
       userStatuses: new Map<string, UserStatus>(),
       isReady: false,
       directMessages: [],
+      unreadCounts: {},
+      addDmToList: () => {}, // No-op function for SSR
     };
   }
 
@@ -53,10 +60,12 @@ function SocketProvider({
   user,
   children,
   initialDms,
+  initialUnreadCounts,
 }: {
   user: { id: string };
   children: React.ReactNode;
   initialDms: DirectMessageItem[];
+  initialUnreadCounts: Record<string, number>;
 }) {
   const revalidator = useRevalidator();
   const [socket, setSocket] = React.useState<Socket | null>(null);
@@ -73,10 +82,24 @@ function SocketProvider({
   const [directMessages, setDirectMessages] =
     React.useState<DirectMessageItem[]>(initialDms);
 
-  // Sync directMessages with initialDms when they change (after revalidation)
+  const [unreadCounts, setUnreadCounts] =
+    React.useState<Record<string, number>>(initialUnreadCounts);
+
+  const params = useParams();
+  const location = useLocation();
+  const currentRoomIdRef = React.useRef(params.roomId);
+
+  // Effect to clear badge count when user enters a room
   React.useEffect(() => {
-    setDirectMessages(initialDms);
-  }, [initialDms]);
+    currentRoomIdRef.current = params.roomId;
+    if (params.roomId && unreadCounts[params.roomId]) {
+      setUnreadCounts((prev) => {
+        const newCounts = { ...prev };
+        delete newCounts[params.roomId ?? ''];
+        return newCounts;
+      });
+    }
+  }, [params.roomId, location.pathname]);
 
   React.useEffect(() => {
     if (!user?.id) {
@@ -153,6 +176,48 @@ function SocketProvider({
       setUserStatuses((prev) => new Map(prev).set(userId, status));
     };
 
+    const handleNotification = (data: {
+      roomId: string;
+      unreadCount: number;
+      sender: { name: string };
+    }) => {
+      const { roomId, unreadCount, sender } = data;
+
+      if (roomId !== currentRoomIdRef.current) {
+        setUnreadCounts((prev) => ({ ...prev, [roomId]: unreadCount }));
+
+        toast.info(`New message from ${sender.name}`, {
+          id: `new-message-${roomId}`,
+        });
+
+        if (document.hidden) {
+          document.title = `(1) New Message! | TradingChat`;
+        }
+      }
+      // const currentRoomId = params.roomId;
+      // const isInSameRoom = roomId === currentRoomId;
+      // if (unreadCount === 0) {
+
+      //   setUnreadCounts((prev) => {
+      //     const newCounts = { ...prev };
+      //     delete newCounts[roomId];
+      //     return newCounts;
+      //   });
+      // } else if (!isInSameRoom) {
+
+      //   setUnreadCounts((prev) => ({ ...prev, [roomId]: unreadCount }));
+
+      //   toast.info(`New message from ${sender.name}`, {
+      //     id: `new-message-${roomId}`,
+      //   });
+
+      //   if (document.hidden) {
+      //     document.title = `(1) New Message! | TradingChat`;
+
+      //   }
+      // }
+    };
+
     // Attach all GLOBAL listeners
 
     newSocket.on('dm.activated', handleDmActivated);
@@ -161,6 +226,7 @@ function SocketProvider({
     newSocket.on('user.online', handleUserOnline);
     newSocket.on('user.offline', handleUserOffline);
     newSocket.on('user.status.changed', handleStatusChanged);
+    newSocket.on('notification', handleNotification);
 
     // Function to request user list with retry logic
     const requestUserList = () => {
@@ -198,12 +264,23 @@ function SocketProvider({
       newSocket.off('user.online', handleUserOnline);
       newSocket.off('user.offline', handleUserOffline);
       newSocket.off('user.status.changed', handleStatusChanged);
+      newSocket.off('notification', handleNotification);
       newSocket.disconnect();
       setIsReady(false);
       setIsWaitingForUsers(false);
       setSocket(null);
     };
   }, [user?.id, revalidator]);
+
+  const addDmToList = React.useCallback((dm: DirectMessageItem) => {
+    setDirectMessages((prev) => {
+      // Prevent duplicates, just in case
+      if (prev.some((existingDm) => existingDm.id === dm.id)) {
+        return prev;
+      }
+      return [...prev, dm];
+    });
+  }, []);
 
   // Provide a stable context value that doesn't change during SSR
   const contextValue = React.useMemo(
@@ -213,8 +290,18 @@ function SocketProvider({
       userStatuses: userStatuses,
       isReady: isReady,
       directMessages: directMessages,
+      unreadCounts: unreadCounts,
+      addDmToList,
     }),
-    [socket, onlineUserIds, userStatuses, isReady, directMessages]
+    [
+      socket,
+      onlineUserIds,
+      userStatuses,
+      isReady,
+      directMessages,
+      unreadCounts,
+      addDmToList,
+    ]
   );
 
   return (
@@ -305,6 +392,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     },
   });
 
+  const unreadMessages = await prisma.unreadMessage.findMany({
+    where: { userId },
+    select: { roomId: true, count: true },
+  });
+
+  const unreadCounts = Object.fromEntries(
+    unreadMessages.map((um) => [um.roomId, um.count])
+  );
+
   console.log('AppLayout loader: Found DMs:', userDms.length);
 
   // 3. Process the user's DMs to get the other participant's info
@@ -320,17 +416,26 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   console.log('AppLayout loader: Processed DMs:', directMessages.length);
 
   // Pass all the data to the component
-  return { user, groupRooms, directMessages };
+  return { user, groupRooms, directMessages, unreadCounts };
 }
 
 // --- 2. LAYOUT COMPONENT (No changes needed here) ---
 export default function AppLayout() {
-  const { user, groupRooms, directMessages } = useLoaderData<typeof loader>();
+  const { user, groupRooms, directMessages, unreadCounts } =
+    useLoaderData<typeof loader>();
 
   return (
-    <SocketProvider user={user} initialDms={directMessages}>
+    <SocketProvider
+      user={user}
+      initialDms={directMessages}
+      initialUnreadCounts={unreadCounts}
+    >
       <SidebarProvider>
-        <AppSidebar user={user} rooms={groupRooms} />
+        <AppSidebar
+          user={user}
+          rooms={groupRooms}
+          directMessages={directMessages}
+        />
         <SidebarInset>
           <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
             <div className="flex items-center gap-2 px-4">
