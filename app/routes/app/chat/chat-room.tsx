@@ -237,35 +237,34 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     maxFileSize: MAX_CHAT_IMAGE_SIZE,
   });
 
-  // Check for an uploaded image
-  const imageFile = formData.get('chatImage') as FileUpload | string | null;
-  let newImageRecord = null;
+  const intent = formData.get('intent');
 
+  const imageFile = formData.get('chatImage') as FileUpload | string | null;
+
+  let imageCreateData: {
+    contentType: string;
+    objectKey: string;
+    altText: string;
+  } | null = null;
+
+  // 1. Prepare the image data, but DON'T create the DB record yet.
   if (imageFile && typeof imageFile !== 'string' && imageFile.size > 0) {
-    // 1. Process with Sharp (you already have this)
     const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
     const { data: optimizedBuffer, contentType } = await processImage(
       imageBuffer
     );
-
-    // 2. Upload to R2
     const { objectKey } = await uploadImageToR2(
       optimizedBuffer,
       contentType,
       userId
     );
 
-    // 3. Create the image record in Prisma
-    newImageRecord = await prisma.chatImage.create({
-      data: {
-        contentType,
-        objectKey,
-        altText: imageFile.name,
-      },
-    });
+    imageCreateData = {
+      contentType,
+      objectKey,
+      altText: imageFile.name,
+    };
   }
-
-  const intent = formData.get('intent');
 
   // --- DELETE INTENT LOGIC ---
   if (intent === 'deleteMessage') {
@@ -301,44 +300,51 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     if (hasReplies) {
       // --- SOFT DELETE PATH ---
       // We still delete the image from R2, as the message is effectively gone.
-      const [updatedMessage] = await Promise.all([
-        prisma.$transaction(async (tx) => {
-          // First, delete the ChatImage record if it exists
-          if (message.image) {
-            await tx.chatImage.delete({
-              where: { id: message.image.id },
-            });
-          }
+      const updatedMessage = await prisma.$transaction(async (tx) => {
+        // Step 1: Update the message to perform the soft delete AND sever the link to the image.
+        const msgUpdate = await tx.message.update({
+          where: { id: messageId },
+          data: {
+            content: '[message deleted]',
+            isDeleted: true,
+            userId: null,
+          },
+          select: {
+            id: true,
+            content: true,
+            isDeleted: true,
+            image: true,
+            user: true,
+          },
+        });
 
-          // Then update the message
-          return tx.message.update({
-            where: { id: messageId },
-            data: {
-              content: '[message deleted]',
-              isDeleted: true,
-              userId: null,
-            },
-            select: {
-              id: true,
-              content: true,
-              isDeleted: true,
-            },
+        // Step 2: Now that the link is broken, safely delete the ChatImage record.
+        if (message.image) {
+          await tx.chatImage.delete({
+            where: { id: message.image.id },
           });
-        }),
-        objectKeyToDelete
-          ? deleteImageFromR2(objectKeyToDelete)
-          : Promise.resolve(),
-      ]);
+        }
+
+        return msgUpdate;
+      });
+
+      // 2. AFTER the database transaction succeeds, delete the file from R2.
+      if (objectKeyToDelete) {
+        await deleteImageFromR2(objectKeyToDelete);
+      }
+
       io.to(roomId).emit('messageEdited', updatedMessage);
     } else {
-      // --- HARD DELETE PATH ---
-      // Here we delete the message and the R2 object.
-      await Promise.all([
-        prisma.message.delete({ where: { id: messageId } }),
-        objectKeyToDelete
-          ? deleteImageFromR2(objectKeyToDelete)
-          : Promise.resolve(),
-      ]);
+      // --- HARD DELETE PATH (This was already correct) ---
+      // The `onDelete: Cascade` in your schema handles this case correctly.
+      // When the message is deleted, Prisma tells the DB to also delete the related ChatImage.
+      await prisma.message.delete({ where: { id: messageId } });
+
+      // Delete from R2 after the database operation is successful.
+      if (objectKeyToDelete) {
+        await deleteImageFromR2(objectKeyToDelete);
+      }
+
       io.to(roomId).emit('messageDeleted', { messageId });
     }
 
@@ -409,7 +415,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   }
 
   invariantResponse(
-    submission.value.content || newImageRecord,
+    submission.value.content || imageCreateData,
     'A message must have content or an image.'
   );
 
@@ -457,7 +463,13 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       roomId,
       userId,
       replyToId: submission.value.replyToId,
-      imageId: newImageRecord?.id,
+      // Use a nested 'create' if we have image data.
+      // This creates BOTH records and links them automatically.
+      ...(imageCreateData && {
+        image: {
+          create: imageCreateData,
+        },
+      }),
     },
     select: {
       id: true,
@@ -480,7 +492,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       bookmarks: true,
     },
   });
-
   const messageToBroadcast = newMessage;
   io.to(roomId).emit('newMessage', messageToBroadcast);
 
@@ -615,9 +626,7 @@ export default function ChatRoom() {
     }) => {
       setMessages((prevMessages) =>
         prevMessages.map((msg) =>
-          msg.id === updatedMessage.id
-            ? { ...msg, content: updatedMessage.content }
-            : msg
+          msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
         )
       );
       // Optional: close the edit form on other clients if they were also editing it
@@ -822,7 +831,7 @@ export default function ChatRoom() {
                   {/* 3. Fallback for deleted messages */}
                   {!replyingTo.content && !replyingTo.image && (
                     <p className="truncate text-muted-foreground/80 italic">
-                      [message deleted]
+                      Message/Image was deleted
                     </p>
                   )}
                 </div>

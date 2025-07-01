@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '#/components/ui/dialog';
+import { DeletedMessage } from './deleted-message';
 
 // Client-only time formatter to prevent hydration mismatches
 function TimeFormatter({ date }: { date: Date }) {
@@ -242,13 +243,7 @@ export function ChatMessage({
   }
 
   if (message.isDeleted) {
-    return (
-      <div className="pl-11">
-        <div className="flex items-center gap-2 italic text-muted-foreground text-sm">
-          <p>{message.content || '[message deleted]'}</p>
-        </div>
-      </div>
-    );
+    return <DeletedMessage />;
   }
 
   return (
