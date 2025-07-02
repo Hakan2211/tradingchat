@@ -26,27 +26,8 @@ import {
   DialogTrigger,
 } from '#/components/ui/dialog';
 import { DeletedMessage } from './deleted-message';
+import { HydratedDate } from './dateBadge';
 
-// Client-only time formatter to prevent hydration mismatches
-function TimeFormatter({ date }: { date: Date }) {
-  const [isClient, setIsClient] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  return (
-    <span className="text-xs text-muted-foreground">
-      {/*
-        This is the key change:
-        - Render a placeholder on the server and initial client render.
-        - Render the date-fns formatted time only after hydration.
-        - We also wrap the `date` prop in `new Date()` to ensure it's a valid Date object.
-      */}
-      {isClient ? format(new Date(date), 'p') : '--:-- --'}
-    </span>
-  );
-}
 //replyblock UI
 function QuotedMessage({
   message,
@@ -69,7 +50,12 @@ function QuotedMessage({
             {message.user?.name || 'Unknown User'}
           </p>
 
-          <TimeFormatter date={new Date(message.createdAt)} />
+          <HydratedDate
+            date={new Date(message.createdAt)}
+            formatStr="p"
+            className="text-xs text-muted-foreground"
+            fallback="--:-- --"
+          />
         </div>
         {message.content && (
           <p className="truncate text-muted-foreground">{message.content}</p>
@@ -235,12 +221,10 @@ export function ChatMessage({
 
   const isEditing = editingMessageId === message.id;
 
-  const isBookmarkedInitially = message.bookmarks.length > 0;
-  let isBookmarked = isBookmarkedInitially;
-  // If the fetcher is submitting for THIS message, use its state instead.
-  if (bookmarkFetcher.formData?.get('messageId') === message.id) {
-    isBookmarked = bookmarkFetcher.formData.get('intent') === 'toggleBookmark';
-  }
+  const isBookmarked = message.bookmarks.length > 0;
+  const isOptimistic =
+    bookmarkFetcher.formData?.get('messageId') === message.id;
+  const displayAsBookmarked = isOptimistic ? !isBookmarked : isBookmarked;
 
   if (message.isDeleted) {
     return <DeletedMessage />;
@@ -262,7 +246,12 @@ export function ChatMessage({
           </AvatarFallback>
         </Avatar>
         <p className="font-semibold text-sm">{message.user?.name}</p>
-        <TimeFormatter date={new Date(message.createdAt)} />
+        <HydratedDate
+          date={new Date(message.createdAt)}
+          formatStr="p"
+          className="text-xs text-muted-foreground"
+          fallback="--:-- --"
+        />
       </div>
 
       <div className="pl-11">
@@ -347,7 +336,7 @@ export function ChatMessage({
                   }}
                   canEdit={showEditButton}
                   onEdit={() => onStartEdit(message.id)}
-                  isBookmarked={isBookmarked}
+                  isBookmarked={displayAsBookmarked}
                   onBookmarkToggle={() => {
                     bookmarkFetcher.submit(
                       { intent: 'toggleBookmark', messageId: message.id },

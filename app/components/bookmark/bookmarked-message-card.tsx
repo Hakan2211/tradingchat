@@ -19,37 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '#/components/ui/dialog';
-import * as React from 'react';
-
-// Client-only date formatter to prevent hydration mismatches
-function BookmarkDateFormatter({ date }: { date: Date }) {
-  const [isClient, setIsClient] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // During SSR, use a stable format
-  if (!isClient) {
-    return (
-      <span className="text-sm text-muted-foreground">
-        Bookmarked on{' '}
-        {date.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        })}
-      </span>
-    );
-  }
-
-  // On client, use date-fns for better formatting
-  return (
-    <span className="text-sm text-muted-foreground">
-      Bookmarked on {format(date, 'MMM d, yyyy')}
-    </span>
-  );
-}
+import { HydratedDate } from '../chat/dateBadge';
 
 type BookmarkedMessageCardProps = {
   bookmark: {
@@ -103,7 +73,13 @@ export function BookmarkedMessageCard({
         </Avatar>
         <div className="flex-1">
           <p className="font-semibold">{message.user?.name}</p>
-          <BookmarkDateFormatter date={new Date(bookmark.createdAt)} />
+          <HydratedDate
+            date={new Date(bookmark.createdAt)}
+            formatStr="MMM d, yyyy"
+            className="text-sm text-muted-foreground"
+            prefix="Bookmarked on "
+            fallback={null}
+          />
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-4 pt-0">

@@ -711,6 +711,32 @@ export default function ChatRoom() {
     }
   }, [messageFetcher.state, messageFetcher.data, setReplyingTo]);
 
+  // --- Bookmark Update Logic ---
+  React.useEffect(() => {
+    if (
+      bookmarkFetcher.state === 'idle' &&
+      bookmarkFetcher.data?.status === 'success' &&
+      (bookmarkFetcher.data as any)?.toggledMessageId
+    ) {
+      const messageId = (bookmarkFetcher.data as any).toggledMessageId;
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) => {
+          if (msg.id === messageId) {
+            // Toggle the bookmark state for this message
+            const hasBookmark = msg.bookmarks.length > 0;
+            return {
+              ...msg,
+              bookmarks: hasBookmark
+                ? []
+                : [{ id: 'temp', userId: user.id, messageId: msg.id }],
+            };
+          }
+          return msg;
+        })
+      );
+    }
+  }, [bookmarkFetcher.state, bookmarkFetcher.data, user.id]);
+
   const isDm = room.name.startsWith('dm:');
   let headerTitle: string;
   let headerIcon: React.ReactNode;

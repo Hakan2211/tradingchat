@@ -18,7 +18,7 @@ import { NavLink } from 'react-router';
 import { Bookmark } from 'lucide-react';
 import { NavDms, type NavDmItem } from '#/components/homeLayout/nav-dms';
 import { useSocketContext } from '#/routes/layouts/app-layout';
-import { Badge } from '#/components/ui/badge';
+import { useHydrated } from 'remix-utils/use-hydrated';
 
 type AppSidebarProps = {
   user: {
@@ -45,12 +45,7 @@ export function AppSidebar({
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const requestInfo = useRequestInfo();
   const { directMessages: socketDms, unreadCounts } = useSocketContext();
-
-  const [isClient, setIsClient] = React.useState(false);
-  React.useEffect(() => {
-    // This runs only on the client, after the initial render.
-    setIsClient(true);
-  }, []);
+  const isHydrated = useHydrated();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -61,7 +56,7 @@ export function AppSidebar({
       <SidebarContent>
         <NavRooms items={rooms} unreadCounts={unreadCounts} />
         <NavDms
-          items={isClient ? socketDms : directMessages}
+          items={isHydrated ? socketDms : directMessages}
           unreadCounts={unreadCounts}
         />
         <SidebarMenu>
