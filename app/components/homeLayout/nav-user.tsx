@@ -53,7 +53,7 @@ export function NavUser({ user }: NavUserProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="lg" className="w-full">
-                <Avatar className="size-8 aspect-square rounded-lg cursor-pointer">
+                <Avatar className="size-9 aspect-square rounded-lg cursor-pointer">
                   <AvatarImage
                     src={
                       user.image?.id
@@ -64,14 +64,12 @@ export function NavUser({ user }: NavUserProps) {
                     width={32}
                     height={32}
                   />
-                  <AvatarFallback className="rounded-lg aspect-square bg-emerald-700 text-primary-foreground">
+                  <AvatarFallback className="rounded-lg size-9 aspect-square bg-emerald-700 text-primary-foreground">
                     {userInitial}
                   </AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">
-                    {user.name ?? 'User'}
-                  </span>
+                <div className="grid flex-1 text-left leading-tight tracking-normal">
+                  <span className="truncate">{user.name ?? 'User'}</span>
                   <span className="truncate text-xs">{user.email}</span>
                 </div>
               </SidebarMenuButton>

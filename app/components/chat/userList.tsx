@@ -61,12 +61,12 @@ const UserListItem = React.memo(function UserListItem({
         {/* This is the same button UI as before */}
         <button className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted/50">
           <div className="relative">
-            <Avatar className="h-9 w-9">
+            <Avatar className="size-9 aspect-square rounded-lg">
               <AvatarImage
                 src={user.image ? getUserImagePath(user.image.id) : undefined}
                 alt={user.name ?? ''}
               />
-              <AvatarFallback>
+              <AvatarFallback className="rounded-lg size-9 aspect-square text-primary-foreground">
                 {user.name?.[0]?.toUpperCase() ?? 'U'}
               </AvatarFallback>
             </Avatar>
@@ -106,11 +106,11 @@ const UserListItem = React.memo(function UserListItem({
       <DropdownMenuContent className="w-56" side="left" align="start">
         {/* User Info Header */}
         <DropdownMenuLabel className="flex items-center gap-2">
-          <Avatar className="h-8 w-8">
+          <Avatar className="size-9 aspect-square rounded-lg">
             <AvatarImage
               src={user.image ? getUserImagePath(user.image.id) : undefined}
             />
-            <AvatarFallback>
+            <AvatarFallback className="rounded-lg size-9 aspect-square  text-primary-foreground">
               {user.name?.[0]?.toUpperCase() ?? 'U'}
             </AvatarFallback>
           </Avatar>
@@ -241,15 +241,15 @@ export function UserList({
   return (
     <div className="flex h-full flex-col">
       <header className="flex-none border-b p-4">
-        <h2 className="text-md font-semibold">
+        <h2 className="text-lg font-semibold">
           Members — {onlineCount} Online
         </h2>
       </header>
       <ScrollArea className="flex-1">
         <div className="space-y-1 p-2">
           {groupedUsers.admins.length > 0 && (
-            <div className="mb-4">
-              <h3 className="px-2 text-xs font-semibold uppercase text-muted-foreground">
+            <div className="mb-2">
+              <h3 className="p-2 text-xs font-semibold uppercase text-muted-foreground">
                 Admins
               </h3>
               {groupedUsers.admins.map((user) => (
@@ -265,7 +265,7 @@ export function UserList({
           )}
           {groupedUsers.moderators.length > 0 && (
             <div className="mb-4">
-              <h3 className="px-2 text-xs font-semibold uppercase text-muted-foreground">
+              <h3 className="p-2 text-xs font-semibold uppercase text-muted-foreground">
                 Moderators
               </h3>
               {groupedUsers.moderators.map((user) => (
@@ -281,7 +281,7 @@ export function UserList({
           )}
           {groupedUsers.online.length > 0 && (
             <div>
-              <h3 className="px-2 text-xs font-semibold uppercase text-muted-foreground">
+              <h3 className="p-2 text-xs font-semibold uppercase text-muted-foreground">
                 Online
               </h3>
               {groupedUsers.online.map((user) => (

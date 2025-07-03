@@ -2,7 +2,6 @@ import * as React from 'react';
 import {
   useLoaderData,
   useFetcher,
-  useLocation,
   type LoaderFunctionArgs,
   type ActionFunctionArgs,
 } from 'react-router';
@@ -40,9 +39,11 @@ import { UserList } from '#/components/chat/userList';
 import { getUserListVisibility } from '#/utils/userlist.server';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
-import { toast } from 'sonner';
+import { useInfiniteMessages } from '#/hooks/use-infinite-messages';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 10MB
+const MESSAGE_PAGE_SIZE = 50; //for virtualization
 
 type MessageWithUser = {
   id: string;
@@ -95,7 +96,9 @@ function RoomIcon({ iconName }: { iconName?: string | null }) {
 const MessageSchema = z.object({
   content: z
     .string()
+    .trim()
     .max(1000, 'Message cannot be more than 1000 characters')
+    .transform((val) => (val === '' ? undefined : val))
     .optional(),
   replyToId: z.string().optional(),
 });
@@ -115,6 +118,49 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const { roomId } = params;
   invariantResponse(roomId, 'Room ID is required', { status: 404 });
 
+  //--------------------------Virtualized Messages---------------------------------------------------------------
+  const url = new URL(request.url);
+  const cursor = url.searchParams.get('cursor');
+
+  const messageQuery = {
+    where: { roomId },
+    select: {
+      id: true,
+      content: true,
+      createdAt: true,
+      roomId: true,
+      isDeleted: true,
+      bookmarks: {
+        where: { userId },
+        select: { id: true, userId: true, messageId: true },
+      },
+      image: { select: { id: true, altText: true } },
+      user: {
+        select: { id: true, name: true, image: { select: { id: true } } },
+      },
+      replyTo: {
+        select: {
+          content: true,
+          user: { select: { name: true } },
+          createdAt: true,
+          image: { select: { id: true, altText: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: MESSAGE_PAGE_SIZE,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+  };
+
+  const messages = await prisma.message.findMany(messageQuery as any);
+  const hasMore = messages.length === MESSAGE_PAGE_SIZE;
+  messages.reverse();
+
+  if (cursor) {
+    return { messages, hasMore };
+  }
+
+  //--------------------------User List-------------------------------------------------------------------------------
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
@@ -182,49 +228,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           image: { select: { id: true } },
         },
       },
-      messages: {
-        select: {
-          id: true,
-          content: true,
-          createdAt: true,
-          roomId: true,
-          isDeleted: true,
-          bookmarks: {
-            where: {
-              userId: userId,
-            },
-            select: {
-              id: true,
-              userId: true,
-              messageId: true,
-            },
-          },
-          image: {
-            select: { id: true, altText: true },
-          },
-          user: {
-            select: { id: true, name: true, image: { select: { id: true } } },
-          },
-          replyTo: {
-            select: {
-              content: true,
-              user: {
-                select: { name: true },
-              },
-              createdAt: true,
-              image: { select: { id: true, altText: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
-      },
     },
   });
   invariantResponse(room, 'Room not found', { status: 404 });
 
   const userListVisibility = await getUserListVisibility(request);
 
-  return { room, user, allUsers, userListVisibility };
+  return { room, user, allUsers, userListVisibility, messages, hasMore };
 }
 
 //----------------------Action Function-------------------------------------------------------------------------------
@@ -531,13 +541,26 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 //----------------------Component Function UI----------------------------------------------------------------------
 
 export default function ChatRoom() {
-  const { room, user, allUsers, userListVisibility } =
+  const { room, user, allUsers, userListVisibility, ...initialMessagesData } =
     useLoaderData<typeof loader>();
-  const { socket, onlineUserIds, userStatuses, isReady } = useSocketContext();
 
-  const [messages, setMessages] = React.useState<MessageWithUser[]>(
-    room.messages
-  );
+  // Early returns for safety
+  if (!room || !user) {
+    return <div>Loading...</div>;
+  }
+
+  const { socket, onlineUserIds, userStatuses, isReady } = useSocketContext();
+  const {
+    messages,
+    setMessages,
+    hasMore,
+    isLoading,
+    loadMore,
+    addMessage,
+    deleteMessage,
+    editMessage,
+  } = useInfiniteMessages(initialMessagesData);
+
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(
     null
   );
@@ -557,15 +580,106 @@ export default function ChatRoom() {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const imageInputRef = React.useRef<HTMLInputElement>(null);
   const stagedFileRef = React.useRef<File | null>(null);
-  // Ref for the scroll area's viewport
+  // Ref for the scroll viewport
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
 
-  const userListWidth = '16rem';
-  const animationTransition = {
-    type: 'spring' as const,
-    stiffness: 150,
-    damping: 20,
-  };
+  // --- Virtualizer Setup ---
+  const rowVirtualizer = useVirtualizer({
+    count: hasMore ? messages.length + 1 : messages.length,
+    getScrollElement: () => scrollViewportRef.current,
+    estimateSize: () => 100,
+    overscan: 5,
+  });
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
+  // --- Fix #2: Preventing the Scroll Jump ---
+  const prevMessagesLengthRef = React.useRef(messages.length);
+  React.useEffect(() => {
+    const viewport = scrollViewportRef.current;
+    if (viewport && messages.length > prevMessagesLengthRef.current) {
+      const oldScrollHeight = viewport.scrollHeight;
+      const oldScrollTop = viewport.scrollTop;
+
+      requestAnimationFrame(() => {
+        const newScrollHeight = viewport.scrollHeight;
+        viewport.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+      });
+    }
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages]);
+
+  // --- Smooth scroll to bottom for new messages ---
+  const isUserNearBottomRef = React.useRef(true);
+
+  React.useEffect(() => {
+    const viewport = scrollViewportRef.current;
+    if (!viewport) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = viewport;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      isUserNearBottomRef.current = distanceFromBottom < 100; // Within 100px of bottom
+    };
+
+    viewport.addEventListener('scroll', handleScroll);
+    return () => viewport.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Scroll to bottom when new messages arrive (if user was near bottom)
+  React.useEffect(() => {
+    if (messages.length === 0) return;
+
+    const viewport = scrollViewportRef.current;
+    if (viewport && isUserNearBottomRef.current) {
+      requestAnimationFrame(() => {
+        viewport.scrollTo({
+          top: viewport.scrollHeight,
+          behavior: 'smooth',
+        });
+      });
+    }
+  }, [messages.length]);
+
+  // Scroll to bottom on initial load and when room changes
+  React.useEffect(() => {
+    if (messages.length > 0) {
+      const viewport = scrollViewportRef.current;
+      if (viewport) {
+        // Delay to ensure virtual items are rendered
+        setTimeout(() => {
+          viewport.scrollTo({
+            top: viewport.scrollHeight,
+            behavior: 'smooth',
+          });
+        }, 100);
+      }
+    }
+  }, [room?.id]); // Run when room changes
+
+  // --- Fix #3: Robust Loading Trigger ---
+  React.useEffect(() => {
+    if (!virtualItems.length) return;
+    const firstItem = virtualItems[0];
+    if (firstItem.index === 0 && hasMore && !isLoading) {
+      loadMore();
+    }
+  }, [virtualItems, hasMore, isLoading, loadMore]);
+
+  // Socket listeners now use the clean update functions from our hook
+  React.useEffect(() => {
+    if (!socket || !room) return;
+    socket.emit('joinRoom', room.id);
+    socket.on('newMessage', addMessage);
+    socket.on('messageDeleted', ({ messageId }) => deleteMessage(messageId));
+    socket.on('messageEdited', editMessage);
+
+    return () => {
+      socket.emit('leaveRoom', room.id);
+      socket.off('newMessage', addMessage);
+      socket.off('messageDeleted');
+      socket.off('messageEdited');
+    };
+  }, [socket, room?.id, addMessage, deleteMessage, editMessage]);
 
   const [form, fields] = useForm({
     id: 'send-message-form',
@@ -589,60 +703,63 @@ export default function ChatRoom() {
     setEditingMessageId(messageId);
     setReplyingTo(null); // Can't edit and reply at the same time
   };
+
   const handleCancelEdit = () => {
     setEditingMessageId(null);
   };
 
-  React.useEffect(() => {
-    setMessages(room.messages);
-    if (!socket) {
-      return;
-    }
-    socket.emit('joinRoom', room.id);
+  //------------------THis moved to use-infinite-messages.tsx hook--------------------------
 
-    const handleNewMessage = (newMessage: MessageWithUser) => {
-      // Check if the message is for the current room to prevent cross-talk
-      if (newMessage.roomId === room.id) {
-        setMessages((prevMessages) => {
-          if (prevMessages.some((msg) => msg.id === newMessage.id)) {
-            return prevMessages;
-          }
-          return [...prevMessages, newMessage];
-        });
-      }
-    };
-    socket.on('newMessage', handleNewMessage);
+  // React.useEffect(() => {
+  //   setMessages(room.messages);
+  //   if (!socket) {
+  //     return;
+  //   }
+  //   socket.emit('joinRoom', room.id);
 
-    const handleMessageDeleted = ({ messageId }: { messageId: string }) => {
-      setMessages((prevMessages) =>
-        prevMessages.filter((message) => message.id !== messageId)
-      );
-    };
-    socket.on('messageDeleted', handleMessageDeleted);
+  //   const handleNewMessage = (newMessage: MessageWithUser) => {
+  //     // Check if the message is for the current room to prevent cross-talk
+  //     if (newMessage.roomId === room.id) {
+  //       setMessages((prevMessages) => {
+  //         if (prevMessages.some((msg) => msg.id === newMessage.id)) {
+  //           return prevMessages;
+  //         }
+  //         return [...prevMessages, newMessage];
+  //       });
+  //     }
+  //   };
+  //   socket.on('newMessage', handleNewMessage);
 
-    const handleMessageEdited = (updatedMessage: {
-      id: string;
-      content: string | null;
-    }) => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
-          msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
-        )
-      );
-      // Optional: close the edit form on other clients if they were also editing it
-      setEditingMessageId((id) => (id === updatedMessage.id ? null : id));
-    };
-    socket.on('messageEdited', handleMessageEdited);
+  //   const handleMessageDeleted = ({ messageId }: { messageId: string }) => {
+  //     setMessages((prevMessages) =>
+  //       prevMessages.filter((message) => message.id !== messageId)
+  //     );
+  //   };
+  //   socket.on('messageDeleted', handleMessageDeleted);
 
-    return () => {
-      if (socket) {
-        socket.emit('leaveRoom', room.id);
-        socket.off('newMessage', handleNewMessage);
-        socket.off('messageDeleted', handleMessageDeleted);
-        socket.off('messageEdited', handleMessageEdited);
-      }
-    };
-  }, [room.id, socket]);
+  //   const handleMessageEdited = (updatedMessage: {
+  //     id: string;
+  //     content: string | null;
+  //   }) => {
+  //     setMessages((prevMessages) =>
+  //       prevMessages.map((msg) =>
+  //         msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
+  //       )
+  //     );
+  //     // Optional: close the edit form on other clients if they were also editing it
+  //     setEditingMessageId((id) => (id === updatedMessage.id ? null : id));
+  //   };
+  //   socket.on('messageEdited', handleMessageEdited);
+
+  //   return () => {
+  //     if (socket) {
+  //       socket.emit('leaveRoom', room.id);
+  //       socket.off('newMessage', handleNewMessage);
+  //       socket.off('messageDeleted', handleMessageDeleted);
+  //       socket.off('messageEdited', handleMessageEdited);
+  //     }
+  //   };
+  // }, [room.id, socket]);
 
   // --- Image Upload Logic ---
 
@@ -689,14 +806,6 @@ export default function ChatRoom() {
       { method: 'POST', action: '/resources/userlist-toggle' }
     );
   };
-
-  // --- Auto-scroll Logic for the new ScrollArea ---
-  React.useEffect(() => {
-    const viewport = scrollViewportRef.current;
-    if (viewport) {
-      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
-    }
-  }, [messages]);
 
   // --- Form Reset Logic ---
   React.useEffect(() => {
@@ -763,17 +872,13 @@ export default function ChatRoom() {
   }
 
   return (
-    <motion.div
-      className="flex h-[calc(100vh-4rem)] relative overflow-x-hidden"
-      animate={{ paddingRight: isUsersListVisible ? userListWidth : '0rem' }}
-      transition={animationTransition}
-    >
+    <div className="flex h-full w-full">
       {/* Main Chat Area */}
-      <div className="flex flex-grow flex-col">
-        {/* Header */}
-        <header className="flex-none border-b p-4">
+      <div className="flex-1 flex flex-col h-full min-w-0 bg-card">
+        {/* Header - Fixed at top */}
+        <header className="flex-shrink-0 border-b border-border/60 p-4 z-10">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold capitalize flex items-center gap-2">
+            <h1 className="text-lg font-semibold capitalize flex items-center gap-2">
               {headerIcon}
               {headerTitle}
             </h1>
@@ -783,8 +888,8 @@ export default function ChatRoom() {
               onClick={handleToggleUserList}
               className={
                 isUsersListVisible
-                  ? 'text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'text-foreground cursor-pointer'
+                  : 'text-muted-foreground hover:text-foreground cursor-pointer'
               }
             >
               <UsersRound className="size-4" />
@@ -792,42 +897,94 @@ export default function ChatRoom() {
           </div>
         </header>
 
-        {/* Messages Area using ScrollArea */}
-        <ScrollArea className="flex-1" ref={scrollViewportRef}>
-          <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
-            {messages.map((message, index) => {
-              const currentMessageDate = new Date(message.createdAt);
-              const previousMessageDate =
-                index > 0 ? new Date(messages[index - 1].createdAt) : null;
+        {/* Messages Area - Scrollable container (takes remaining space) */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ScrollArea className="h-full" ref={scrollViewportRef}>
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualItems.map((virtualRow) => {
+                const isLoaderRow = hasMore && virtualRow.index === 0;
+                if (isLoaderRow) {
+                  return (
+                    <div
+                      key="loader"
+                      ref={rowVirtualizer.measureElement}
+                      data-index={virtualRow.index}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      className="flex justify-center py-4"
+                    >
+                      <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted/20 border-t-muted" />
+                    </div>
+                  );
+                }
 
-              const showDateBadge = shouldShowDateBadge(
-                currentMessageDate,
-                previousMessageDate
-              );
+                const messageIndex = hasMore
+                  ? virtualRow.index - 1
+                  : virtualRow.index;
+                const message = messages[messageIndex];
 
-              return (
-                <React.Fragment key={message.id}>
-                  {showDateBadge && <DateBadge date={currentMessageDate} />}
-                  <ChatMessage
-                    message={message}
-                    isCurrentUser={message.user?.id === user.id}
-                    currentUser={user}
-                    onStartReply={handleStartReply}
-                    deleteFetcher={deleteFetcher}
-                    editingMessageId={editingMessageId}
-                    onStartEdit={handleStartEdit}
-                    onCancelEdit={handleCancelEdit}
-                    bookmarkFetcher={bookmarkFetcher}
-                  />
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </ScrollArea>
+                if (!message) return null;
 
-        {/* Footer with TextareaAutosize */}
-        <footer className="flex-none border-t bg-background/80 p-4 backdrop-blur-sm">
-          <div className="mx-auto max-w-3xl">
+                const previousMessage = messages[messageIndex - 1];
+
+                const showDateBadge = shouldShowDateBadge(
+                  new Date(message.createdAt),
+                  previousMessage ? new Date(previousMessage.createdAt) : null
+                );
+
+                return (
+                  <div
+                    key={message.id}
+                    ref={rowVirtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <div className="mx-auto max-w-4xl px-4 py-1">
+                      {showDateBadge && (
+                        <DateBadge
+                          className="mb-2"
+                          date={new Date(message.createdAt)}
+                        />
+                      )}
+                      <ChatMessage
+                        message={message}
+                        isCurrentUser={message.user?.id === user.id}
+                        currentUser={user}
+                        onStartReply={handleStartReply}
+                        deleteFetcher={deleteFetcher}
+                        editingMessageId={editingMessageId}
+                        onStartEdit={handleStartEdit}
+                        onCancelEdit={handleCancelEdit}
+                        bookmarkFetcher={bookmarkFetcher}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Footer - Fixed at bottom */}
+        <footer className="flex-shrink-0 border-t border-border/60 p-2 sm:p-4 z-10">
+          <div className="max-w-4xl mx-auto">
             {replyingTo && (
               <div className="mb-2 flex items-center justify-between rounded-md border bg-muted p-2 text-sm">
                 <div className="truncate">
@@ -876,7 +1033,7 @@ export default function ChatRoom() {
               encType="multipart/form-data"
               {...getFormProps(form)}
               ref={formRef}
-              className="relative rounded-xl border border-border bg-background shadow-sm"
+              className="relative flex items-center rounded-lg border shadow-sm"
             >
               {replyingTo && (
                 <input type="hidden" name="replyToId" value={replyingTo.id} />
@@ -919,7 +1076,7 @@ export default function ChatRoom() {
                 ref={textareaRef}
                 // Use Conform's getInputProps for accessibility and validation
                 {...getInputProps(fields.content, { type: 'text' })}
-                className="w-full resize-none border-0 bg-transparent p-3 pr-16 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
+                className="flex-1 resize-none border-0 bg-transparent py-3 pl-4 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
                 placeholder={`Message #${headerTitle}`}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -935,19 +1092,18 @@ export default function ChatRoom() {
                 minRows={1}
                 maxRows={6}
               />
-              <div className="absolute bottom-2 right-12">
+              <div className="absolute bottom-1.5 right-2 flex items-center gap-1">
                 {/* Button to trigger the file input */}
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="size-8"
+                  className="size-8 text-muted-foreground"
                   onClick={() => imageInputRef.current?.click()}
                 >
-                  <Paperclip className="size-4" />
+                  <Paperclip className="size-5" />
                 </Button>
-              </div>
-              <div className="absolute bottom-2 right-2">
+
                 <Button
                   type="submit"
                   size="icon"
@@ -966,16 +1122,16 @@ export default function ChatRoom() {
       <AnimatePresence>
         {isUsersListVisible && (
           <motion.div
-            className="w-48 border-l bg-muted/30 lg:w-64 absolute top-0 right-0 h-full"
-            style={{ width: userListWidth }}
+            className="bg-sidebar flex-none border-l border-border/50  h-full rounded-r-2xl"
             key="user-list-sidebar"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            initial={{ width: 0 }}
+            animate={{ width: '16rem' }}
+            exit={{ width: 0 }}
+            style={{ overflow: 'hidden' }}
             transition={{
               type: 'spring',
-              stiffness: 150,
-              damping: 20,
+              stiffness: 250,
+              damping: 25,
             }}
           >
             {!isReady ? (
@@ -999,6 +1155,6 @@ export default function ChatRoom() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

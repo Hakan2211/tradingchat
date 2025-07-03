@@ -24,6 +24,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu';
+import {
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+} from '#/components/ui/sidebar';
 
 const ThemeFormSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']),
@@ -78,36 +83,42 @@ export function ThemeSwitch({
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-4 px-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:gap-0"
-          aria-label={`Switch theme. Current theme: ${mode}`}
-        >
-          {mode === 'light' && <Sun className="size-4" />}
-          {mode === 'dark' && <Moon className="size-4" />}
-          {mode === 'system' && <Laptop className="size-4" />}
-          <span className="capitalize group-data-[collapsible=icon]:hidden">
-            {mode}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start">
-        <DropdownMenuItem onSelect={() => handleThemeChange('light')}>
-          <Sun className="mr-2 size-4" />
-          <span>Light</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => handleThemeChange('dark')}>
-          <Moon className="mr-2 size-4" />
-          <span>Dark</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => handleThemeChange('system')}>
-          <Laptop className="mr-2 size-4" />
-          <span>System</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <SidebarFooter>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-4 px-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:gap-0"
+                aria-label={`Switch theme. Current theme: ${mode}`}
+              >
+                {mode === 'light' && <Sun className="size-4" />}
+                {mode === 'dark' && <Moon className="size-4" />}
+                {mode === 'system' && <Laptop className="size-4" />}
+                <span className="capitalize group-data-[collapsible=icon]:hidden">
+                  {mode}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start">
+              <DropdownMenuItem onSelect={() => handleThemeChange('light')}>
+                <Sun className="mr-2 size-4" />
+                <span>Light</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleThemeChange('dark')}>
+                <Moon className="mr-2 size-4" />
+                <span>Dark</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleThemeChange('system')}>
+                <Laptop className="mr-2 size-4" />
+                <span>System</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarFooter>
   );
 }
 

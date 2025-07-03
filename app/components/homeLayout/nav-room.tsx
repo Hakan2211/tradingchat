@@ -37,10 +37,20 @@ const iconMap: Record<string, LucideIcon> = {
   CircleHelp,
 };
 
-function RoomIcon({ iconName }: { iconName?: string | null }) {
+function RoomIcon({
+  iconName,
+  className,
+}: {
+  iconName?: string | null;
+  className?: string;
+}) {
   const IconComponent = iconName ? iconMap[iconName] : null;
   // Fallback to a default Hash icon if no icon is specified or found
-  return IconComponent ? <IconComponent /> : <Hash className="size-4" />;
+  return IconComponent ? (
+    <IconComponent className={className} />
+  ) : (
+    <Hash className={className} />
+  );
 }
 
 export function NavRooms({
@@ -54,13 +64,16 @@ export function NavRooms({
     return null;
   }
   return (
-    <SidebarMenu className="mt-2">
+    <SidebarMenu>
       <Collapsible asChild defaultOpen={true} className="group/collapsible">
-        <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+        <SidebarMenuItem>
           {/* The main trigger for the "Chat Rooms" section */}
           <CollapsibleTrigger asChild>
-            <SidebarMenuButton tooltip="Rooms">
-              <MessageSquare />
+            <SidebarMenuButton
+              className="h-10 text-base cursor-pointer [&>svg]:size-5"
+              tooltip="Rooms"
+            >
+              <MessageSquare className="size-5" />
               <span className="group-data-[collapsible=icon]:hidden">
                 Rooms
               </span>
@@ -70,7 +83,7 @@ export function NavRooms({
 
           {/* The content that expands/collapses */}
           <CollapsibleContent>
-            <SidebarMenuSub>
+            <SidebarMenuSub className="gap-2 mt-1">
               {items.map((item) => {
                 const unreadCount = unreadCounts[item.id] || 0;
 
@@ -85,11 +98,17 @@ export function NavRooms({
                           <div className="flex w-full items-center justify-between">
                             <div className="flex items-center gap-2 overflow-hidden">
                               {/* Render our dynamic icon component */}
-                              <RoomIcon iconName={item.icon} />
+                              <RoomIcon
+                                className="size-5"
+                                iconName={item.icon}
+                              />
                               <span className="capitalize">{item.name}</span>
                             </div>
                             {unreadCount > 0 && (
-                              <Badge variant="outline" className="ml-2">
+                              <Badge
+                                variant="outline"
+                                className="ml-2 h-5 shrink-0 justify-center rounded-full px-2 text-xs font-medium text-primary"
+                              >
                                 {unreadCount}
                               </Badge>
                             )}
