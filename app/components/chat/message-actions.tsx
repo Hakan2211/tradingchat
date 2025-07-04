@@ -21,13 +21,16 @@ function ActionButton({
       <TooltipTrigger asChild>
         <button
           onClick={onClick}
-          className="relative flex h-8 w-8 cursor-pointer items-center justify-center text-muted-foreground/80 transition-colors hover:text-sidebar-accent focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring/70"
+          className="relative flex h-8 w-8 cursor-pointer items-center justify-center text-muted-foreground transition-colors hover:text-sidebar-accent focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring/70"
         >
           {icon}
           <span className="sr-only">{label}</span>
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="px-2 py-1 text-xs">
+      <TooltipContent
+        side="bottom"
+        className="px-2 py-1 text-xs text-sidebar-accent-foreground"
+      >
         <p>{label}</p>
       </TooltipContent>
     </Tooltip>

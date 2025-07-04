@@ -25,6 +25,7 @@ import {
   CollapsibleTrigger,
 } from '#/components/ui/collapsible';
 import { Badge } from '#/components/ui/badge';
+import { cn } from '#/lib/utils';
 
 export type NavDmItem = {
   id: string;
@@ -49,8 +50,11 @@ export function NavDms({
         <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
           {/* The main trigger for the "Direct Messages" section */}
           <CollapsibleTrigger asChild>
-            <SidebarMenuButton tooltip="Direct Messages">
-              <Mail className="size-4" />
+            <SidebarMenuButton
+              className="h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground"
+              tooltip="Direct Messages"
+            >
+              <Mail className="size-5" />
               <span className="group-data-[collapsible=icon]:hidden">
                 Direct Messages
               </span>
@@ -73,7 +77,10 @@ export function NavDms({
                         <SidebarMenuSubButton
                           asChild
                           isActive={isActive}
-                          className="gap-2"
+                          className={cn(
+                            'hover:bg-accent/50 hover:text-accent-foreground',
+                            isActive && '!bg-accent/60 !text-accent-foreground'
+                          )}
                         >
                           <div className="flex w-full items-center justify-between">
                             <div className="flex items-center gap-2 overflow-hidden">
