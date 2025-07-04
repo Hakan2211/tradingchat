@@ -178,17 +178,28 @@ function EditMessageForm({
       <input {...getInputProps(fields.messageId, { type: 'hidden' })} />
       <TextareaAutosize
         {...getInputProps(fields.content, { type: 'text' })}
-        className="w-full resize-none rounded-md border bg-background p-2 text-sm"
+        className="w-full resize-none rounded-md border bg-background text-primary p-2 text-sm"
         autoFocus
         onKeyDown={(e) => {
           if (e.key === 'Escape') onCancel();
         }}
       />
       <div className="flex items-center gap-2 text-xs">
-        <Button type="submit" size="sm" disabled={editFetcher.state !== 'idle'}>
+        <Button
+          className="cursor-pointer"
+          type="submit"
+          size="sm"
+          disabled={editFetcher.state !== 'idle'}
+        >
           Save
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+        <Button
+          className="cursor-pointer"
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+        >
           Cancel
         </Button>
       </div>

@@ -1,17 +1,12 @@
-// app/components/chat/bookmarked-message-card.tsx
-
-import { format } from 'date-fns';
 import { Link, useFetcher } from 'react-router';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
-import { getUserImagePath, getChatImagePath } from '#/utils/misc';
-import { BookmarkIcon, CornerDownRight, ImageIcon } from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from '#/components/ui/card';
 import { Button } from '#/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '#/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -19,10 +14,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '#/components/ui/dialog';
+import { getUserImagePath, getChatImagePath } from '#/utils/misc';
+import { BookmarkIcon, Calendar } from 'lucide-react';
+import { isToday, isYesterday } from 'date-fns';
 import { HydratedDate } from '../chat/dateBadge';
 
 type BookmarkedMessageCardProps = {
   bookmark: {
+    id: string;
     createdAt: Date;
     message: {
       id: string;
@@ -44,12 +43,12 @@ type BookmarkedMessageCardProps = {
 export function BookmarkedMessageCard({
   bookmark,
 }: BookmarkedMessageCardProps) {
+  const bookmarkFetcher = useFetcher();
   const { message } = bookmark;
+
   const userInitial = message.user?.name
     ? message.user.name.charAt(0).toUpperCase()
     : '?';
-
-  const bookmarkFetcher = useFetcher();
 
   if (
     bookmarkFetcher.data &&
@@ -59,92 +58,119 @@ export function BookmarkedMessageCard({
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center gap-3 p-4">
-        <Avatar className="size-9 shrink-0">
-          <AvatarImage
-            src={
-              message.user?.image?.id
-                ? getUserImagePath(message.user.image.id)
-                : undefined
-            }
-          />
-          <AvatarFallback>{userInitial}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <p className="font-semibold">{message.user?.name}</p>
+    <div className="group flex items-start gap-3 p-3 rounded-lg border bg-card/50 hover:bg-card transition-colors">
+      {/* User Avatar */}
+      <Avatar className="size-8 shrink-0">
+        <AvatarImage
+          src={
+            message.user?.image?.id
+              ? getUserImagePath(message.user.image.id)
+              : undefined
+          }
+        />
+        <AvatarFallback className="text-xs">{userInitial}</AvatarFallback>
+      </Avatar>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <p className="font-medium text-sm truncate">{message.user?.name}</p>
           <HydratedDate
             date={new Date(bookmark.createdAt)}
-            formatStr="MMM d, yyyy"
-            className="text-sm text-muted-foreground"
-            prefix="Bookmarked on "
-            fallback={null}
+            formatStr="HH:mm"
+            className="text-xs text-muted-foreground"
+            fallback="--:--"
           />
         </div>
-      </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">
+
         {message.content && (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed mb-3">
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
             {message.content}
           </p>
         )}
 
-        {message.image?.id && (
-          <Dialog>
-            <DialogTitle className="sr-only">
-              {message.image.altText ?? 'Bookmarked image'}
-            </DialogTitle>
-            <DialogTrigger asChild>
-              <img
-                src={getChatImagePath(message.image.id)}
-                alt={message.image.altText ?? 'Bookmarked image'}
-                className="max-w-xs cursor-pointer rounded-lg object-cover transition hover:opacity-90"
-              />
-            </DialogTrigger>
-            <DialogContent className="p-0 border-0 max-w-4xl max-h-[90vh]">
-              <img
-                src={getChatImagePath(message.image.id)}
-                alt={message.image.altText ?? 'Bookmarked image'}
-                className="w-full h-full object-contain rounded-lg"
-              />
-            </DialogContent>
-            <DialogDescription className="sr-only">
-              {message.image.altText ?? 'Bookmarked image'}
-            </DialogDescription>
-          </Dialog>
-        )}
-
-        {!message.content && message.image && (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <ImageIcon className="size-4" />
-            <span>Image</span>
+        {message.image && (
+          <div className="mb-2">
+            <Dialog>
+              <DialogTitle className="sr-only">
+                {message.image.altText ?? 'Bookmarked image'}
+              </DialogTitle>
+              <DialogTrigger asChild>
+                <img
+                  src={getChatImagePath(message.image.id)}
+                  alt={message.image.altText ?? 'Bookmarked image'}
+                  className="w-48 h-32 rounded-md object-cover border cursor-pointer hover:opacity-90 transition-opacity"
+                />
+              </DialogTrigger>
+              <DialogContent className="p-0 border-0 max-w-4xl max-h-[90vh]">
+                <img
+                  src={getChatImagePath(message.image.id)}
+                  alt={message.image.altText ?? 'Bookmarked image'}
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              </DialogContent>
+              <DialogDescription className="sr-only">
+                {message.image.altText ?? 'Bookmarked image'}
+              </DialogDescription>
+            </Dialog>
           </div>
         )}
-      </CardContent>
-      <CardFooter className="p-3">
-        <Link
-          to={`/chat/${message.roomId}`}
-          className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-        >
-          <CornerDownRight size={16} />
-          <span>View in chat</span>
-        </Link>
-        <bookmarkFetcher.Form method="post" action="/chat/any">
-          {/* We point the action to a valid chat route because that's where the action lives.
-              The roomId ('any') doesn't matter since the action doesn't use it. */}
-          <input type="hidden" name="intent" value="toggleBookmark" />
-          <input type="hidden" name="messageId" value={message.id} />
-          <Button
-            type="submit"
-            variant="ghost"
-            size="icon"
-            className="size-8 text-yellow-500 hover:text-yellow-600"
-            aria-label="Remove bookmark"
-          >
-            <BookmarkIcon className="fill-current" size={16} />
-          </Button>
-        </bookmarkFetcher.Form>
-      </CardFooter>
-    </Card>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1">
+        <TooltipProvider>
+          <Tooltip>
+            <bookmarkFetcher.Form method="post" action="/chat/any">
+              <input type="hidden" name="intent" value="toggleBookmark" />
+              <input type="hidden" name="messageId" value={message.id} />
+              <TooltipTrigger asChild>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-yellow-500 hover:text-yellow-600 cursor-pointer"
+                >
+                  <BookmarkIcon className="fill-current size-4" />
+                </Button>
+              </TooltipTrigger>
+            </bookmarkFetcher.Form>
+            <TooltipContent>
+              <p>Remove bookmark</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
+  );
+}
+
+// Date header component for grouping bookmarks by date
+export function BookmarkDateHeader({ date }: { date: string }) {
+  const dateObj = new Date(date);
+
+  let displayContent: React.ReactNode;
+  if (isToday(dateObj)) {
+    displayContent = 'Today';
+  } else if (isYesterday(dateObj)) {
+    displayContent = 'Yesterday';
+  } else {
+    displayContent = (
+      <HydratedDate
+        date={dateObj}
+        formatStr="EEEE, MMMM d, yyyy"
+        fallback="..."
+      />
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 py-2">
+      <Calendar className="size-4 text-muted-foreground" />
+      <h2 className="font-semibold text-sm text-muted-foreground">
+        {displayContent}
+      </h2>
+      <div className="flex-1 h-px bg-border" />
+    </div>
   );
 }

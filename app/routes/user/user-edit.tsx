@@ -26,6 +26,7 @@ import { prisma } from '#/utils/db.server';
 import { processImage } from '#/utils/image.server';
 import { parseFormData, type FileUpload } from '@mjackson/form-data-parser';
 import { requirePermission } from '#/utils/permission.server';
+import { getInitials } from '#/utils/misc';
 
 const MAX_IMAGE_SIZE = 1024 * 1024 * 5; // 5MB
 
@@ -183,90 +184,140 @@ export default function ProfileEdit() {
   return (
     <>
       <Form method="POST" {...getFormProps(form)} encType="multipart/form-data">
-        <div className="px-8 py-6 border-b border-gray-100">
+        {/* Header - Fixed at top */}
+        <header className="flex-shrink-0 border-b border-border/60 p-4 z-10">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-gray-900">
+            <h1 className="text-2xl font-semibold text-foreground">
               Edit Profile
             </h1>
             <div className="flex items-center gap-3">
-              <Button type="button" variant="ghost" asChild className="...">
+              <Button
+                type="button"
+                variant="ghost"
+                asChild
+                className="rounded-xl"
+              >
                 <Link to="..">Cancel</Link>
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="...">
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-6 shadow-lg hover:shadow-xl transition-all duration-200"
+              >
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </div>
-        </div>
-        <div className="p-8">
-          <div className="grid lg:grid-cols-5 gap-12">
-            <div className="lg:col-span-2 flex flex-col items-center">
-              {/* Avatar Uploader */}
-              <div className="relative group">
-                <Avatar className="w-40 h-40 ...">
-                  <AvatarImage
-                    src={
-                      previewImage ||
-                      (user?.image
-                        ? getUserImagePath(user.image.id)
-                        : undefined)
-                    }
-                  />
-                  <AvatarFallback>{/* ... */}</AvatarFallback>
-                </Avatar>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute inset-0 ..."
-                >
-                  <Camera className="w-8 h-8 text-white" />
-                </button>
-                <input
-                  ref={fileInputRef}
-                  {...getInputProps(fields.profileImage, { type: 'file' })}
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-              </div>
-              <ErrorAlert
-                id={fields.profileImage.errorId}
-                errors={fields.profileImage.errors}
-              />
-            </div>
+        </header>
 
-            <div className="lg:col-span-3 space-y-8">
-              {/* Name Field */}
-              <div className="space-y-2">
-                <Label htmlFor={fields.name.id}>Full Name</Label>
-                <Input {...getInputProps(fields.name, { type: 'text' })} />
+        {/* Main Content - Scrollable */}
+        <div className="flex-1 p-8 overflow-auto">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid lg:grid-cols-5 gap-12">
+              <div className="lg:col-span-2 flex flex-col items-center">
+                {/* Avatar Uploader */}
+                <div className="relative group">
+                  <Avatar className="w-40 h-40 rounded-full ring-4 ring-border overflow-hidden">
+                    <AvatarImage
+                      src={
+                        previewImage ||
+                        (user?.image
+                          ? getUserImagePath(user.image.id)
+                          : undefined)
+                      }
+                    />
+                    <AvatarFallback className="text-2xl bg-muted text-muted-foreground">
+                      {getInitials(user?.name ?? '')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full flex items-center justify-center"
+                  >
+                    <Camera className="w-8 h-8 text-white" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    {...getInputProps(fields.profileImage, { type: 'file' })}
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </div>
                 <ErrorAlert
-                  id={fields.name.errorId}
-                  errors={fields.name.errors}
+                  id={fields.profileImage.errorId}
+                  errors={fields.profileImage.errors}
                 />
               </div>
-              {/* Username Field */}
-              <div className="space-y-2">
-                <Label htmlFor={fields.username.id}>Username</Label>
-                <Input {...getInputProps(fields.username, { type: 'text' })} />
-                <ErrorAlert
-                  id={fields.username.errorId}
-                  errors={fields.username.errors}
-                />
-              </div>
-              {/* Bio Field */}
-              <div className="space-y-2">
-                <Label htmlFor={fields.bio.id}>Bio</Label>
-                <Textarea {...getInputProps(fields.bio, { type: 'text' })} />
-                <ErrorAlert
-                  id={fields.bio.errorId}
-                  errors={fields.bio.errors}
-                />
-              </div>
-              {/* Read-only Email Field */}
-              <div className="space-y-2">
-                <Label>Email Address</Label>
-                <Input value={user?.email} readOnly disabled />
+
+              <div className="lg:col-span-3 space-y-6">
+                {/* Name Field */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor={fields.name.id}
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Full Name
+                  </Label>
+                  <Input {...getInputProps(fields.name, { type: 'text' })} />
+                  <ErrorAlert
+                    id={fields.name.errorId}
+                    errors={fields.name.errors}
+                  />
+                </div>
+
+                {/* Username Field */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor={fields.username.id}
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Username
+                  </Label>
+                  <Input
+                    {...getInputProps(fields.username, { type: 'text' })}
+                  />
+                  <ErrorAlert
+                    id={fields.username.errorId}
+                    errors={fields.username.errors}
+                  />
+                </div>
+
+                {/* Bio Field */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor={fields.bio.id}
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Bio
+                  </Label>
+                  <Textarea
+                    {...getInputProps(fields.bio, { type: 'text' })}
+                    placeholder="Tell us a bit about yourself..."
+                    className="min-h-[100px]"
+                  />
+                  <ErrorAlert
+                    id={fields.bio.errorId}
+                    errors={fields.bio.errors}
+                  />
+                </div>
+
+                {/* Read-only Email Field */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">
+                    Email Address
+                  </Label>
+                  <Input
+                    value={user?.email}
+                    readOnly
+                    disabled
+                    className="bg-muted"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Contact support to change your email address
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -279,6 +330,7 @@ export default function ProfileEdit() {
 export function ErrorBoundary() {
   return <GeneralErrorBoundary />;
 }
+
 function reply(arg0: {
   initialValue: { profileImage: null };
   error: { profileImage: string[] };
