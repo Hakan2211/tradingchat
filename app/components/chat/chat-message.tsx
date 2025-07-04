@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import { cn } from '#/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
 import { getUserImagePath } from '#/utils/misc';
@@ -52,9 +51,9 @@ function QuotedMessage({
 
           <HydratedDate
             date={new Date(message.createdAt)}
-            formatStr="p"
+            formatStr="HH:mm"
             className="text-xs text-muted-foreground"
-            fallback="--:-- --"
+            fallback="--:--"
           />
         </div>
         {message.content && (
@@ -100,6 +99,7 @@ type ChatMessageProps = {
       id: string;
       name: string | null;
       image: { id: string } | null;
+      username: string | null;
     } | null;
     replyTo: {
       content: string | null;
@@ -231,9 +231,9 @@ export function ChatMessage({
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-3">
-        <Avatar className="size-8 shrink-0 aspect-square rounded-lg">
+    <div className="group flex flex-col gap-1 py-2">
+      <div className="flex items-start gap-3">
+        <Avatar className="size-9 shrink-0 aspect-square rounded-lg">
           <AvatarImage
             src={
               message.user?.image?.id
@@ -245,109 +245,119 @@ export function ChatMessage({
             {userInitial}
           </AvatarFallback>
         </Avatar>
-        <p className="font-semibold text-sm">{message.user?.name}</p>
-        <HydratedDate
-          date={new Date(message.createdAt)}
-          formatStr="p"
-          className="text-xs text-muted-foreground"
-          fallback="--:-- --"
-        />
-      </div>
-
-      <div className="pl-11">
-        {isEditing ? (
-          <EditMessageForm message={message} onCancel={onCancelEdit} />
-        ) : (
+        <div className="flex flex-col flex-1">
           <div className="flex items-center gap-2">
-            {/* Use items-start for better alignment */}
-            <div className="flex flex-col relative">
-              {message.replyTo && (
-                <QuotedMessage message={{ ...message.replyTo }} />
-              )}
-
-              {message.replyTo && (
-                <div className="absolute right-2 top-[50%] -translate-y-1/2">
-                  <Reply size={16} className="text-muted-foreground/80" />
-                </div>
-              )}
-
-              {message.content && (
-                <div
-                  className={cn(
-                    'max-w-md rounded-lg px-3 py-2',
-                    message.replyTo ? '-mt-1' : '',
-                    isCurrentUser
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  )}
-                >
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {message.content}
-                  </p>
-                </div>
-              )}
-
-              {/* Render the image if it exists */}
-              {message.image?.id && (
-                <Dialog>
-                  <DialogTitle className="sr-only">
-                    {message.image.altText ?? 'Chat image'}
-                  </DialogTitle>
-                  <DialogTrigger asChild>
-                    <img
-                      src={getChatImagePath(message.image.id)}
-                      alt={message.image.altText ?? 'Chat image'}
-                      className="max-w-xs cursor-pointer rounded-lg object-cover transition hover:opacity-90"
-                    />
-                  </DialogTrigger>
-                  <DialogContent className="p-0 border-0 max-w-4xl max-h-[90vh]">
-                    <img
-                      src={getChatImagePath(message.image.id)}
-                      alt={message.image.altText ?? 'Chat image'}
-                      className="w-full h-full object-contain rounded-lg"
-                    />
-                  </DialogContent>
-                  <DialogDescription className="sr-only">
-                    {message.image.altText ?? 'Chat image'}
-                  </DialogDescription>
-                </Dialog>
-              )}
-            </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
-                  <EllipsisVertical size={16} />
-                  <span className="sr-only">Message options</span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                side="bottom"
-                align="start"
-                className="border-none bg-transparent p-0 shadow-none"
-              >
-                <MessageActions
-                  onReply={() => onStartReply(message)}
-                  canDelete={showDeleteButton}
-                  onDelete={() => {
-                    deleteFetcher.submit(
-                      { intent: 'deleteMessage', messageId: message.id },
-                      { method: 'POST' }
-                    );
-                  }}
-                  canEdit={showEditButton}
-                  onEdit={() => onStartEdit(message.id)}
-                  isBookmarked={displayAsBookmarked}
-                  onBookmarkToggle={() => {
-                    bookmarkFetcher.submit(
-                      { intent: 'toggleBookmark', messageId: message.id },
-                      { method: 'POST' }
-                    );
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
+            <p className="font-semibold text-sm">{message.user?.name}</p>
+            <HydratedDate
+              date={new Date(message.createdAt)}
+              formatStr="HH:mm"
+              className="text-xs text-muted-foreground"
+              fallback="--:--"
+            />
           </div>
-        )}
+          {message.user?.username && (
+            <p className="text-xs text-muted-foreground">
+              @
+              {message.user?.username.charAt(0).toUpperCase() +
+                message.user?.username.slice(1)}
+            </p>
+          )}
+        </div>
+
+        <div className="pl-11">
+          {isEditing ? (
+            <EditMessageForm message={message} onCancel={onCancelEdit} />
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col relative items-start">
+                {message.replyTo && (
+                  <QuotedMessage message={{ ...message.replyTo }} />
+                )}
+
+                {message.replyTo && (
+                  <div className="absolute right-2 top-[50%] -translate-y-1/2">
+                    <Reply size={16} className="text-muted-foreground/80" />
+                  </div>
+                )}
+
+                {message.content && (
+                  <div
+                    className={cn(
+                      'max-w-md rounded-xl px-3.5 py-2.5 tracking-[0.015em]',
+                      message.replyTo ? '-mt-1' : '',
+                      isCurrentUser
+                        ? 'bg-primary text-foreground'
+                        : 'bg-muted text-foreground'
+                    )}
+                  >
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {message.content}
+                    </p>
+                  </div>
+                )}
+
+                {/* Render the image if it exists */}
+                {message.image?.id && (
+                  <Dialog>
+                    <DialogTitle className="sr-only">
+                      {message.image.altText ?? 'Chat image'}
+                    </DialogTitle>
+                    <DialogTrigger asChild>
+                      <img
+                        src={getChatImagePath(message.image.id)}
+                        alt={message.image.altText ?? 'Chat image'}
+                        className="max-w-xs cursor-pointer rounded-lg object-cover transition hover:opacity-90"
+                      />
+                    </DialogTrigger>
+                    <DialogContent className="p-0 border-0 max-w-4xl max-h-[90vh]">
+                      <img
+                        src={getChatImagePath(message.image.id)}
+                        alt={message.image.altText ?? 'Chat image'}
+                        className="w-full h-full object-contain rounded-lg"
+                      />
+                    </DialogContent>
+                    <DialogDescription className="sr-only">
+                      {message.image.altText ?? 'Chat image'}
+                    </DialogDescription>
+                  </Dialog>
+                )}
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground">
+                    <EllipsisVertical size={16} />
+                    <span className="sr-only">Message options</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="bottom"
+                  align="start"
+                  className="border-none bg-transparent p-0 shadow-none"
+                >
+                  <MessageActions
+                    onReply={() => onStartReply(message)}
+                    canDelete={showDeleteButton}
+                    onDelete={() => {
+                      deleteFetcher.submit(
+                        { intent: 'deleteMessage', messageId: message.id },
+                        { method: 'POST' }
+                      );
+                    }}
+                    canEdit={showEditButton}
+                    onEdit={() => onStartEdit(message.id)}
+                    isBookmarked={displayAsBookmarked}
+                    onBookmarkToggle={() => {
+                      bookmarkFetcher.submit(
+                        { intent: 'toggleBookmark', messageId: message.id },
+                        { method: 'POST' }
+                      );
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

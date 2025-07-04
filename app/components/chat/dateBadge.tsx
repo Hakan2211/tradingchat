@@ -1,7 +1,14 @@
+import { cn } from '#/lib/utils';
 import { isToday, isYesterday, format, isSameDay } from 'date-fns';
 import { useHydrated } from 'remix-utils/use-hydrated';
 
-export function DateBadge({ date }: { date: Date }) {
+export function DateBadge({
+  date,
+  className,
+}: {
+  date: Date;
+  className?: string;
+}) {
   const isHydrated = useHydrated();
 
   const getFormattedDate = (d: Date): string => {
@@ -11,9 +18,9 @@ export function DateBadge({ date }: { date: Date }) {
   };
 
   return (
-    <div className="relative text-center">
-      <hr className="absolute left-0 top-1/2 w-full -translate-y-1/2 border-border" />
-      <span className="relative z-10 inline-block rounded-full bg-background px-3 py-1 text-xs font-semibold text-muted-foreground">
+    <div className={cn('relative text-center my-4', className)}>
+      <hr className="absolute left-0 top-1/2 w-full -translate-y-1/2 border-border/50" />
+      <span className="relative z-10 inline-block rounded-full bg-card px-3 border border-border/50 py-1 text-xs font-medium text-muted-foreground/80">
         {isHydrated ? getFormattedDate(new Date(date)) : '...'}
       </span>
     </div>

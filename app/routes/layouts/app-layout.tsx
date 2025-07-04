@@ -49,7 +49,7 @@ export const useSocketContext = () => {
       isReady: false,
       directMessages: [],
       unreadCounts: {},
-      addDmToList: () => {}, // No-op function for SSR
+      addDmToList: () => {},
     };
   }
 
@@ -145,7 +145,7 @@ function SocketProvider({
       setOnlineUserIds(new Set(data.userIds));
       setUserStatuses(new Map(Object.entries(data.statuses)));
       setIsReady(true);
-      setIsWaitingForUsers(false); // Clear the waiting state
+      setIsWaitingForUsers(false);
     };
 
     const handleUserOnline = ({
@@ -194,28 +194,6 @@ function SocketProvider({
           document.title = `(1) New Message! | TradingChat`;
         }
       }
-      // const currentRoomId = params.roomId;
-      // const isInSameRoom = roomId === currentRoomId;
-      // if (unreadCount === 0) {
-
-      //   setUnreadCounts((prev) => {
-      //     const newCounts = { ...prev };
-      //     delete newCounts[roomId];
-      //     return newCounts;
-      //   });
-      // } else if (!isInSameRoom) {
-
-      //   setUnreadCounts((prev) => ({ ...prev, [roomId]: unreadCount }));
-
-      //   toast.info(`New message from ${sender.name}`, {
-      //     id: `new-message-${roomId}`,
-      //   });
-
-      //   if (document.hidden) {
-      //     document.title = `(1) New Message! | TradingChat`;
-
-      //   }
-      // }
     };
 
     // Attach all GLOBAL listeners
@@ -274,7 +252,6 @@ function SocketProvider({
 
   const addDmToList = React.useCallback((dm: DirectMessageItem) => {
     setDirectMessages((prev) => {
-      // Prevent duplicates, just in case
       if (prev.some((existingDm) => existingDm.id === dm.id)) {
         return prev;
       }
@@ -282,7 +259,6 @@ function SocketProvider({
     });
   }, []);
 
-  // Provide a stable context value that doesn't change during SSR
   const contextValue = React.useMemo(
     () => ({
       socket: socket,
@@ -315,7 +291,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   console.log('AppLayout loader: Starting...');
   const userId = await requireUserId(request);
 
-  // Extract roomId from the URL path since it's in a child route
   const url = new URL(request.url);
   const pathSegments = url.pathname.split('/');
   const currentRoomId = pathSegments[2] === 'chat' ? pathSegments[3] : null;
@@ -357,8 +332,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       name: 'asc',
     },
   });
-
-  // 2. Fetch ONLY the DMs that this specific user is a member of
   const userDms = await prisma.room.findMany({
     where: {
       name: {
@@ -401,9 +374,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     unreadMessages.map((um) => [um.roomId, um.count])
   );
 
-  console.log('AppLayout loader: Found DMs:', userDms.length);
-
-  // 3. Process the user's DMs to get the other participant's info
   const directMessages = userDms.map((room) => {
     const otherUser = room.members.find((member) => member.id !== userId);
     return {
@@ -413,9 +383,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     };
   });
 
-  console.log('AppLayout loader: Processed DMs:', directMessages.length);
-
-  // Pass all the data to the component
   return { user, groupRooms, directMessages, unreadCounts };
 }
 
@@ -437,30 +404,14 @@ export default function AppLayout() {
           directMessages={directMessages}
         />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              {/* <Separator
-              orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4"
-            /> */}
-              {/* <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/home">Home</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Dashboard</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb> */}
-            </div>
+          <header className="flex h-14 shrink-0 items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1 cursor-pointer aspect-square rounded-md p-4 text-sidebar hover:!bg-sidebar-accent hover:!text-sidebar-accent-foreground" />
           </header>
-
-          <Outlet />
+          <main className="flex-1 p-2 md:p-3 h-[calc(100svh-3.5rem)]">
+            <div className="h-full w-full text-card-foreground rounded-3xl shadow-sm overflow-hidden">
+              <Outlet />
+            </div>
+          </main>
         </SidebarInset>
       </SidebarProvider>
     </SocketProvider>
