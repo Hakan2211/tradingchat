@@ -42,7 +42,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
 import { useInfiniteMessages } from '#/hooks/use-infinite-messages';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
-const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 10MB
+const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const MESSAGE_PAGE_SIZE = 50; //for virtualization
 
 type MessageWithUser = {
@@ -405,39 +405,47 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     const messageId = formData.get('messageId');
     invariantResponse(typeof messageId === 'string', 'Message ID is required');
 
-    try {
-      // First, verify the message exists
-      const message = await prisma.message.findUnique({
-        where: { id: messageId },
-        select: { id: true },
+    // try {
+    //   const message = await prisma.message.findUnique({
+    //     where: { id: messageId },
+    //     select: { id: true },
+    //   });
+
+    //   if (!message) {
+    //     throw new Error('Message not found');
+    //   }
+
+    const existingBookmark = await prisma.bookmark.findUnique({
+      where: { userId_messageId: { userId, messageId } },
+      select: { id: true },
+    });
+
+    let isNowBookmarked: boolean;
+
+    if (existingBookmark) {
+      await prisma.bookmark.delete({ where: { id: existingBookmark.id } });
+      isNowBookmarked = false;
+    } else {
+      await prisma.bookmark.create({
+        data: {
+          userId,
+          messageId,
+        },
       });
-
-      if (!message) {
-        throw new Error('Message not found');
-      }
-
-      const existingBookmark = await prisma.bookmark.findUnique({
-        where: { userId_messageId: { userId, messageId } },
-        select: { id: true },
-      });
-
-      if (existingBookmark) {
-        await prisma.bookmark.delete({ where: { id: existingBookmark.id } });
-      } else {
-        await prisma.bookmark.create({
-          data: {
-            userId,
-            messageId,
-          },
-        });
-      }
-
-      // Note: No socket broadcast is needed as this is a private user action.
-      return { status: 'success' as const, toggledMessageId: messageId };
-    } catch (error) {
-      console.error('Bookmark toggle error:', error);
-      throw new Error('Failed to toggle bookmark');
+      isNowBookmarked = true;
     }
+
+    // Note: No socket broadcast is needed as this is a private user action.
+    return {
+      status: 'success' as const,
+      toggledMessageId: messageId,
+      bookmarked: isNowBookmarked,
+    };
+
+    // } catch (error) {
+    //   console.error('Bookmark toggle error:', error);
+    //   throw new Error('Failed to toggle bookmark');
+    // }
   }
 
   const submission = parseWithZod(formData, { schema: MessageSchema });
@@ -921,14 +929,15 @@ export default function ChatRoom() {
       (bookmarkFetcher.data as any)?.toggledMessageId
     ) {
       const messageId = (bookmarkFetcher.data as any).toggledMessageId;
+      const isNowBookmarked = (bookmarkFetcher.data as any).bookmarked;
 
-      // Clear pending state since operation completed successfully
+      if (typeof isNowBookmarked === 'boolean') {
+        updateBookmark(messageId, user.id, isNowBookmarked);
+      }
+
       if (pendingBookmarkRef.current?.messageId === messageId) {
         pendingBookmarkRef.current = null;
       }
-
-      // No need to update state here - the server response means the DB is updated,
-      // and the optimistic update already shows the correct state
     } else if (
       bookmarkFetcher.state === 'idle' &&
       bookmarkFetcher.data &&
@@ -1082,7 +1091,7 @@ export default function ChatRoom() {
                         editingMessageId={editingMessageId}
                         onStartEdit={handleStartEdit}
                         onCancelEdit={handleCancelEdit}
-                        bookmarkFetcher={bookmarkFetcher}
+                        //bookmarkFetcher={bookmarkFetcher}
                         onBookmarkToggle={handleBookmarkToggle}
                       />
                     </div>

@@ -128,7 +128,7 @@ type ChatMessageProps = {
   editingMessageId: string | null;
   onStartEdit: (messageId: string) => void;
   onCancelEdit: () => void;
-  bookmarkFetcher: ReturnType<typeof useFetcher>;
+  //bookmarkFetcher: ReturnType<typeof useFetcher>;
   onBookmarkToggle?: (messageId: string) => void;
 };
 
@@ -216,7 +216,7 @@ export function ChatMessage({
   editingMessageId,
   onStartEdit,
   onCancelEdit,
-  bookmarkFetcher,
+  //bookmarkFetcher,
   onBookmarkToggle,
 }: ChatMessageProps) {
   const userInitial = message.user?.name
@@ -359,15 +359,7 @@ export function ChatMessage({
                     onEdit={() => onStartEdit(message.id)}
                     isBookmarked={isBookmarked}
                     onBookmarkToggle={() => {
-                      if (onBookmarkToggle) {
-                        onBookmarkToggle(message.id);
-                      } else {
-                        // Fallback to old behavior if no handler provided
-                        bookmarkFetcher.submit(
-                          { intent: 'toggleBookmark', messageId: message.id },
-                          { method: 'POST' }
-                        );
-                      }
+                      onBookmarkToggle?.(message.id);
                     }}
                   />
                 </PopoverContent>
