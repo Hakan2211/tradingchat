@@ -120,6 +120,25 @@ export function useInfiniteMessages(initialData: MessagesLoaderData) {
     []
   );
 
+  const updateBookmark = React.useCallback(
+    (messageId: string, userId: string, isBookmarked: boolean) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id === messageId) {
+            return {
+              ...msg,
+              bookmarks: isBookmarked
+                ? [{ id: 'temp', userId, messageId }]
+                : [],
+            };
+          }
+          return msg;
+        })
+      );
+    },
+    []
+  );
+
   return {
     messages,
     setMessages,
@@ -129,5 +148,6 @@ export function useInfiniteMessages(initialData: MessagesLoaderData) {
     addMessage,
     deleteMessage,
     editMessage,
+    updateBookmark,
   };
 }

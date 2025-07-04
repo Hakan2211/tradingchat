@@ -405,23 +405,39 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     const messageId = formData.get('messageId');
     invariantResponse(typeof messageId === 'string', 'Message ID is required');
 
-    const existingBookmark = await prisma.bookmark.findUnique({
-      where: { userId_messageId: { userId, messageId } },
-      select: { id: true },
-    });
-
-    if (existingBookmark) {
-      await prisma.bookmark.delete({ where: { id: existingBookmark.id } });
-    } else {
-      await prisma.bookmark.create({
-        data: {
-          userId,
-          messageId,
-        },
+    try {
+      // First, verify the message exists
+      const message = await prisma.message.findUnique({
+        where: { id: messageId },
+        select: { id: true },
       });
+
+      if (!message) {
+        throw new Error('Message not found');
+      }
+
+      const existingBookmark = await prisma.bookmark.findUnique({
+        where: { userId_messageId: { userId, messageId } },
+        select: { id: true },
+      });
+
+      if (existingBookmark) {
+        await prisma.bookmark.delete({ where: { id: existingBookmark.id } });
+      } else {
+        await prisma.bookmark.create({
+          data: {
+            userId,
+            messageId,
+          },
+        });
+      }
+
+      // Note: No socket broadcast is needed as this is a private user action.
+      return { status: 'success' as const, toggledMessageId: messageId };
+    } catch (error) {
+      console.error('Bookmark toggle error:', error);
+      throw new Error('Failed to toggle bookmark');
     }
-    // Note: No socket broadcast is needed as this is a private user action.
-    return { status: 'success' as const, toggledMessageId: messageId };
   }
 
   const submission = parseWithZod(formData, { schema: MessageSchema });
@@ -570,6 +586,7 @@ export default function ChatRoom() {
     addMessage,
     deleteMessage,
     editMessage,
+    updateBookmark,
   } = useInfiniteMessages(initialMessagesData);
 
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(
@@ -719,6 +736,37 @@ export default function ChatRoom() {
     setEditingMessageId(null);
   };
 
+  const handleBookmarkToggle = React.useCallback(
+    (messageId: string) => {
+      // Prevent multiple concurrent bookmark operations on the same message
+      if (pendingBookmarkRef.current?.messageId === messageId) {
+        return;
+      }
+
+      const currentMessage = messages.find((msg) => msg.id === messageId);
+      if (!currentMessage) return;
+
+      const isCurrentlyBookmarked = currentMessage.bookmarks.length > 0;
+      const willBeBookmarked = !isCurrentlyBookmarked;
+
+      // Store the expected state for error recovery
+      pendingBookmarkRef.current = {
+        messageId,
+        expectedState: willBeBookmarked,
+      };
+
+      // Optimistic update
+      updateBookmark(messageId, user.id, willBeBookmarked);
+
+      // Submit the request
+      bookmarkFetcher.submit(
+        { intent: 'toggleBookmark', messageId },
+        { method: 'POST' }
+      );
+    },
+    [messages, user.id, updateBookmark, bookmarkFetcher]
+  );
+
   //------------------THis moved to use-infinite-messages.tsx hook--------------------------
 
   // React.useEffect(() => {
@@ -832,6 +880,11 @@ export default function ChatRoom() {
   }, [messageFetcher.state, messageFetcher.data, setReplyingTo]);
 
   // --- Bookmark Update Logic ---
+  const pendingBookmarkRef = React.useRef<{
+    messageId: string;
+    expectedState: boolean;
+  } | null>(null);
+
   React.useEffect(() => {
     if (
       bookmarkFetcher.state === 'idle' &&
@@ -839,23 +892,30 @@ export default function ChatRoom() {
       (bookmarkFetcher.data as any)?.toggledMessageId
     ) {
       const messageId = (bookmarkFetcher.data as any).toggledMessageId;
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) => {
-          if (msg.id === messageId) {
-            // Toggle the bookmark state for this message
-            const hasBookmark = msg.bookmarks.length > 0;
-            return {
-              ...msg,
-              bookmarks: hasBookmark
-                ? []
-                : [{ id: 'temp', userId: user.id, messageId: msg.id }],
-            };
-          }
-          return msg;
-        })
-      );
+
+      // Clear pending state since operation completed successfully
+      if (pendingBookmarkRef.current?.messageId === messageId) {
+        pendingBookmarkRef.current = null;
+      }
+
+      // No need to update state here - the server response means the DB is updated,
+      // and the optimistic update already shows the correct state
+    } else if (
+      bookmarkFetcher.state === 'idle' &&
+      bookmarkFetcher.data &&
+      !(
+        'status' in bookmarkFetcher.data &&
+        bookmarkFetcher.data.status === 'success'
+      )
+    ) {
+      // Handle error case (action threw an error or returned non-success) - revert optimistic update
+      if (pendingBookmarkRef.current) {
+        const { messageId, expectedState } = pendingBookmarkRef.current;
+        updateBookmark(messageId, user.id, !expectedState); // Revert to opposite
+        pendingBookmarkRef.current = null;
+      }
     }
-  }, [bookmarkFetcher.state, bookmarkFetcher.data, user.id]);
+  }, [bookmarkFetcher.state, bookmarkFetcher.data, user.id, updateBookmark]);
 
   const isDm = room.name.startsWith('dm:');
   let headerTitle: string;
@@ -883,9 +943,9 @@ export default function ChatRoom() {
   }
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full w-full overflow-hidden">
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full min-w-0 bg-card">
+      <div className="flex flex-col flex-1 h-full min-w-0 bg-card overflow-hidden">
         {/* Header - Fixed at top */}
         <header className="flex-shrink-0 border-b border-border/60 p-4 z-10">
           <div className="flex items-center justify-between">
@@ -908,9 +968,19 @@ export default function ChatRoom() {
           </div>
         </header>
 
-        {/* Messages Area - Scrollable container (takes remaining space) */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <ScrollArea className="h-full" ref={scrollViewportRef}>
+        {/* Messages Area - Scrollable container (takes remaining space) ------
+        ScrollArea from shadcn/ui not working - it is scrolling the whole page 
+        instead of this area! Scrollarea and tanstack virtual colliding? I replaced the div with Scrollarea and it works! Hybrid approach 
+         with the inner div which is for the virtualization*/}
+        <ScrollArea className="flex-1 min-h-0 relative">
+          <div
+            className="absolute inset-0 overflow-auto"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'hsl(var(--border)) transparent',
+            }}
+            ref={scrollViewportRef}
+          >
             <div
               style={{
                 height: `${rowVirtualizer.getTotalSize()}px`,
@@ -984,14 +1054,15 @@ export default function ChatRoom() {
                         onStartEdit={handleStartEdit}
                         onCancelEdit={handleCancelEdit}
                         bookmarkFetcher={bookmarkFetcher}
+                        onBookmarkToggle={handleBookmarkToggle}
                       />
                     </div>
                   </div>
                 );
               })}
             </div>
-          </ScrollArea>
-        </div>
+          </div>
+        </ScrollArea>
 
         {/* Footer - Fixed at bottom */}
         <footer className="flex-shrink-0 border-t border-border/60 p-2 sm:p-4 z-10">

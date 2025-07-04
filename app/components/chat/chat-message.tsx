@@ -129,6 +129,7 @@ type ChatMessageProps = {
   onStartEdit: (messageId: string) => void;
   onCancelEdit: () => void;
   bookmarkFetcher: ReturnType<typeof useFetcher>;
+  onBookmarkToggle?: (messageId: string) => void;
 };
 
 const EditMessageSchema = z.object({
@@ -205,6 +206,7 @@ export function ChatMessage({
   onStartEdit,
   onCancelEdit,
   bookmarkFetcher,
+  onBookmarkToggle,
 }: ChatMessageProps) {
   const userInitial = message.user?.name
     ? message.user.name.charAt(0).toUpperCase()
@@ -221,10 +223,9 @@ export function ChatMessage({
 
   const isEditing = editingMessageId === message.id;
 
+  // Use the actual bookmark state from the message
+  // The parent component now handles optimistic updates properly
   const isBookmarked = message.bookmarks.length > 0;
-  const isOptimistic =
-    bookmarkFetcher.formData?.get('messageId') === message.id;
-  const displayAsBookmarked = isOptimistic ? !isBookmarked : isBookmarked;
 
   if (message.isDeleted) {
     return <DeletedMessage />;
@@ -345,12 +346,17 @@ export function ChatMessage({
                     }}
                     canEdit={showEditButton}
                     onEdit={() => onStartEdit(message.id)}
-                    isBookmarked={displayAsBookmarked}
+                    isBookmarked={isBookmarked}
                     onBookmarkToggle={() => {
-                      bookmarkFetcher.submit(
-                        { intent: 'toggleBookmark', messageId: message.id },
-                        { method: 'POST' }
-                      );
+                      if (onBookmarkToggle) {
+                        onBookmarkToggle(message.id);
+                      } else {
+                        // Fallback to old behavior if no handler provided
+                        bookmarkFetcher.submit(
+                          { intent: 'toggleBookmark', messageId: message.id },
+                          { method: 'POST' }
+                        );
+                      }
                     }}
                   />
                 </PopoverContent>

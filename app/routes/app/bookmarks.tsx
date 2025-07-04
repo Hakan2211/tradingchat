@@ -41,7 +41,7 @@ export default function BookmarksPage() {
   const { bookmarks } = useLoaderData<typeof loader>();
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-card">
       <header className="flex-none border-b p-4">
         <h1 className="text-xl font-bold">My Bookmarks</h1>
       </header>
