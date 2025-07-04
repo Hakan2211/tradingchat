@@ -18,9 +18,9 @@ export const PresenceIndicator = ({
     <Badge
       className={cn(
         // Base styles for the dot
-        'absolute bottom-0 right-0 p-0 h-3 w-3 rounded-full border-2 border-background',
+        'absolute bottom-0 right-0 p-0 h-3 w-3 rounded-full border-2 border-sidebar-border',
         // Conditional background color
-        isOnline ? statusColor[status] : 'bg-slate-300'
+        isOnline ? statusColor[status] : 'bg-slate-300 border-sidebar'
       )}
     />
   );

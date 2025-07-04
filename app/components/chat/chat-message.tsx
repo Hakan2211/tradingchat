@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import { cn } from '#/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
 import { getUserImagePath } from '#/utils/misc';
@@ -52,9 +51,9 @@ function QuotedMessage({
 
           <HydratedDate
             date={new Date(message.createdAt)}
-            formatStr="p"
+            formatStr="HH:mm"
             className="text-xs text-muted-foreground"
-            fallback="--:-- --"
+            fallback="--:--"
           />
         </div>
         {message.content && (
@@ -100,6 +99,7 @@ type ChatMessageProps = {
       id: string;
       name: string | null;
       image: { id: string } | null;
+      username: string | null;
     } | null;
     replyTo: {
       content: string | null;
@@ -246,14 +246,22 @@ export function ChatMessage({
           </AvatarFallback>
         </Avatar>
         <div className="flex flex-col flex-1">
-          <div className="flex items-center gap-2"></div>
-          <p className="font-semibold text-sm">{message.user?.name}</p>
-          <HydratedDate
-            date={new Date(message.createdAt)}
-            formatStr="p"
-            className="text-xs text-muted-foreground"
-            fallback="--:-- --"
-          />
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-sm">{message.user?.name}</p>
+            <HydratedDate
+              date={new Date(message.createdAt)}
+              formatStr="HH:mm"
+              className="text-xs text-muted-foreground"
+              fallback="--:--"
+            />
+          </div>
+          {message.user?.username && (
+            <p className="text-xs text-muted-foreground">
+              @
+              {message.user?.username.charAt(0).toUpperCase() +
+                message.user?.username.slice(1)}
+            </p>
+          )}
         </div>
 
         <div className="pl-11">
@@ -275,10 +283,10 @@ export function ChatMessage({
                 {message.content && (
                   <div
                     className={cn(
-                      'max-w-md rounded-xl px-3.5 py-2.5',
+                      'max-w-md rounded-xl px-3.5 py-2.5 tracking-[0.015em]',
                       message.replyTo ? '-mt-1' : '',
                       isCurrentUser
-                        ? 'bg-primary text-primary-foreground'
+                        ? 'bg-primary text-foreground'
                         : 'bg-muted text-foreground'
                     )}
                   >

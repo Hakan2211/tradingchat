@@ -64,6 +64,7 @@ type MessageWithUser = {
     id: string;
     name: string | null;
     image: { id: string } | null;
+    username: string | null;
   } | null;
   replyTo: {
     content: string | null;
@@ -136,7 +137,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       },
       image: { select: { id: true, altText: true } },
       user: {
-        select: { id: true, name: true, image: { select: { id: true } } },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: { select: { id: true } },
+        },
       },
       replyTo: {
         select: {
@@ -489,7 +495,12 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       isDeleted: true,
       image: { select: { id: true, altText: true } },
       user: {
-        select: { id: true, name: true, image: { select: { id: true } } },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: { select: { id: true } },
+        },
       },
       replyTo: {
         select: {
@@ -1033,7 +1044,7 @@ export default function ChatRoom() {
               encType="multipart/form-data"
               {...getFormProps(form)}
               ref={formRef}
-              className="relative flex items-center rounded-lg border shadow-sm"
+              className="relative flex items-center rounded-lg border shadow-sm bg-textarea"
             >
               {replyingTo && (
                 <input type="hidden" name="replyToId" value={replyingTo.id} />
@@ -1098,7 +1109,7 @@ export default function ChatRoom() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="size-8 text-muted-foreground"
+                  className="size-8 text-muted-foreground cursor-pointer hover:bg-card/80 transition-colors duration-300"
                   onClick={() => imageInputRef.current?.click()}
                 >
                   <Paperclip className="size-5" />
@@ -1107,7 +1118,7 @@ export default function ChatRoom() {
                 <Button
                   type="submit"
                   size="icon"
-                  className="size-8"
+                  className="size-8 bg-background text-sidebar-accent hover:bg-background/80 cursor-pointer transition-colors duration-300"
                   disabled={messageFetcher.state !== 'idle'}
                 >
                   <SendHorizonalIcon className="size-4 -rotate-90" />

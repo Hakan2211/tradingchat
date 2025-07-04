@@ -24,6 +24,7 @@ type MessageWithUser = {
     id: string;
     name: string | null;
     image: { id: string } | null;
+    username: string | null;
   } | null;
   replyTo: {
     content: string | null;
@@ -50,7 +51,14 @@ export function useInfiniteMessages(initialData: MessagesLoaderData) {
       isDeleted: msg.isDeleted,
       bookmarks: msg.bookmarks || [],
       image: msg.image || null,
-      user: msg.user || null,
+      user: msg.user
+        ? {
+            id: msg.user.id,
+            name: msg.user.name,
+            image: msg.user.image,
+            username: msg.user.username,
+          }
+        : null,
       replyTo: msg.replyTo || null,
     };
   }, []);

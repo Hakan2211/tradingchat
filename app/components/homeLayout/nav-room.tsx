@@ -24,6 +24,7 @@ import {
   CollapsibleTrigger,
 } from '#/components/ui/collapsible';
 import { Badge } from '#/components/ui/badge';
+import { cn } from '#/lib/utils';
 
 export type NavRoomItem = {
   id: string;
@@ -70,7 +71,7 @@ export function NavRooms({
           {/* The main trigger for the "Chat Rooms" section */}
           <CollapsibleTrigger asChild>
             <SidebarMenuButton
-              className="h-10 text-base cursor-pointer [&>svg]:size-5"
+              className="h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground"
               tooltip="Rooms"
             >
               <MessageSquare className="size-5" />
@@ -94,7 +95,14 @@ export function NavRooms({
                   >
                     <NavLink className="flex-grow" to={`/chat/${item.id}`} end>
                       {({ isActive }) => (
-                        <SidebarMenuSubButton asChild isActive={isActive}>
+                        <SidebarMenuSubButton
+                          className={cn(
+                            'hover:bg-accent/50 hover:text-accent-foreground',
+                            isActive && '!bg-accent/60 !text-accent-foreground'
+                          )}
+                          asChild
+                          isActive={isActive}
+                        >
                           <div className="flex w-full items-center justify-between">
                             <div className="flex items-center gap-2 overflow-hidden">
                               {/* Render our dynamic icon component */}

@@ -19,6 +19,7 @@ import { Bookmark } from 'lucide-react';
 import { NavDms, type NavDmItem } from '#/components/homeLayout/nav-dms';
 import { useSocketContext } from '#/routes/layouts/app-layout';
 import { useHydrated } from 'remix-utils/use-hydrated';
+import { cn } from '#/lib/utils';
 
 type AppSidebarProps = {
   user: {
@@ -64,7 +65,10 @@ export function AppSidebar({
             <NavLink to="/bookmarks" end>
               {({ isActive }) => (
                 <SidebarMenuButton
-                  className="h-10 text-base cursor-pointer [&>svg]:size-5"
+                  className={cn(
+                    'h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground',
+                    isActive && '!bg-accent/60 !text-accent-foreground'
+                  )}
                   isActive={isActive}
                   tooltip="Bookmarks"
                 >

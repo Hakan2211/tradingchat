@@ -241,9 +241,7 @@ export function UserList({
   return (
     <div className="flex h-full flex-col">
       <header className="flex-none border-b p-4">
-        <h2 className="text-lg font-semibold">
-          Members — {onlineCount} Online
-        </h2>
+        <h2 className="text-sm">Members — {onlineCount} Online</h2>
       </header>
       <ScrollArea className="flex-1">
         <div className="space-y-1 p-2">

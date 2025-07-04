@@ -405,7 +405,7 @@ export default function AppLayout() {
         />
         <SidebarInset>
           <header className="flex h-14 shrink-0 items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1 cursor-pointer hover:bg-muted/50 aspect-square rounded-md p-4 text-foreground hover:text-muted-foreground" />
+            <SidebarTrigger className="-ml-1 cursor-pointer aspect-square rounded-md p-4 text-sidebar hover:!bg-sidebar-accent hover:!text-sidebar-accent-foreground" />
           </header>
           <main className="flex-1 p-2 md:p-3 h-[calc(100svh-3.5rem)]">
             <div className="h-full w-full text-card-foreground rounded-3xl shadow-sm overflow-hidden">
