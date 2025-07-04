@@ -620,24 +620,10 @@ export default function ChatRoom() {
   });
   const virtualItems = rowVirtualizer.getVirtualItems();
 
-  // --- Fix #2: Preventing the Scroll Jump ---
+  // --- Smooth scroll management ---
   const prevMessagesLengthRef = React.useRef(messages.length);
-  React.useEffect(() => {
-    const viewport = scrollViewportRef.current;
-    if (viewport && messages.length > prevMessagesLengthRef.current) {
-      const oldScrollHeight = viewport.scrollHeight;
-      const oldScrollTop = viewport.scrollTop;
-
-      requestAnimationFrame(() => {
-        const newScrollHeight = viewport.scrollHeight;
-        viewport.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
-      });
-    }
-    prevMessagesLengthRef.current = messages.length;
-  }, [messages]);
-
-  // --- Smooth scroll to bottom for new messages ---
   const isUserNearBottomRef = React.useRef(true);
+  const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   React.useEffect(() => {
     const viewport = scrollViewportRef.current;
@@ -653,19 +639,62 @@ export default function ChatRoom() {
     return () => viewport.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Scroll to bottom when new messages arrive (if user was near bottom)
+  // Unified scroll handling for message changes
   React.useEffect(() => {
-    if (messages.length === 0) return;
-
     const viewport = scrollViewportRef.current;
-    if (viewport && isUserNearBottomRef.current) {
-      requestAnimationFrame(() => {
-        viewport.scrollTo({
-          top: viewport.scrollHeight,
-          behavior: 'smooth',
-        });
-      });
+    if (!viewport) return;
+
+    const previousLength = prevMessagesLengthRef.current;
+    const currentLength = messages.length;
+
+    if (currentLength === 0) return;
+
+    // Clear any pending scroll operations
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
     }
+
+    // Handle different scroll scenarios
+    const handleScrollUpdate = () => {
+      if (currentLength > previousLength) {
+        // New messages added
+        if (isUserNearBottomRef.current) {
+          // User was at bottom - smoothly scroll to show new messages
+          viewport.scrollTo({
+            top: viewport.scrollHeight,
+            behavior: 'smooth',
+          });
+        } else {
+          // User was scrolled up - maintain position (for infinite scroll)
+          const oldScrollHeight = viewport.scrollHeight;
+          const oldScrollTop = viewport.scrollTop;
+
+          requestAnimationFrame(() => {
+            const newScrollHeight = viewport.scrollHeight;
+            const scrollDifference = newScrollHeight - oldScrollHeight;
+
+            if (scrollDifference > 0) {
+              // Smooth adjustment instead of instant jump
+              viewport.scrollTo({
+                top: oldScrollTop + scrollDifference,
+                behavior: 'auto', // No animation for position maintenance
+              });
+            }
+          });
+        }
+      }
+    };
+
+    // Small delay to batch rapid message updates
+    scrollTimeoutRef.current = setTimeout(handleScrollUpdate, 16); // ~1 frame delay
+
+    prevMessagesLengthRef.current = currentLength;
+
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, [messages.length]);
 
   // Scroll to bottom on initial load and when room changes
@@ -673,13 +702,13 @@ export default function ChatRoom() {
     if (messages.length > 0) {
       const viewport = scrollViewportRef.current;
       if (viewport) {
-        // Delay to ensure virtual items are rendered
-        setTimeout(() => {
+        // Small delay to ensure virtual items are rendered
+        requestAnimationFrame(() => {
           viewport.scrollTo({
             top: viewport.scrollHeight,
             behavior: 'smooth',
           });
-        }, 100);
+        });
       }
     }
   }, [room?.id]); // Run when room changes
