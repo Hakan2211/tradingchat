@@ -4,16 +4,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: [
-          'Inter',
-          'ui-sans-serif',
-          'system-ui',
-          'sans-serif',
-          'Apple Color Emoji',
-          'Segoe UI Emoji',
-          'Segoe UI Symbol',
-          'Noto Color Emoji',
-        ],
+        // Point to the CSS variable for the sans-serif font
+        sans: ['var(--font-sans)'],
+        // Point to the CSS variable for the serif font
+        serif: ['var(--font-serif)'],
       },
     },
   },

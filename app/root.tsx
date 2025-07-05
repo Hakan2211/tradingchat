@@ -147,7 +147,7 @@ function Document({
         <Links />
         <ClientHintCheck nonce="" />
       </head>
-      <body>
+      <body className="font-sans">
         {children}
         <ScrollRestoration />
         <Scripts />

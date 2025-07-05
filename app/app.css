@@ -11,11 +11,48 @@
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif,
     'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 } */
+@layer base {
+  :root {
+    --font-sans: 'Geist-Sans', 'Inter', system-ui, sans-serif;
+    --font-serif: 'Spectral', ui-serif, Georgia, Cambria, 'Times New Roman',
+      Times, serif;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  .noise-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.05; /* Adjust for more/less grain */
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)"/></svg>');
+  }
+
+  .bg-gradient-radial {
+    background-image: radial-gradient(circle, var(--tw-gradient-stops));
+  }
+
+  /* .font-system {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+      Ubuntu, Cantarell, sans-serif;
+  } */
+}
 
 html,
 body {
   @apply bg-white dark:bg-gray-950;
-  font-family: 'Geist-Sans', 'Inter', system-ui, sans-serif;
   @apply antialiased;
 
   @media (prefers-color-scheme: dark) {
@@ -157,15 +194,4 @@ body {
   --sidebar-accent-foreground: oklch(0.98 0.006 250);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
 }

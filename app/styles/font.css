@@ -85,3 +85,59 @@
       format('woff2'),
     url('/fonts/geist-sans/geist-sans-latin-900-normal.woff') format('woff');
 }
+
+/* Spectral */
+
+@font-face {
+  font-family: 'Spectral';
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url('/fonts/spectral/spectral-extralight.woff2') format('woff2'),
+    url('/fonts/spectral/spectral-extralight.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Spectral';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('/fonts/spectral/spectral-light.woff2') format('woff2'),
+    url('/fonts/spectral/spectral-light.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Spectral';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/spectral/spectral-regular.woff2') format('woff2'),
+    url('/fonts/spectral/spectral-regular.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Spectral';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/spectral/spectral-medium.woff2') format('woff2'),
+    url('/fonts/spectral/spectral-medium.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Spectral';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/spectral/spectral-semibold.woff2') format('woff2'),
+    url('/fonts/spectral/spectral-semibold.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Spectral';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/spectral/spectral-bold.woff2') format('woff2'),
+    url('/fonts/spectral/spectral-bold.woff') format('woff');
+}

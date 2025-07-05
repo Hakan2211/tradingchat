@@ -84,7 +84,7 @@ export function BookmarkedMessageCard({
         </div>
 
         {message.content && (
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+          <p className="text-sm text-muted-foreground mb-2">
             {message.content}
           </p>
         )}
@@ -156,21 +156,17 @@ export function BookmarkDateHeader({ date }: { date: string }) {
     displayContent = 'Yesterday';
   } else {
     displayContent = (
-      <HydratedDate
-        date={dateObj}
-        formatStr="EEEE, MMMM d, yyyy"
-        fallback="..."
-      />
+      <HydratedDate date={dateObj} formatStr="MMMM d, yyyy" fallback="..." />
     );
   }
 
   return (
-    <div className="flex items-center gap-2 py-2">
-      <Calendar className="size-4 text-muted-foreground" />
-      <h2 className="font-semibold text-sm text-muted-foreground">
+    <div className="relative text-center my-8">
+      <hr className="absolute left-0 top-1/2 w-full -translate-y-1/2 border-border/50" />
+      <span className="relative z-10 inline-flex items-center gap-2 rounded-full bg-card px-3 border border-border/50 py-1 text-xs font-medium text-muted-foreground/80">
+        <Calendar className="size-4" />
         {displayContent}
-      </h2>
-      <div className="flex-1 h-px bg-border" />
+      </span>
     </div>
   );
 }
