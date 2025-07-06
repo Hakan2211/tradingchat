@@ -9,6 +9,7 @@ import {
 } from 'react-router';
 import { HeroSection } from '#/components/landingpage/hero-section';
 import { LandingNavbar } from '#/components/landingpage/landing-navbar';
+import { PricingSection } from '#/components/landingpage/pricing-section';
 
 export const meta: MetaFunction = () => {
   return [
@@ -27,7 +28,7 @@ export default function Home() {
     <main className="bg-black text-zinc-50">
       <LandingNavbar />
       <HeroSection />
-      <section className="text-zinc-50 h-screen w-full">Hello</section>
+      <PricingSection />
       {/* ... The rest of your landing page sections will go here ... */}
     </main>
   );
