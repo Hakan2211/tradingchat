@@ -12,6 +12,7 @@ import {
 import { Menu } from 'lucide-react';
 import { useScrollNav } from '#/hooks/use-scroll-nav';
 import { Logo } from './logo';
+import { MovingBorderButton } from '#/components/ui/moving-border.button';
 
 // Reusable Data
 const navItems = [
@@ -66,7 +67,7 @@ const NavBody = ({
       backdropFilter: visible
         ? 'blur(24px) saturate(180%)'
         : 'blur(12px) saturate(100%)',
-      background: visible ? 'rgba(18, 18, 22, 0.75)' : 'rgba(18, 18, 22, 0.55)',
+      background: visible ? 'rgba(0, 0, 0, 0.75)' : 'rgba(0, 0, 0, 0.55)',
       y: visible ? 20 : 0,
     }}
     transition={{ type: 'spring', stiffness: 200, damping: 50 }}
@@ -88,12 +89,12 @@ const NavItems = () => {
   return (
     <motion.div
       onMouseLeave={() => setHovered(null)}
-      className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-6 text-sm font-medium md:flex"
+      className="absolute inset-0 hidden flex-1 flex-row items-center justify-center space-x-6 text-sm font-light tracking-wide md:flex"
     >
       {navItems.map((item, idx) => (
         <Link
           onMouseEnter={() => setHovered(idx)}
-          className="relative px-4 py-2 text-white transition-colors hover:text-yellow-400"
+          className="relative px-4 py-2 text-neutral-300 transition-colors hover:text-neutral-100"
           key={`link-${idx}`}
           to={item.link}
           style={{ textShadow: '0 0 5px rgba(255, 255, 255, 0.3)' }}
@@ -101,7 +102,7 @@ const NavItems = () => {
           {hovered === idx && (
             <motion.div
               layoutId="hovered"
-              className="absolute inset-0 rounded-2xl bg-zinc-700/50"
+              className="absolute inset-0 rounded-2xl bg-neutral-200/5"
             />
           )}
           <span className="relative z-20">{item.name}</span>
@@ -117,8 +118,8 @@ const MobileSheetNav = ({ visible }: { visible?: boolean }) => (
     animate={{
       backdropFilter: visible ? 'blur(20px)' : 'blur(10px)',
       background: visible
-        ? 'linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(10, 10, 15, 0.8) 100%)'
-        : 'linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(10, 10, 15, 0.6) 100%)',
+        ? 'linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.8) 100%)'
+        : 'linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%)',
     }}
     transition={{ type: 'spring', stiffness: 200, damping: 50 }}
     className="relative rounded-full z-50 flex w-full flex-row items-center justify-between p-4 md:hidden translate-y-[10px]"
@@ -188,21 +189,21 @@ export function LandingNavbar() {
   return (
     <NavbarContainer>
       <NavBody>
-        <Link to="/" className="text-2xl font-bold text-yellow-400">
+        <Link to="/" className="text-xl text-[#ccb389]">
           BullBearz
         </Link>
         <NavItems />
-        <div className="relative z-20 flex items-center gap-2">
+        <div className="relative z-20 flex text-base font-light tracking-wide items-center gap-2">
           <Button
             asChild
             variant="ghost"
-            className="text-white hover:text-yellow-400"
+            className="text-neutral-300 hover:text-neutral-100"
           >
             <Link to="/login">Log In</Link>
           </Button>
           <Button
             asChild
-            className="bg-gradient-to-r from-yellow-400 to-gray-400 text-black hover:from-yellow-500 hover:to-gray-500"
+            className="bg-gray-800/60 hover:bg-gray-800/40 border border-gray-800/60  hover:border-gray-700 transition-all duration-300"
           >
             <Link to="/signup">Get Started</Link>
           </Button>

@@ -16,6 +16,7 @@
     --font-sans: 'Geist-Sans', 'Inter', system-ui, sans-serif;
     --font-serif: 'Spectral', ui-serif, Georgia, Cambria, 'Times New Roman',
       Times, serif;
+    --gold-light: #ccb389;
   }
   * {
     @apply border-border outline-ring/50;
@@ -52,7 +53,6 @@
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
   @apply antialiased;
 
   @media (prefers-color-scheme: dark) {

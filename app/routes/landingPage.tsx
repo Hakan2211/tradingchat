@@ -24,12 +24,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function Home() {
   return (
-    <main className="bg-zinc-800 text-zinc-50">
+    <main className="bg-black text-zinc-50">
       <LandingNavbar />
       <HeroSection />
-      <section className="bg-zinc-800 text-zinc-50 h-screen w-full">
-        Hello
-      </section>
+      <section className="text-zinc-50 h-screen w-full">Hello</section>
       {/* ... The rest of your landing page sections will go here ... */}
     </main>
   );
