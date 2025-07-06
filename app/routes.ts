@@ -7,7 +7,7 @@ import {
 } from '@react-router/dev/routes';
 
 export default [
-  index('routes/landingPage.tsx'),
+  layout('routes/layouts/public-layout.tsx', [index('routes/landingPage.tsx')]),
 
   //--------------Resources Routes-----------------------
   ...prefix('resources', [

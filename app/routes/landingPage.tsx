@@ -10,6 +10,7 @@ import {
 import { HeroSection } from '#/components/landingpage/hero-section';
 import { LandingNavbar } from '#/components/landingpage/landing-navbar';
 import { PricingSection } from '#/components/landingpage/pricing-section';
+import { FaqSection } from '#/components/landingpage/faq-section';
 
 export const meta: MetaFunction = () => {
   return [
@@ -26,10 +27,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function Home() {
   return (
     <main className="bg-black text-zinc-50">
-      <LandingNavbar />
+      {/* <LandingNavbar /> */}
       <HeroSection />
       <PricingSection />
-      {/* ... The rest of your landing page sections will go here ... */}
+      <FaqSection />
     </main>
   );
 }
