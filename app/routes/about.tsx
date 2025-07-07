@@ -18,7 +18,8 @@ import {
 export const meta: MetaFunction = () => {
   return [
     {
-      title: "About BullBearz - Trading Is Hard. Going It Alone Shouldn't Be.",
+      title:
+        "About BullBearz - Trading Is Hard. You Don't Have To Do It Alone.",
     },
     {
       name: 'description',
@@ -41,19 +42,15 @@ export default function About() {
       <div className="relative z-10 mx-auto max-w-4xl px-6 lg:px-8">
         {/* Hero Section */}
         <div className="pt-20 pb-16 text-center">
-          <Badge className="bg-gradient-to-r from-[#ccb389] to-[#b8a082] text-zinc-900/80 px-4 py-2 text-sm font-medium mb-6">
-            About BullBearz
-          </Badge>
-          <h1 className="text-4xl md:text-6xl font-serif font-medium tracking-tight text-neutral-300 mb-6">
+          <h1 className="text-4xl md:text-5xl font-serif font-medium tracking-tight text-neutral-300 mb-6 leading-[1.3]">
             Trading Is Hard.
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[#ccb389] to-[#b8a082]">
-              Going It Alone Shouldn't Be.
+              You Don't Have To Do It Alone.
             </span>
           </h1>
           <p className="mx-auto max-w-3xl text-xl leading-8 text-zinc-400 text-pretty mb-8">
-            A chat platform built from scratch by a trader, for
-            traders—real-time collaboration, genuine insights, authentic
-            community.
+            A chat platform built from scratch by a trader, for traders —
+            real-time collaboration, genuine insights, authentic community.
           </p>
           <p className="text-lg text-[#ccb389] font-medium mb-8">
             BullBearz exists so you never have to trade alone again.
@@ -62,20 +59,24 @@ export default function About() {
             <Button
               asChild
               size="lg"
-              className="bg-gradient-to-r from-[#ccb389] to-[#b8a082] text-zinc-900/80 hover:from-[#b8a082] hover:to-[#ccb389] border border-[#dac9acbd] shadow-lg shadow-[#ccb389]/25"
+              className="bg-gradient-to-r text-base from-[#ccb389] to-[#b8a082] text-zinc-900/80 hover:from-[#b8a082] hover:to-[#ccb389] border border-[#dac9acbd] shadow-lg shadow-[#ccb389]/25"
             >
-              <Link to="/register">Get Early Access</Link>
+              <Link to="/register">Join Now</Link>
             </Button>
-            <Button
+            {/* <Button
               asChild
               variant="outline"
               size="lg"
               className="border-[#ccb389]/30 text-neutral-300 hover:bg-[#ccb389]/10 hover:border-[#ccb389]/50"
             >
               <Link to="/roadmap">See Full Roadmap</Link>
-            </Button>
+            </Button> */}
           </div>
         </div>
+        <div
+          className="h-px bg-gradient-to-r from-transparent via-[#ccb389]/30 to-transparent"
+          aria-hidden="true"
+        />
 
         {/* Rock Bottom Section */}
         <div className="py-16">
@@ -99,16 +100,18 @@ export default function About() {
                 There's a special kind of loneliness that comes with staring at
                 charts at 3 AM, watching your account bleed red while the world
                 sleeps. When COVID hit and everyone seemed to be printing money,
-                I was paralyzed—too scared to take trades, too proud to quit,
+                I was paralyzed — too scared to take trades, too proud to quit,
                 too broke to keep going.
               </p>
             </div>
             <div className="flex justify-center">
-              <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 p-4">
-                <div className="w-48 h-32 bg-gradient-to-br from-zinc-800 to-zinc-700 rounded-lg flex items-center justify-center">
-                  <span className="text-zinc-500 text-sm">
-                    [Photo: Hakan at his trading desk]
-                  </span>
+              <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 p-2">
+                <div className="w-64 h-48 bg-gradient-to-br from-zinc-800 to-zinc-700 rounded-lg flex items-center justify-center">
+                  <img
+                    src="/images/hakan.jpg"
+                    alt="Hakan at his trading desk"
+                    className="w-full h-full object-cover rounded-lg"
+                  />
                 </div>
               </Card>
             </div>
@@ -125,11 +128,13 @@ export default function About() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
             <div className="flex justify-center lg:order-first">
-              <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 p-4">
-                <div className="w-48 h-32 bg-gradient-to-br from-zinc-800 to-zinc-700 rounded-lg flex items-center justify-center">
-                  <span className="text-zinc-500 text-sm">
-                    [Photo: Hakan with his mother]
-                  </span>
+              <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 p-2">
+                <div className="w-64 h-48 bg-gradient-to-br from-zinc-800 to-zinc-700 rounded-lg flex items-center justify-center">
+                  <img
+                    src="/images/mom.jpg"
+                    alt="Hakan with his mother"
+                    className="w-full h-full object-cover rounded-lg"
+                  />
                 </div>
               </Card>
             </div>
@@ -139,7 +144,7 @@ export default function About() {
                 <span className="text-[#ccb389]">Literally.</span> She saw me
                 disappearing into a darkness where trading losses felt like life
                 failures, where every red day brought thoughts I'm not proud of.
-                She refused to let me give up—not on trading, not on building
+                She refused to let me give up — not on trading, not on building
                 something meaningful, not on myself.
               </p>
               <p className="text-lg text-zinc-300 leading-relaxed">
@@ -186,7 +191,7 @@ export default function About() {
             ].map((item, index) => (
               <Card
                 key={index}
-                className="bg-gradient-to-br from-zinc-900/40 to-zinc-800/40 ring-1 ring-zinc-800/50 backdrop-blur-10 p-6 text-center"
+                className="bg-transparent backdrop-blur-10 p-6 text-center"
               >
                 <div className="mx-auto w-12 h-12 bg-gradient-to-br from-[#ccb389] to-[#b8a082] rounded-lg flex items-center justify-center mb-4">
                   <item.icon className="h-6 w-6 text-zinc-900" />
@@ -199,7 +204,7 @@ export default function About() {
             ))}
           </div>
 
-          <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-[#ccb389]/20 backdrop-blur-10 p-8">
+          <Card className="bg-transparent backdrop-blur-10 p-8">
             <p className="text-lg text-zinc-300 leading-relaxed mb-4">
               But here's what frustrated me: most chat rooms were just noise.
               Alert services pushing tickers. Gurus selling dreams. Crowds
@@ -231,7 +236,8 @@ export default function About() {
               },
               {
                 icon: BookOpen,
-                title: 'Integrated trading journal & emotional-pattern tracker',
+                title:
+                  'Integrated trading journal & emotional-pattern tracker (still in development)',
                 description: 'know thyself',
               },
               {
@@ -245,10 +251,7 @@ export default function About() {
                 description: 'features traders actually need',
               },
             ].map((feature, index) => (
-              <Card
-                key={index}
-                className="bg-gradient-to-br from-zinc-900/40 to-zinc-800/40 ring-1 ring-zinc-800/50 backdrop-blur-10 p-6"
-              >
+              <Card key={index} className="bg-transparent backdrop-blur-10 p-6">
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-gradient-to-br from-[#ccb389] to-[#b8a082] rounded-lg flex items-center justify-center flex-shrink-0">
                     <feature.icon className="h-5 w-5 text-zinc-900" />
@@ -275,7 +278,7 @@ export default function About() {
             </h2>
           </div>
 
-          <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 backdrop-blur-10 p-8">
+          <div className="bg-transparent backdrop-blur-10 p-8 text-pretty">
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
               While recovering from my lowest point, I invested time and money
               learning full-stack development. Not because I wanted to become a
@@ -293,7 +296,7 @@ export default function About() {
               emotional patterns. The sector-specific rooms? Because context
               matters more than noise.
             </p>
-          </Card>
+          </div>
         </div>
 
         {/* Mission & Values */}
@@ -304,8 +307,8 @@ export default function About() {
             </h2>
           </div>
 
-          <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-[#ccb389]/20 backdrop-blur-10 p-8 mb-8">
-            <h3 className="text-xl font-medium text-[#ccb389] mb-4">
+          <Card className="flex items-center  bg-gradient-to-br from-zinc-900/90 to-zinc-900/70 ring-1 ring-[#ccb389]/40 backdrop-blur-10 p-8 mb-8">
+            <h3 className="text-xl font-medium text-[#ccb389] mb-2">
               Mission:
             </h3>
             <p className="text-lg text-zinc-300">
@@ -322,7 +325,7 @@ export default function About() {
             ].map((value, index) => (
               <Card
                 key={index}
-                className="bg-gradient-to-br from-zinc-900/40 to-zinc-800/40 ring-1 ring-zinc-800/50 backdrop-blur-10 p-6 text-center"
+                className="bg-transparent ring-1 ring-zinc-800/50 backdrop-blur-10 p-6 text-center"
               >
                 <h4 className="text-lg font-medium text-[#ccb389] mb-2">
                   {value.title}
@@ -341,7 +344,7 @@ export default function About() {
             </h2>
           </div>
 
-          <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-[#ccb389]/20 backdrop-blur-10 p-8 text-center">
+          <Card className="bg-transparent ring-1 ring-[#ccb389]/20 backdrop-blur-10 p-8 text-center">
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
               At <span className="text-[#ccb389] font-semibold">$60/month</span>{' '}
               (or{' '}
@@ -351,45 +354,49 @@ export default function About() {
               ), you're investing in real tools, real support, real growth.
               Every dollar goes back into building features you actually need.
             </p>
-            <Badge className="bg-gradient-to-r from-[#ccb389] to-[#b8a082] text-zinc-900/80 px-4 py-2 text-sm font-medium">
-              7-day free trial included
-            </Badge>
-            <p className="text-sm text-zinc-400 mt-2">
-              because confidence comes from experience, not promises.
-            </p>
+            <div className="flex flex-col gap-2 items-center">
+              <Badge className="bg-gradient-to-r from-[#ccb389] to-[#b8a082] text-zinc-900/80 px-4 py-2 text-sm font-medium">
+                14-day money back guarantee
+              </Badge>
+              <p className="text-sm text-zinc-400 mt-2">
+                because confidence comes from experience, not promises.
+              </p>
+            </div>
           </Card>
         </div>
 
         {/* Final Invitation */}
         <div className="py-20">
-          <Card className="bg-gradient-to-br from-zinc-900/90 to-zinc-800/90 ring-1 ring-[#ccb389]/30 backdrop-blur-20 p-12 text-center">
+          <Card className="bg-gradient-to-br from-slate-800/90 to-black-600/90 ring-1 ring-[#ccb389]/30 backdrop-blur-20 p-12 text-center shadow-2xl shadow-[#ccb389]/10">
             <h2 className="text-3xl font-serif font-medium text-[#ccb389] mb-6">
               The Invitation
             </h2>
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-              Whether you're a weekend swing trader, futures pro, or finance
-              student just starting out, there's a seat at our table. Bring your
-              questions, your boldest ideas, or just your willingness to learn.
+              Whether you're a weekend swing trader, scalper, large-cap trader,
+              small-cap trader, momentum trader, or finance student just
+              starting out, there's a seat at our table. Bring your questions,
+              your boldest ideas, or just your willingness to learn.
             </p>
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
               We celebrate wins, dissect losses, and treat failure as the
               greatest teacher.
             </p>
             <p className="text-xl text-[#ccb389] font-medium mb-6">
-              Trading is hard. Going it alone shouldn't be.
+              Trading is hard. You Shouldn’t Have to Go It Alone.
             </p>
             <p className="text-lg text-zinc-300 leading-relaxed mb-8">
-              Join BullBearz today and turn every red candle into a lesson,
-              every green candle into celebration.
+              Join <span className="text-[#ccb389]">BullBearz</span> today and
+              turn every red candle into a lesson, every green candle into
+              celebration.
               <br />
               Let's trade 'em well together.
             </p>
 
             <div className="border-t border-zinc-700/50 pt-6 mb-8">
               <p className="text-lg text-zinc-300 mb-1">— Hakan</p>
-              <p className="text-sm text-zinc-400 mb-1">
+              {/* <p className="text-sm text-zinc-400 mb-1">
                 Founder & Lead Developer
-              </p>
+              </p> */}
               <p className="text-sm text-zinc-500">July 7, 2025</p>
             </div>
 
@@ -399,16 +406,16 @@ export default function About() {
                 size="lg"
                 className="bg-gradient-to-r from-[#ccb389] to-[#b8a082] text-zinc-900/80 hover:from-[#b8a082] hover:to-[#ccb389] border border-[#dac9acbd] shadow-lg shadow-[#ccb389]/25"
               >
-                <Link to="/register">Get Early Access</Link>
+                <Link to="/register">Join Now</Link>
               </Button>
-              <Button
+              {/* <Button
                 asChild
                 variant="outline"
                 size="lg"
                 className="border-[#ccb389]/30 text-neutral-300 hover:bg-[#ccb389]/10 hover:border-[#ccb389]/50"
               >
                 <Link to="/roadmap">See Full Roadmap</Link>
-              </Button>
+              </Button> */}
             </div>
           </Card>
         </div>
