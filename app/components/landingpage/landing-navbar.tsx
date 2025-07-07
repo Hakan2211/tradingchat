@@ -11,12 +11,10 @@ import {
 } from '#/components/ui/sheet';
 import { Menu } from 'lucide-react';
 import { useScrollNav } from '#/hooks/use-scroll-nav';
-import { Logo } from './logo';
-import { MovingBorderButton } from '#/components/ui/moving-border.button';
 
 // Reusable Data
 const navItems = [
-  { name: 'Features', link: '/features' },
+  { name: 'About', link: '/about' },
   { name: 'Pricing', link: '/pricing' },
   { name: 'Journal', link: '/journal' },
 ];
@@ -189,7 +187,7 @@ export function LandingNavbar() {
   return (
     <NavbarContainer>
       <NavBody>
-        <Link to="/" className="text-xl text-[#ccb389]">
+        <Link to="/" className="text-xl cursor-pointer z-50 text-[#ccb389]">
           BullBearz
         </Link>
         <NavItems />
