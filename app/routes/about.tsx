@@ -191,7 +191,7 @@ export default function About() {
             ].map((item, index) => (
               <Card
                 key={index}
-                className="bg-transparent backdrop-blur-10 p-6 text-center"
+                className="bg-transparent backdrop-blur-10 p-6 text-center my-3"
               >
                 <div className="mx-auto w-12 h-12 bg-gradient-to-br from-[#ccb389] to-[#b8a082] rounded-lg flex items-center justify-center mb-4">
                   <item.icon className="h-6 w-6 text-zinc-900" />
@@ -204,7 +204,7 @@ export default function About() {
             ))}
           </div>
 
-          <Card className="bg-transparent backdrop-blur-10 p-8">
+          <div className="bg-transparent backdrop-blur-10">
             <p className="text-lg text-zinc-300 leading-relaxed mb-4">
               But here's what frustrated me: most chat rooms were just noise.
               Alert services pushing tickers. Gurus selling dreams. Crowds
@@ -213,7 +213,7 @@ export default function About() {
             <p className="text-lg text-[#ccb389] font-medium">
               I wanted something different. Something real.
             </p>
-          </Card>
+          </div>
         </div>
 
         {/* Core Features Section */}
@@ -307,7 +307,7 @@ export default function About() {
             </h2>
           </div>
 
-          <Card className="flex items-center  bg-gradient-to-br from-zinc-900/90 to-zinc-900/70 ring-1 ring-[#ccb389]/40 backdrop-blur-10 p-8 mb-8">
+          <Card className="flex items-center  bg-transparent ring-1 ring-[#ccb389]/40 backdrop-blur-10 p-8 mb-8">
             <h3 className="text-xl font-medium text-[#ccb389] mb-2">
               Mission:
             </h3>

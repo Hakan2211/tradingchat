@@ -10,6 +10,7 @@ export default [
   layout('routes/layouts/public-layout.tsx', [
     index('routes/landingPage.tsx'),
     route('/about', 'routes/about.tsx'),
+    route('/pricing', 'routes/pricing.tsx'),
   ]),
 
   //--------------Resources Routes-----------------------

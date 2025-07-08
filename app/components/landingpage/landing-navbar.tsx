@@ -16,7 +16,7 @@ import { useScrollNav } from '#/hooks/use-scroll-nav';
 const navItems = [
   { name: 'About', link: '/about' },
   { name: 'Pricing', link: '/pricing' },
-  { name: 'Journal', link: '/journal' },
+  // { name: 'Journal', link: '/journal' },
 ];
 
 // Navbar Container
