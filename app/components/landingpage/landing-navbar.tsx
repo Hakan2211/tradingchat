@@ -203,7 +203,7 @@ export function LandingNavbar() {
             asChild
             className="bg-gray-800/60 hover:bg-gray-800/40 border border-gray-800/60  hover:border-gray-700 transition-all duration-300"
           >
-            <Link to="/signup">Get Started</Link>
+            <Link to="/register">Get Started</Link>
           </Button>
         </div>
       </NavBody>

@@ -21,7 +21,13 @@ const pricingPlans = [
     priceAnnually: 720,
     priceMonthly: '$60',
     description: 'Billed monthly',
-    features: ['Custom domains', 'Edge content delivery', 'Advanced analytics'],
+    features: [
+      'Live trading room access',
+      'Daily market analysis & alerts',
+      'Community discussions & insights',
+      'Real-time trade ideas',
+      'Guided learning path',
+    ],
     highlighted: false,
     cta: 'Get Access Now',
   },
@@ -31,12 +37,9 @@ const pricingPlans = [
     priceMonthly: '$600',
     description: 'Billed annually',
     features: [
-      'Custom domains',
-      'Edge content delivery',
-      'Advanced analytics',
-      'Quarterly workshops',
-      'Single sign-on (SSO)',
-      'Priority phone support',
+      'Everything in the monthly plan',
+      'Priority support & mentorship',
+      'Custom watchlists',
     ],
     highlighted: true,
     cta: 'Get Access Now',
@@ -47,10 +50,10 @@ const pricingPlans = [
     priceMonthly: 'Contact Us',
     description: '',
     features: [
-      'Custom domains',
-      'Edge content delivery',
-      'Advanced analytics',
-      'Quarterly workshops',
+      'Create your own trading room',
+      'Invite your team members',
+      'Customize your trading room',
+      'Team collaboration tools',
     ],
     highlighted: false,
     cta: 'Contact Us',
@@ -223,7 +226,13 @@ export function PricingSection() {
                       : 'bg-neutral-800/60 text-neutral-300 hover:bg-neutral-800/70 border border-zinc-700/50 hover:border-[#ccb389]/30'
                   )}
                 >
-                  <Link to="/signup">{plan.cta}</Link>
+                  {plan.name === 'For Organizations' ? (
+                    <a href="mailto:hakanda3d@gmail.com?subject=Inquiry%20about%20BullBearz%20for%20Organizations">
+                      {plan.cta}
+                    </a>
+                  ) : (
+                    <Link to="/register">{plan.cta}</Link>
+                  )}
                 </Button>
               </CardFooter>
             </Card>

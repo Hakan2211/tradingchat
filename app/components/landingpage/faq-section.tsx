@@ -8,33 +8,51 @@ import {
 const faqItems = [
   {
     id: 'item-1',
-    question: 'What makes BullBearz different from Discord or Telegram?',
+    question: 'What makes BullBearz different from other trading communities?',
     answer:
-      'BullBearz is built from the ground up for professional traders. We focus on high-signal, low-noise environments, integrated data tools, and enterprise-grade security, eliminating the distractions and security risks of consumer chat apps.',
+      'BullBearz is an exclusive, curated community focused on high-quality trading insights rather than noise. We provide real-time market analysis, proven strategies from experienced traders, and a supportive environment where serious traders can learn and grow together. Unlike generic Discord servers, we maintain strict quality standards and focus on actionable trading education.',
   },
   {
     id: 'item-2',
-    question: 'Is my trading data and communication secure?',
+    question: 'Do you provide specific trade recommendations or signals?',
     answer:
-      'Absolutely. Security is our highest priority. All communications are end-to-end encrypted, and we adhere to strict data protection and compliance standards suitable for financial professionals.',
+      'We share trade ideas, market analysis, and educational setups as part of our community discussions. However, all content is for educational purposes only and should not be considered financial advice. Every member is responsible for their own trading decisions and risk management.',
   },
   {
     id: 'item-3',
-    question: 'Who is the ideal member of the BullBearz community?',
+    question: 'What experience level is required to join?',
     answer:
-      'Our community is curated for professional retail traders, fund managers, and financial analysts who require a sophisticated platform for collaboration, idea generation, and market analysis.',
+      'While we welcome traders of all levels, our content is designed for those who are serious about improving their trading skills. Beginners will find educational mentorship, while experienced traders can engage in advanced strategy discussions and market analysis.',
   },
   {
     id: 'item-4',
-    question: 'Can I integrate my existing trading tools or brokers?',
+    question: 'How active is the community and what can I expect?',
     answer:
-      "Yes, our 'For Organizations' plan includes API access for integrating with your existing brokerage accounts, analytics platforms, and other essential trading tools for a seamless workflow.",
+      'Our community is highly active during market hours with real-time discussions, daily market analysis, and regular educational content. You can expect daily insights, weekly strategy sessions, and ongoing support from our community and fellow members.',
   },
   {
     id: 'item-5',
-    question: 'How do I switch between monthly and yearly plans?',
+    question: 'Can I cancel my membership at any time?',
     answer:
-      'You can easily manage your subscription from your account dashboard. You can upgrade, downgrade, or switch your billing cycle at any time, with changes prorated and applied to your next billing period.',
+      "Yes, you can cancel your membership at any time from your account dashboard. Your access will continue until the end of your current billing period. We also offer a satisfaction guarantee - if you're not happy within the first 14 days, we'll provide a full refund.",
+  },
+  {
+    id: 'item-6',
+    question: 'What markets and instruments do you focus on?',
+    answer:
+      'We primarily focus on US equities and options. Our analysis covers both swing trading and day trading strategies, with emphasis on technical analysis, risk management, and market psychology across different market conditions.',
+  },
+  {
+    id: 'item-7',
+    question: 'Is there a money-back guarantee?',
+    answer:
+      "Yes, we offer a 14-day money-back guarantee for new members. If you're not satisfied with the value and quality of our community within your first 14 days, simply contact me for a full refund.",
+  },
+  {
+    id: 'item-8',
+    question: 'How do I access the community after signing up?',
+    answer:
+      "After completing your registration and payment, you'll receive immediate access to our private community platform. I will be available to help you get oriented and make the most of your membership.",
   },
 ];
 

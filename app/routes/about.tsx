@@ -89,7 +89,15 @@ export default function About() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
             <div className="lg:col-span-2">
               <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-                I'm <span className="text-[#ccb389] font-medium">Hakan</span>.
+                I'm{' '}
+                <a
+                  href="https://www.hakanda.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#ccb389] underline hover:text-[#b8a082]/60 underline-offset-4 transition-colors duration-200"
+                >
+                  <span className="text-[#ccb389] font-medium">Hakan</span>.
+                </a>{' '}
                 Electrical engineer turned full-time trader. I thought I knew
                 what "hard" meant.
               </p>

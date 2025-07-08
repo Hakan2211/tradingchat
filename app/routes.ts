@@ -11,6 +11,9 @@ export default [
     index('routes/landingPage.tsx'),
     route('/about', 'routes/about.tsx'),
     route('/pricing', 'routes/pricing.tsx'),
+    route('/disclaimer', 'routes/legal/disclaimer.tsx'),
+    route('/privacy-policy', 'routes/legal/privacy-policy.tsx'),
+    route('/terms-of-service', 'routes/legal/terms-of-service.tsx'),
   ]),
 
   //--------------Resources Routes-----------------------

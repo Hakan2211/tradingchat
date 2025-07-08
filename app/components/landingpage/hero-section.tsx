@@ -69,9 +69,9 @@ export function HeroSection() {
           variants={FADE_ANIMATION_VARIANTS}
           className="text-5xl font-serif md:text-6xl lg:text-6xl font-light tracking-tight text-neutral-100 mb-6"
         >
-          Master the Markets,
+          Where Bulls and Bearz
           <br />
-          <span className="">Together</span>
+          <span className="">Forge Their Winning Edge</span>
         </motion.h1>
 
         {/* Subheadline */}
@@ -79,8 +79,9 @@ export function HeroSection() {
           variants={FADE_ANIMATION_VARIANTS}
           className="text-xl md:text-xl text-neutral-300 font-light leading-relaxed mb-10 max-w-xl mx-auto text-pretty"
         >
-          An exclusive trading community for professionals who demand
-          excellence.
+          Join a community that doesn't just survive market volatility — we
+          thrive in it. Learn alongside elite traders who turn every market
+          condition into opportunity.
         </motion.p>
 
         {/* CTA Buttons */}
@@ -103,7 +104,7 @@ export function HeroSection() {
             className="hover:bg-transparent duration-300 transition-all" // Make the inner background transparent if needed, but the default is good
           >
             <Link to="/register" className="text-neutral-200 text-lg p-2">
-              Get Started
+              Join the Community
             </Link>
           </MovingBorderButton>
 
@@ -114,7 +115,7 @@ export function HeroSection() {
             className="h-10 px-6 text-neutral-300 bg-slate-900/60 hover:bg-slate-900/80 border-slate-800 border hover:text-neutral-300 text-lg font-light transition-all duration-300"
           >
             <Link to="/features" className="flex items-center gap-2">
-              Learn More
+              See What's Inside
               <ArrowRight className="w-4 h-4" />
             </Link>
           </Button>

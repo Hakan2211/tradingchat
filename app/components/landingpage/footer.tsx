@@ -1,31 +1,31 @@
 import { Link } from 'react-router';
-import { Github, Linkedin, Twitter } from 'lucide-react';
+import { Twitter } from 'lucide-react';
 
 // Data for footer links, organized by category
 const footerLinks = [
   {
     title: 'Product',
     links: [
-      { label: 'Features', href: '/features' },
+      // { label: 'Features', href: '/features' },
       { label: 'Pricing', href: '/pricing' },
-      { label: 'Journal', href: '/journal' },
-      { label: 'Security', href: '/security' },
+      // { label: 'Journal', href: '/journal' },
+      // { label: 'Security', href: '/security' },
     ],
   },
   {
     title: 'Company',
     links: [
       { label: 'About Us', href: '/about' },
-      { label: 'Blog', href: '/blog' },
-      { label: 'Careers', href: '/careers' },
-      { label: 'Contact Us', href: '/contact' },
+      // { label: 'Blog', href: '/blog' },
+      // { label: 'Careers', href: '/careers' },
+      // { label: 'Contact Us', href: '/contact' },
     ],
   },
   {
     title: 'Legal',
     links: [
-      { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Terms of Service', href: '/terms' },
+      { label: 'Privacy Policy', href: '/privacy-policy' },
+      { label: 'Terms of Service', href: '/terms-of-service' },
       { label: 'Disclaimer', href: '/disclaimer' },
     ],
   },
@@ -34,19 +34,14 @@ const footerLinks = [
 const socialLinks = [
   {
     name: 'Twitter',
-    href: '#',
+    href: 'https://x.com/hakanbilgo',
     icon: (props: any) => <Twitter {...props} />,
   },
-  {
-    name: 'LinkedIn',
-    href: '#',
-    icon: (props: any) => <Linkedin {...props} />,
-  },
-  {
-    name: 'GitHub',
-    href: '#',
-    icon: (props: any) => <Github {...props} />,
-  },
+  // {
+  //   name: 'GitHub',
+  //   href: '#',
+  //   icon: (props: any) => <Github {...props} />,
+  // },
 ];
 
 export function Footer() {
@@ -123,6 +118,8 @@ export function Footer() {
                 key={item.name}
                 href={item.href}
                 className="text-zinc-500 hover:text-zinc-400"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <span className="sr-only">{item.name}</span>
                 <item.icon className="h-5 w-5" aria-hidden="true" />
