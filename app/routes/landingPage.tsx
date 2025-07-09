@@ -14,8 +14,11 @@ import { FaqSection } from '#/components/landingpage/faq-section';
 
 export const meta: MetaFunction = () => {
   return [
-    { title: 'New React Router App' },
-    { name: 'description', content: 'Welcome to React Router!' },
+    { title: 'BullBearz - The trading community for the modern age' },
+    {
+      name: 'description',
+      content: 'BullBearz is the trading community for the modern age',
+    },
   ];
 };
 

@@ -11,6 +11,7 @@ import {
 } from '#/components/ui/sheet';
 import { Menu } from 'lucide-react';
 import { useScrollNav } from '#/hooks/use-scroll-nav';
+import Logo from './logo';
 
 // Reusable Data
 const navItems = [
@@ -188,8 +189,12 @@ export function LandingNavbar() {
     <NavbarContainer>
       <NavBody>
         <Link to="/" className="text-xl cursor-pointer z-50 text-[#ccb389]">
-          BullBearz
+          <div className="flex items-center gap-2">
+            <Logo className="w-12 h-12" />
+            <span>BullBearz </span>
+          </div>
         </Link>
+
         <NavItems />
         <div className="relative z-20 flex text-base font-light tracking-wide items-center gap-2">
           <Button
