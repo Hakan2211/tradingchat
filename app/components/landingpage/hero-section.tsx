@@ -114,7 +114,7 @@ export function HeroSection() {
             size="lg"
             className="h-10 px-6 text-neutral-300 bg-slate-900/60 hover:bg-slate-900/80 border-slate-800 border hover:text-neutral-300 text-lg font-light transition-all duration-300"
           >
-            <Link to="/features" className="flex items-center gap-2">
+            <Link to="/about" className="flex items-center gap-2">
               See What's Inside
               <ArrowRight className="w-4 h-4" />
             </Link>

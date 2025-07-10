@@ -189,9 +189,9 @@ export function LandingNavbar() {
     <NavbarContainer>
       <NavBody>
         <Link to="/" className="text-xl cursor-pointer z-50 text-[#ccb389]">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Logo className="w-12 h-12" />
-            <span>BullBearz </span>
+            <span className="font-serif text-2xl font-light">BullBearz </span>
           </div>
         </Link>
 
