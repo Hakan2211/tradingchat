@@ -125,6 +125,27 @@ export async function login({
   return { dbSession };
 }
 
+async function createFreshSession(userId: string) {
+  // A Prisma transaction ensures both operations complete or neither do.
+  return prisma.$transaction(async ($prisma) => {
+    // 1. Delete all previous sessions for this user.
+    await $prisma.session.deleteMany({
+      where: { userId },
+    });
+
+    // 2. Create a single new session.
+    const dbSession = await $prisma.session.create({
+      data: {
+        userId,
+        expirationDate: getSessionExpirationDate(),
+      },
+      select: { id: true },
+    });
+
+    return dbSession;
+  });
+}
+
 export async function signup({
   email,
   password,
@@ -136,37 +157,59 @@ export async function signup({
   name: string;
   username?: string;
 }) {
-  // 1. Check for the email specifically.
-  const existingUserByEmail = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true },
-  });
+  const lowercaseUsername = username?.toLowerCase();
+  const lowercaseEmail = email.toLowerCase();
 
-  if (existingUserByEmail) {
-    // Return a structured error for the email
-    return { error: 'A user with this email already exists.', field: 'email' };
-  }
+  // --- CONFLICT CHECKS (BEFORE ANY WRITES) ---
 
-  // 2. Check for the username specifically.
-  if (username) {
-    const existingUserByUsername = await prisma.user.findUnique({
-      where: { username },
-      select: { id: true },
+  // Check 1: Is this username already in use by anyone?
+  // This is the check that was failing to stop the execution flow.
+  if (lowercaseUsername) {
+    const userWithUsername = await prisma.user.findUnique({
+      where: { username: lowercaseUsername },
     });
-
-    if (existingUserByUsername) {
-      // Return a structured error for the username
+    if (userWithUsername) {
+      // If a user is found, STOP and return the client-side error.
       return { error: 'This username is already taken.', field: 'username' };
     }
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  // Check 2: Is this email already in use?
+  const userWithEmail = await prisma.user.findUnique({
+    where: { email: lowercaseEmail },
+    select: { id: true, subscription: { select: { id: true } } },
+  });
 
+  // If the email is being used...
+  if (userWithEmail) {
+    // Case A: The user is an active subscriber. Hard stop.
+    if (userWithEmail.subscription) {
+      return {
+        error: 'A user with this email already has an active subscription.',
+        field: 'email',
+      };
+    } else {
+      // Case B: The user is a "limbo" user. Let's get them to checkout.
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await prisma.password.update({
+        where: { userId: userWithEmail.id },
+        data: { hash: hashedPassword },
+      });
+      const dbSession = await createFreshSession(userWithEmail.id);
+      // STOP and return the session.
+      return { dbSession };
+    }
+  }
+
+  // --- CREATE NEW USER ---
+  // This block is now UNREACHABLE if there is any username or email conflict.
+
+  const hashedPassword = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     select: { id: true },
     data: {
-      email: email.toLowerCase(),
-      username: username?.toLowerCase(),
+      email: lowercaseEmail,
+      username: lowercaseUsername,
       name,
       roles: { connect: { name: 'user' } },
       password: {
@@ -177,16 +220,7 @@ export async function signup({
     },
   });
 
-  // Create a new session for the new user
-  const dbSession = await prisma.session.create({
-    data: {
-      expirationDate: getSessionExpirationDate(),
-      userId: user.id,
-    },
-    select: { id: true },
-  });
-  // const session = await getSession();
-  // session.set(sessionKey, dbSession.id);
+  const dbSession = await createFreshSession(user.id);
   return { dbSession };
 }
 

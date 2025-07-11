@@ -15,6 +15,11 @@ type User = {
       access: string;
     }[];
   }[];
+  subscription: {
+    status: string;
+    currentPeriodEnd: Date;
+    cancelAtPeriodEnd: boolean;
+  } | null;
 };
 
 // Define the root loader data type

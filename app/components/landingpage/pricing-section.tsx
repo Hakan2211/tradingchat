@@ -14,6 +14,9 @@ import { cn } from '#/lib/utils';
 import { Check } from 'lucide-react';
 import { Link } from 'react-router';
 
+const MONTHLY_PLAN_ID = 'efd3d8b4-a4cb-42ce-b178-5d0d40d6ff00';
+const YEARLY_PLAN_ID = 'b5bfcda6-4d3a-46d5-a355-5ad0989486bb';
+
 // Data for pricing plans
 const pricingPlans = [
   {
@@ -30,6 +33,7 @@ const pricingPlans = [
     ],
     highlighted: false,
     cta: 'Get Access Now',
+    link: `/register?tierId=${MONTHLY_PLAN_ID}`,
   },
   {
     name: 'Yearly Plan',
@@ -43,6 +47,7 @@ const pricingPlans = [
     ],
     highlighted: true,
     cta: 'Get Access Now',
+    link: `/register?tierId=${YEARLY_PLAN_ID}`,
   },
   {
     name: 'For Organizations',
@@ -231,7 +236,7 @@ export function PricingSection() {
                       {plan.cta}
                     </a>
                   ) : (
-                    <Link to="/register">{plan.cta}</Link>
+                    <Link to={plan.link ?? ''}>{plan.cta}</Link>
                   )}
                 </Button>
               </CardFooter>

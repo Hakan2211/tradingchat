@@ -25,6 +25,11 @@ export default [
     route('/user-status', 'routes/resources/user-status.tsx'),
     route('/create-dm', 'routes/resources/create-dm.tsx'),
     route('/hide-dm', 'routes/resources/hide-dm.tsx'),
+    route('/api/polar-webhooks', 'routes/resources/polar-webhooks.tsx'),
+    route(
+      '/create-customer-portal',
+      'routes/resources/create-customer-portal.tsx'
+    ),
   ]),
 
   //--------------App Routes-----------------------
@@ -53,5 +58,6 @@ export default [
     route('/forgot-password', 'routes/auth/forgot-password.tsx'),
     route('/reset-password', 'routes/auth/reset-password.tsx'),
     route('/verify', 'routes/auth/verify.tsx'),
+    route('/checkout', 'routes/auth/checkout.tsx'),
   ]),
 ] satisfies RouteConfig;

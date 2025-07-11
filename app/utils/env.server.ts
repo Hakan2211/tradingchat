@@ -5,6 +5,8 @@ const schema = z.object({
   HONEYPOT_SECRET: z.string(),
   DATABASE_URL: z.string(),
   CSRF_SESSION_SECRET: z.string(),
+  POLAR_ACCESS_TOKEN: z.string().min(1, 'POLAR_ACCESS_TOKEN is required'),
+  POLAR_WEBHOOK_SECRET: z.string().min(1, 'POLAR_WEBHOOK_SECRET is required'),
 });
 
 declare global {

@@ -121,3 +121,28 @@ export function getInitials(name: string): string {
     .join('')
     .toUpperCase();
 }
+
+export const formatPrice = (amount: number, interval: string) => {
+  return `$${amount / 100} / ${interval}`;
+};
+
+/**
+ * Extract price info from Polar API price object
+ * Handles the actual field names from the Polar API
+ */
+export function extractPriceInfo(price: any) {
+  if (!price) return null;
+
+  // Use the actual field names from Polar API
+  const amount =
+    price.priceAmount || price.price_amount || price.amount || price.centAmount;
+  const currency =
+    price.priceCurrency || price.price_currency || price.currency || 'USD';
+  const interval =
+    price.recurringInterval ||
+    price.recurring_interval ||
+    price.interval ||
+    'month';
+
+  return { amount, currency, interval };
+}

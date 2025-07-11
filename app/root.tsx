@@ -62,6 +62,11 @@ type LoaderData = {
         access: string;
       }[];
     }[];
+    subscription: {
+      status: string;
+      currentPeriodEnd: Date;
+      cancelAtPeriodEnd: boolean;
+    } | null;
   } | null;
   headers?: Record<string, string>;
 };
@@ -100,6 +105,13 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
               permissions: {
                 select: { action: true, entity: true, access: true },
               },
+            },
+          },
+          subscription: {
+            select: {
+              status: true,
+              currentPeriodEnd: true,
+              cancelAtPeriodEnd: true,
             },
           },
         },

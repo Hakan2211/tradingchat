@@ -18,6 +18,7 @@ import { type Socket, io as socketIo } from 'socket.io-client';
 import React from 'react';
 import { UserStatus } from '@prisma/client';
 import { toast } from 'sonner';
+import { redirectWithToast } from '#/utils/toaster.server';
 
 type DirectMessageItem = {
   id: string;
@@ -290,6 +291,27 @@ function SocketProvider({
 export async function loader({ request, params }: LoaderFunctionArgs) {
   console.log('AppLayout loader: Starting...');
   const userId = await requireUserId(request);
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { userId },
+    select: {
+      status: true,
+      currentPeriodEnd: true,
+    },
+  });
+
+  const isActive =
+    subscription?.status === 'active' &&
+    new Date(subscription.currentPeriodEnd) > new Date();
+
+  if (!isActive) {
+    // If not active, redirect them to the pricing page with a message
+    return redirectWithToast('/pricing', {
+      title: 'Subscription Required',
+      description: 'Please choose a plan to access the chatroom.',
+      type: 'message',
+    });
+  }
 
   const url = new URL(request.url);
   const pathSegments = url.pathname.split('/');

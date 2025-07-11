@@ -1,6 +1,7 @@
 import {
   Link,
   useRouteLoaderData,
+  Form,
   type LoaderFunctionArgs,
 } from 'react-router';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
@@ -48,6 +49,9 @@ export default function UserIndexView() {
   const canUpdateOwn = userHasPermission(loggedInUser, 'update:user:own');
   const canEdit = canUpdateAny || (canUpdateOwn && loggedInUser.id === user.id);
 
+  const isOwnProfile = loggedInUser.id === user.id;
+  const canManageSubscription = canUpdateOwn && isOwnProfile;
+
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -55,6 +59,8 @@ export default function UserIndexView() {
         day: 'numeric',
       })
     : 'N/A';
+
+  const subscription = loggedInUser?.subscription;
 
   return (
     <>
@@ -125,6 +131,54 @@ export default function UserIndexView() {
                 />
               </CardContent>
             </Card>
+
+            {canManageSubscription && subscription && (
+              <Card className="lg:col-span-3">
+                <CardHeader>
+                  <CardTitle>Subscription Management</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Status
+                    </p>
+                    <Badge
+                      variant={
+                        subscription.status === 'active'
+                          ? 'default'
+                          : 'destructive'
+                      }
+                      className="capitalize"
+                    >
+                      {subscription.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {subscription.cancelAtPeriodEnd
+                        ? 'Expires on'
+                        : 'Renews on'}
+                    </p>
+                    <p className="text-foreground">
+                      {new Date(
+                        subscription.currentPeriodEnd
+                      ).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <Form method="GET" action="/resources/create-customer-portal">
+                    <Button type="submit">Manage Subscription</Button>
+                  </Form>
+                  <p className="text-xs text-muted-foreground">
+                    You'll be redirected to our secure payment partner to update
+                    your plan, payment method, or cancel.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* 
