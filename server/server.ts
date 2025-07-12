@@ -181,6 +181,7 @@ app.post('/resources/api/polar-webhooks', express.json(), async (req, res) => {
         const subscriptionData = {
           userId: String(userId),
           polarSubscriptionId: data.id,
+          polarCustomerId: data.customer?.id || '',
           status: (data.status || 'active') as
             | 'active'
             | 'canceled'
