@@ -28,17 +28,10 @@ import ErrorAlert from '#/components/errorAlert/errorAlert';
 import { parseWithZod, getZodConstraint } from '@conform-to/zod';
 import { useForm, getFormProps, getInputProps } from '@conform-to/react';
 import { AnimatePresence } from 'framer-motion';
-import {
-  getSession,
-  getSessionExpirationDate,
-  sessionKey,
-  sessionStorage,
-} from '#/utils/session.server';
 import { redirect } from 'react-router';
 import { polar } from '#/utils/polar.server';
 import { RadioGroup, RadioGroupItem } from '#/components/ui/radio-group';
 import { useEffect, useState } from 'react';
-
 import { cn } from '#/lib/utils';
 
 const RegisterSchema = z.object({
@@ -50,7 +43,6 @@ const RegisterSchema = z.object({
   tierId: z.string().min(1, 'A subscription plan must be selected'),
 });
 
-// Use any for now since Product type import may have issues
 type PolarProduct = any;
 
 type LoaderData = {
@@ -114,28 +106,24 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const result = await signup(submission.value);
 
-  // Check if result is an error object
   if (result && 'error' in result) {
-    // Check if the error result includes a specific field
     if (result.field) {
       return submission.reply({
-        // Attach the error to the specific field
         fieldErrors: { [result.field]: [result.error] },
       });
     }
-    // Fallback for generic errors
     return submission.reply({
       formErrors: [result.error ?? 'An unknown error occurred'],
     });
   }
-  const { dbSession } = result;
-  const session = await getSession();
-  session.set(sessionKey, dbSession.id);
+  // const { dbSession } = result;
+  // const session = await getSession();
+  // session.set(sessionKey, dbSession.id);
 
   // 2. GET THE SESSION COOKIE HEADER
-  const sessionCookie = await sessionStorage.commitSession(session, {
-    expires: getSessionExpirationDate(),
-  });
+  // const sessionCookie = await sessionStorage.commitSession(session, {
+  //   expires: getSessionExpirationDate(),
+  // });
 
   // return redirectWithToast(
   //   safeRedirect(submission.value.redirectTo, '/home'),
@@ -146,12 +134,10 @@ export async function action({ request }: ActionFunctionArgs) {
   //   },
   //   { headers: { 'Set-Cookie': sessionCookie } }
   // );
-  const checkoutUrl = `/checkout?tierId=${submission.value.tierId}`;
-  return redirect(checkoutUrl, {
-    headers: {
-      'Set-Cookie': sessionCookie,
-    },
-  });
+  const checkoutUrl = `/checkout?tierId=${
+    submission.value.tierId
+  }&email=${encodeURIComponent(result.user.email)}`;
+  return redirect(checkoutUrl);
 }
 
 export default function Register() {

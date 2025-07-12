@@ -7,16 +7,19 @@ import { useMotionValueEvent, useScroll } from 'framer-motion';
  * @returns An object containing the ref for the target element and the visibility state.
  */
 export function useScrollNav(threshold = 100) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollY } = useScroll({
-    target: ref,
-    offset: ['start start', 'end start'],
-  });
+  // const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
+  // const { scrollY } = useScroll({
+  //   target: ref,
+  //   offset: ['start start', 'end start'],
+
+  // });
+  const { scrollY } = useScroll();
   useMotionValueEvent(scrollY, 'change', (latest) => {
     setVisible(latest > threshold);
   });
 
-  return { ref, visible };
+  // return { ref, visible };
+  return { visible };
 }

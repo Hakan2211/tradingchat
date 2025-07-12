@@ -119,6 +119,104 @@ app.use(compression());
 app.disable('x-powered-by');
 app.use(morgan('tiny'));
 
+// Direct Express webhook handler (bypasses React Router)
+app.post('/resources/api/polar-webhooks', express.json(), async (req, res) => {
+  console.log('🔵 Webhook received:', req.body.type);
+
+  try {
+    const { validateEvent } = await import('@polar-sh/sdk/webhooks');
+    const { prisma } = await import('#/utils/db.server');
+
+    const body = JSON.stringify(req.body);
+    const headers: Record<string, string> = {};
+    Object.entries(req.headers).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        headers[key] = value;
+      }
+    });
+
+    if (!process.env.POLAR_WEBHOOK_SECRET) {
+      console.error('❌ POLAR_WEBHOOK_SECRET is not configured');
+      res.status(500).json({ error: 'Webhook secret missing' });
+      return;
+    }
+
+    const event = validateEvent(
+      body,
+      headers,
+      process.env.POLAR_WEBHOOK_SECRET
+    );
+    console.log('✅ Webhook validated:', event.type);
+
+    switch (event.type) {
+      case 'subscription.created':
+      case 'subscription.updated': {
+        const data = event.data;
+        const userId = data.metadata?.userId || data.customer?.metadata?.userId;
+
+        if (!userId) {
+          console.warn('⚠️ No userId found in webhook data');
+          res.status(200).json({
+            status: 'ok',
+            warning: 'No userId found in metadata',
+          });
+          return;
+        }
+
+        // Check if user exists before creating subscription
+        const user = await prisma.user.findUnique({
+          where: { id: String(userId) },
+          select: { id: true },
+        });
+
+        if (!user) {
+          console.warn(`⚠️ User ${userId} not found, skipping subscription`);
+          res.status(200).json({
+            status: 'ok',
+            warning: 'User not found',
+          });
+          return;
+        }
+
+        const subscriptionData = {
+          userId: String(userId),
+          polarSubscriptionId: data.id,
+          status: (data.status || 'active') as
+            | 'active'
+            | 'canceled'
+            | 'incomplete'
+            | 'incomplete_expired'
+            | 'past_due'
+            | 'trialing'
+            | 'paused',
+          tierId: data.productId || data.product?.id || '',
+          cancelAtPeriodEnd: data.cancelAtPeriodEnd || false,
+          currentPeriodStart: new Date(data.currentPeriodStart || Date.now()),
+          currentPeriodEnd: new Date(data.currentPeriodEnd || Date.now()),
+          startedAt: new Date(data.startedAt || Date.now()),
+          endedAt: data.endedAt ? new Date(data.endedAt) : null,
+        };
+
+        await prisma.subscription.upsert({
+          where: { polarSubscriptionId: data.id },
+          create: subscriptionData,
+          update: subscriptionData,
+        });
+
+        console.log(`✅ Subscription ${data.status} for user: ${userId}`);
+        break;
+      }
+      default:
+        console.log('📌 Unhandled event type:', event.type);
+    }
+
+    res.status(200).json({ status: 'ok' });
+  } catch (error) {
+    console.error('❌ Webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
 // Vite middleware is the key to serving the app in development
 if (viteDevServer) {
   app.use(viteDevServer.middlewares);

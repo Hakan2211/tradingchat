@@ -21,13 +21,21 @@ const navItems = [
 ];
 
 // Navbar Container
-const NavbarContainer = ({ children }: { children: React.ReactNode }) => {
-  const { ref, visible } = useScrollNav(50);
+const NavbarContainer = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => {
+  // const { ref, visible } = useScrollNav(50);
+  const { visible } = useScrollNav(50);
 
   return (
     <motion.div
-      ref={ref}
+      // ref={ref}
       className={cn('sticky inset-x-0 top-0 md:top-4 z-50 w-full px-4')}
+      style={{ position: 'sticky' }}
     >
       <motion.div
         animate={{ opacity: visible ? 1 : 0 }}

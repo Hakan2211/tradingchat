@@ -59,5 +59,6 @@ export default [
     route('/reset-password', 'routes/auth/reset-password.tsx'),
     route('/verify', 'routes/auth/verify.tsx'),
     route('/checkout', 'routes/auth/checkout.tsx'),
+    route('/payment-success', 'routes/auth/payment-success.tsx'),
   ]),
 ] satisfies RouteConfig;

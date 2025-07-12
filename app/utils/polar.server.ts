@@ -7,5 +7,6 @@ if (!process.env.POLAR_ACCESS_TOKEN) {
 }
 
 export const polar = new Polar({
+  server: 'sandbox', // Use sandbox environment for development
   accessToken: process.env.POLAR_ACCESS_TOKEN,
 });

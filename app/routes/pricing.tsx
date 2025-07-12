@@ -1,7 +1,5 @@
 import { type MetaFunction, type LoaderFunctionArgs } from 'react-router';
 import { PricingSection } from '#/components/landingpage/pricing-section';
-import { LandingNavbar } from '#/components/landingpage/landing-navbar';
-import { requireAnonymous } from '#/utils/auth.server';
 
 export const meta: MetaFunction = () => {
   return [

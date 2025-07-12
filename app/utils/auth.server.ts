@@ -93,8 +93,8 @@ export async function login({
     where: { email },
     select: {
       id: true,
-      // Select the nested password hash
       password: { select: { hash: true } },
+      subscription: { select: { status: true } },
     },
   });
 
@@ -112,20 +112,18 @@ export async function login({
     return { error: 'Invalid email or password' };
   }
 
-  // Create a new session in the database
-  const dbSession = await prisma.session.create({
-    data: {
-      expirationDate: getSessionExpirationDate(),
-      userId: userWithPassword.id,
-    },
-    select: { id: true },
-  });
-  // const session = await getSession();
-  // session.set(sessionKey, dbSession.id);
+  if (userWithPassword.subscription?.status !== 'active') {
+    return {
+      error:
+        'No active subscription found. Please complete the sign-up process.',
+    };
+  }
+
+  const dbSession = await createFreshSession(userWithPassword.id);
   return { dbSession };
 }
 
-async function createFreshSession(userId: string) {
+export async function createFreshSession(userId: string) {
   // A Prisma transaction ensures both operations complete or neither do.
   return prisma.$transaction(async ($prisma) => {
     // 1. Delete all previous sessions for this user.
@@ -177,7 +175,7 @@ export async function signup({
   // Check 2: Is this email already in use?
   const userWithEmail = await prisma.user.findUnique({
     where: { email: lowercaseEmail },
-    select: { id: true, subscription: { select: { id: true } } },
+    select: { id: true, email: true, subscription: { select: { id: true } } },
   });
 
   // If the email is being used...
@@ -195,9 +193,7 @@ export async function signup({
         where: { userId: userWithEmail.id },
         data: { hash: hashedPassword },
       });
-      const dbSession = await createFreshSession(userWithEmail.id);
-      // STOP and return the session.
-      return { dbSession };
+      return { user: userWithEmail };
     }
   }
 
@@ -206,7 +202,7 @@ export async function signup({
 
   const hashedPassword = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
-    select: { id: true },
+    select: { id: true, email: true },
     data: {
       email: lowercaseEmail,
       username: lowercaseUsername,
@@ -219,9 +215,7 @@ export async function signup({
       },
     },
   });
-
-  const dbSession = await createFreshSession(user.id);
-  return { dbSession };
+  return { user };
 }
 
 export async function resetUserPassword({
