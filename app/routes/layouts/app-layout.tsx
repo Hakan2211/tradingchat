@@ -81,6 +81,14 @@ function SocketProvider({
   const [isReady, setIsReady] = React.useState(false);
   const [isWaitingForUsers, setIsWaitingForUsers] = React.useState(false);
 
+  const isReadyRef = React.useRef(isReady);
+  const isWaitingRef = React.useRef(isWaitingForUsers);
+
+  React.useEffect(() => {
+    isReadyRef.current = isReady;
+    isWaitingRef.current = isWaitingForUsers;
+  }, [isReady, isWaitingForUsers]);
+
   const [directMessages, setDirectMessages] =
     React.useState<DirectMessageItem[]>(initialDms);
 
@@ -108,10 +116,16 @@ function SocketProvider({
       return;
     }
 
+    let isCancelled = false;
+
     const newSocket = socketIo(window.location.origin, {
       auth: { userId: user.id },
+      forceNew: true,
     });
     setSocket(newSocket);
+
+    setIsReady(false);
+    setIsWaitingForUsers(true);
 
     const handleDmActivated = (dmData?: {
       id: string;
@@ -209,34 +223,35 @@ function SocketProvider({
     newSocket.on('notification', handleNotification);
 
     // Function to request user list with retry logic
-    const requestUserList = () => {
-      if (isWaitingForUsers) {
-        console.log(
-          'SocketProvider: Already waiting for users, skipping duplicate request'
-        );
-        return;
-      }
+    // const requestUserList = () => {
+    //   if (isWaitingForUsers) {
+    //     console.log(
+    //       'SocketProvider: Already waiting for users, skipping duplicate request'
+    //     );
+    //     return;
+    //   }
 
-      setIsWaitingForUsers(true);
-      newSocket.emit('client.ready.get_users');
-      console.log('SocketProvider: Sent request for user list.');
-    };
+    //   setIsWaitingForUsers(true);
+    //   newSocket.emit('client.ready.get_users');
+    //   console.log('SocketProvider: Sent request for user list.');
+    // };
 
-    // Initial request
-    requestUserList();
+    newSocket.emit('client.ready.get_users');
+    console.log('SocketProvider: Initial user list request sent.');
 
     // Set up heartbeat/retry mechanism
     const heartbeatInterval = setInterval(() => {
-      if (isWaitingForUsers && !isReady) {
+      if (isWaitingRef.current && !isReadyRef.current) {
         console.log(
           'SocketProvider: Heartbeat timeout - retrying user list request'
         );
-        requestUserList();
+        newSocket.emit('client.ready.get_users');
       }
-    }, 5000); // 5 second timeout
+    }, 5000);
 
     // ----- CLEANUP FOR GLOBAL LISTENERS -----
     return () => {
+      console.log('SocketProvider: Cleaning up stale component instance.');
       clearInterval(heartbeatInterval); // Clear the heartbeat interval
       newSocket.off('dm.activated', handleDmActivated);
       newSocket.off('dm.hidden', handleDmHidden);
@@ -246,9 +261,9 @@ function SocketProvider({
       newSocket.off('user.status.changed', handleStatusChanged);
       newSocket.off('notification', handleNotification);
       newSocket.disconnect();
-      setIsReady(false);
-      setIsWaitingForUsers(false);
-      setSocket(null);
+      // setIsReady(false);
+      // setIsWaitingForUsers(false);
+      // setSocket(null);
     };
   }, [user?.id, revalidator]);
 
