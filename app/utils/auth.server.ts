@@ -5,6 +5,7 @@ import type { User } from '#/types/userTypes';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { isUserAuthorized } from '#/utils/permission.server';
 
 import {
   getSession,
@@ -94,7 +95,8 @@ export async function login({
     select: {
       id: true,
       password: { select: { hash: true } },
-      subscription: { select: { status: true } },
+      roles: { select: { name: true } },
+      subscription: { select: { status: true, currentPeriodEnd: true } },
     },
   });
 
@@ -112,12 +114,19 @@ export async function login({
     return { error: 'Invalid email or password' };
   }
 
-  if (userWithPassword.subscription?.status !== 'active') {
+  if (!isUserAuthorized(userWithPassword)) {
     return {
       error:
         'No active subscription found. Please complete the sign-up process.',
     };
   }
+
+  // if (userWithPassword.subscription?.status !== 'active') {
+  //   return {
+  //     error:
+  //       'No active subscription found. Please complete the sign-up process.',
+  //   };
+  // }
 
   const dbSession = await createFreshSession(userWithPassword.id);
   return { dbSession };
@@ -189,11 +198,20 @@ export async function signup({
     } else {
       // Case B: The user is a "limbo" user. Let's get them to checkout.
       const hashedPassword = await bcrypt.hash(password, 10);
-      await prisma.password.update({
-        where: { userId: userWithEmail.id },
-        data: { hash: hashedPassword },
+      const updatedUser = await prisma.user.update({
+        where: { id: userWithEmail.id },
+        select: { id: true, email: true },
+        data: {
+          name,
+          username: lowercaseUsername,
+          password: {
+            update: {
+              hash: hashedPassword,
+            },
+          },
+        },
       });
-      return { user: userWithEmail };
+      return { user: updatedUser };
     }
   }
 

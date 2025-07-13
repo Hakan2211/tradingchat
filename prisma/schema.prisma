@@ -24,6 +24,7 @@ enum SubscriptionStatus {
   incomplete_expired
   trialing
   paused
+  complimentary
 }
 
 model User {

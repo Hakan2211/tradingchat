@@ -1,4 +1,4 @@
-import { useFormAction, useNavigation } from 'react-router';
+import { useFormAction, useNavigation, useResolvedPath } from 'react-router';
 
 /**
  * Does its best to get a string error message from an unknown error.
@@ -69,6 +69,22 @@ export function useIsSubmitting({
     navigation.formAction === (formAction ?? contextualFormAction) &&
     navigation.formMethod === formMethod
   );
+}
+
+/**
+ * Returns true if the app is currently navigating to a specific GET route.
+ * This is useful for showing loading states on links.
+ * @param path The destination path to check for (e.g., '/resources/create-customer-portal')
+ */
+export function useIsLoading({ path }: { path: string }) {
+  const navigation = useNavigation();
+  const resolvedPath = useResolvedPath(path);
+
+  const isLoading =
+    navigation.state === 'loading' &&
+    navigation.location.pathname === resolvedPath.pathname;
+
+  return isLoading;
 }
 
 export function getUserImagePath(imageId: string) {

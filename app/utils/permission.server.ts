@@ -6,6 +6,51 @@ import {
   parsePermissionString,
 } from '#/utils/userPermissionRole';
 
+type UserForLoginCheck = {
+  roles: { name: string }[];
+  subscription: {
+    status: string;
+    currentPeriodEnd: Date | null;
+  } | null;
+};
+
+/**
+ * The single source of truth for determining if a user is authorized for app access.
+ * @param user The user object with roles and subscription status.
+ * @returns {boolean} True if the user is allowed access, false otherwise.
+ */
+export function isUserAuthorized(user: UserForLoginCheck | null): boolean {
+  // If there's no user object, they're not authorized.
+  if (!user) return false;
+
+  // Check 1: Is the user an admin? Admins always have access.
+  const isAdmin = user.roles.some((role) => role.name === 'admin');
+  if (isAdmin) return true;
+
+  // If not an admin, check for a valid subscription.
+  if (!user.subscription) return false;
+
+  // Check 2: Is their subscription 'active' or 'complimentary'?
+  if (
+    user.subscription.status === 'active' ||
+    user.subscription.status === 'complimentary'
+  ) {
+    return true;
+  }
+
+  // Check 3: Do they have a valid, unexpired trial?
+  const hasValidTrial =
+    user.subscription.status === 'trialing' &&
+    user.subscription.currentPeriodEnd &&
+    user.subscription.currentPeriodEnd > new Date();
+  if (hasValidTrial) {
+    return true;
+  }
+
+  // If none of the above, they are not authorized.
+  return false;
+}
+
 export async function requireUserWithPermission(
   request: Request,
   permission: PermissionString

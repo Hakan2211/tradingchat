@@ -19,6 +19,7 @@ import React from 'react';
 import { UserStatus } from '@prisma/client';
 import { toast } from 'sonner';
 import { redirectWithToast } from '#/utils/toaster.server';
+import { isUserAuthorized } from '#/utils/permission.server';
 
 type DirectMessageItem = {
   id: string;
@@ -292,30 +293,34 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   console.log('AppLayout loader: Starting...');
   const userId = await requireUserId(request);
 
-  const subscription = await prisma.subscription.findUnique({
-    where: { userId },
+  // First, check authorization using the new function
+  const userForAuth = await prisma.user.findUnique({
+    where: { id: userId },
     select: {
-      status: true,
-      currentPeriodEnd: true,
+      roles: { select: { name: true } },
+      subscription: { select: { status: true, currentPeriodEnd: true } },
     },
   });
 
-  const isActive =
-    subscription?.status === 'active' &&
-    new Date(subscription.currentPeriodEnd) > new Date();
+  // Use our new, single source of truth to check for access.
+  if (!isUserAuthorized(userForAuth)) {
+    const toast = {
+      title: 'Subscription Expired',
+      description:
+        'Your trial or subscription has ended. Please choose a plan to continue.',
+      type: 'message' as const,
+    };
 
-  if (!isActive) {
-    // If not active, redirect them to the pricing page with a message
-    return redirectWithToast('/pricing', {
-      title: 'Subscription Required',
-      description: 'Please choose a plan to access the chatroom.',
-      type: 'message',
-    });
+    // Log the user out. The logout function handles destroying the session and cookie.
+    const logoutResponse = await logout(request);
+    return redirectWithToast('/pricing', toast, logoutResponse);
   }
 
+  // If the check passes, they are authorized. Continue with the rest of the loader.
   const url = new URL(request.url);
   const pathSegments = url.pathname.split('/');
   const currentRoomId = pathSegments[2] === 'chat' ? pathSegments[3] : null;
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -354,6 +359,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       name: 'asc',
     },
   });
+
   const userDms = await prisma.room.findMany({
     where: {
       name: {
