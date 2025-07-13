@@ -13,7 +13,14 @@ import { GeneralErrorBoundary } from '#/components/errorBoundary/errorBoundary';
 import { getInitials, getUserImagePath, useIsLoading } from '#/utils/misc';
 import { useUser, userHasPermission } from '#/utils/userPermissionRole';
 import { RedirectBackButton } from '#/components/navigationTracker/redirect-back-button';
-import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '#/components/ui/card';
+import { ChangePasswordDialog } from '#/components/changePasswordDialog/change-password-dialog';
 
 // A small reusable component for displaying info with an icon
 function InfoRow({
@@ -168,6 +175,11 @@ export default function UserIndexView() {
                   value={memberSince}
                 />
               </CardContent>
+              {isOwnProfile && (
+                <CardFooter>
+                  <ChangePasswordDialog />
+                </CardFooter>
+              )}
             </Card>
 
             {canManageSubscription && subscription && (

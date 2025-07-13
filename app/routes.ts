@@ -30,6 +30,7 @@ export default [
       '/create-customer-portal',
       'routes/resources/create-customer-portal.tsx'
     ),
+    route('/change-password', 'routes/resources/change-password.tsx'),
   ]),
 
   //--------------App Routes-----------------------
