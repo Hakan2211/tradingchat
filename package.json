@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsx ./node_modules/vite/bin/vite.js build && tsx ./node_modules/vite/bin/vite.js build --ssr",
     "dev": "tsx watch server/server.ts",
-    "start": "NODE_ENV=production node ./build/server/index.js",
+    "start": "NODE_ENV=production tsx ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
     "db:seed": "tsx prisma/seed.ts",
     "db:deploy": "prisma migrate deploy"
