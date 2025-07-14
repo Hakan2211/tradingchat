@@ -299,6 +299,11 @@ const handler = async (
   }
 };
 
+app.get('/healthz', (req, res) => {
+  // This route is used by the health check
+  res.status(200).send('OK');
+});
+
 app.all(/(.*)/, handler);
 
 const PORT = process.env.PORT || 3000;
