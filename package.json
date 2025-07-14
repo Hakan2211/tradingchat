@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && vite build --ssr",
+    "build": "tsx ./node_modules/vite/bin/vite.js build && tsx ./node_modules/vite/bin/vite.js build --ssr",
     "dev": "tsx watch server/server.ts",
     "start": "NODE_ENV=production node ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
