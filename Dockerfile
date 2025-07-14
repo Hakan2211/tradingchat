@@ -10,23 +10,25 @@ RUN npm run build
 # Stage 2: Create the final, clean production image
 FROM node:20-alpine
 WORKDIR /app
-# **THE GUARANTEED FIX:** Install the 'curl' tool needed for Coolify's health check.
-# 'apk' is the package manager for Alpine Linux.
+
+# **STEP A:** Install curl, which the HEALTHCHECK instruction will use.
 RUN apk add --no-cache curl
 
+# **STEP B:** Copy all necessary code and artifacts.
 COPY package*.json ./
-
-# Copy ALL necessary artifacts from the 'builder' stage
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 
-# Fix permissions for the entrypoint script
+# **STEP C:** Make the entrypoint script executable.
 RUN chmod +x ./entrypoint.sh
 
-# Tells the container to use our script as the main entrypoint
-ENTRYPOINT ["./entrypoint.sh"]
+# **STEP D:** Define the Docker-native Health Check.
+# This tells Docker to run "curl" on our /healthz endpoint every 30 seconds.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:3000/healthz || exit 1
 
-# The default command that will be executed by our entrypoint script
+# **STEP E:** Set the entrypoint and default command for the application.
+ENTRYPOINT ["./entrypoint.sh"]
 CMD ["npm", "run", "start"]
