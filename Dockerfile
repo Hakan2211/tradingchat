@@ -23,12 +23,15 @@ COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 # Make the entrypoint script executable
 RUN chmod +x ./entrypoint.sh
 
+# Create the prisma data directory
+RUN mkdir -p /app/prisma/data
+
 # Set the port your application will run on
 ENV PORT=3000
 EXPOSE 3000
 
-# Docker-native Health Check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+# Docker-native Health Check - increased timeout and retries
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
   CMD curl -f http://localhost:3000/healthz || exit 1
 
 # Set the entrypoint and default command

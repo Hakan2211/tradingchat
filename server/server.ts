@@ -27,10 +27,8 @@ const app = express();
 const httpServer = http.createServer(app);
 
 app.get('/healthz', (req, res) => {
-  // This route is used by the health check
-  res.status(200).send('OK');
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
-
 const onlineUsers = new Map<string, Set<string>>();
 
 const io = new Server(httpServer, {
@@ -310,4 +308,31 @@ const PORT = process.env.PORT || 3000;
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Express server listening on http://localhost:${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  httpServer.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  httpServer.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
 });
