@@ -10,6 +10,10 @@ RUN npm run build
 # Stage 2: Create the final, clean production image
 FROM node:20-alpine
 WORKDIR /app
+# **THE GUARANTEED FIX:** Install the 'curl' tool needed for Coolify's health check.
+# 'apk' is the package manager for Alpine Linux.
+RUN apk add --no-cache curl
+
 COPY package*.json ./
 
 # Copy ALL necessary artifacts from the 'builder' stage
@@ -18,12 +22,10 @@ COPY --from=builder /app/build ./build
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 
-# **THE GUARANTEED FIX:**
-# This command runs INSIDE the container and makes the script executable.
-# This bypasses all Git for Windows permission issues.
+# Fix permissions for the entrypoint script
 RUN chmod +x ./entrypoint.sh
 
-# This tells the container to use our script as the main entrypoint
+# Tells the container to use our script as the main entrypoint
 ENTRYPOINT ["./entrypoint.sh"]
 
 # The default command that will be executed by our entrypoint script
