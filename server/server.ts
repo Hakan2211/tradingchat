@@ -26,9 +26,9 @@ const viteDevServer = IS_PROD
 const app = express();
 const httpServer = http.createServer(app);
 
-app.get('/healthz', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// app.get('/healthz', (req, res) => {
+//   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+// });
 const onlineUsers = new Map<string, Set<string>>();
 
 const io = new Server(httpServer, {
