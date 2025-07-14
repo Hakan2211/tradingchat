@@ -26,6 +26,11 @@ const viteDevServer = IS_PROD
 const app = express();
 const httpServer = http.createServer(app);
 
+app.get('/healthz', (req, res) => {
+  // This route is used by the health check
+  res.status(200).send('OK');
+});
+
 const onlineUsers = new Map<string, Set<string>>();
 
 const io = new Server(httpServer, {
@@ -298,11 +303,6 @@ const handler = async (
     next(error);
   }
 };
-
-app.get('/healthz', (req, res) => {
-  // This route is used by the health check
-  res.status(200).send('OK');
-});
 
 app.all(/(.*)/, handler);
 
