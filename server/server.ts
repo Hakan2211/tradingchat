@@ -7,7 +7,7 @@ import http from 'node:http';
 import { Server } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 import { type ServerBuild } from 'react-router';
-import { prisma } from '#/utils/db.server';
+import { prisma } from '../app/utils/db.server';
 import { UserStatus } from '@prisma/client';
 
 const MODE = process.env.NODE_ENV;
