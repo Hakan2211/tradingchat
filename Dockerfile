@@ -1,31 +1,19 @@
-
-FROM node:20-alpine AS builder
-#ENV DATABASE_URL=file:./prisma/data/dev.db
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
+# The correct "Build Locally" Dockerfile
 FROM node:20-alpine
 WORKDIR /app
 
 RUN apk add --no-cache curl
 
 COPY package*.json ./
-
-# Install ONLY production dependencies. Skips Vite, tsx, etc.
-# This creates a lean and clean node_modules folder for production.
 RUN npm ci --omit=dev
 
-COPY --from=builder /app/build ./build
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/entrypoint.sh .
+# This line will now work because 'build' is no longer ignored
+COPY ./build ./build
+
+COPY ./prisma ./prisma
+COPY ./entrypoint.sh .
 
 RUN chmod +x ./entrypoint.sh
-
-# Generate the Prisma client based on the schema
-# This needs to be run after production dependencies are installed
 RUN npx prisma generate
 
 ENV PORT=3000
