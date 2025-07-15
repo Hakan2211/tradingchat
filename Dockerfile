@@ -1,17 +1,33 @@
-# The correct "Build Locally" Dockerfile
+# ====================================================================================
+# STAGE 1: BUILDER
+# Use the full-featured Node.js image to avoid build tool conflicts.
+# ====================================================================================
+FROM node:20 AS builder
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+
+# ====================================================================================
+# STAGE 2: PRODUCTION
+# Use the small Alpine image for the final, lean container.
+# ====================================================================================
 FROM node:20-alpine
 WORKDIR /app
 
 RUN apk add --no-cache curl
 
 COPY package*.json ./
+# Install ONLY production dependencies.
 RUN npm ci --omit=dev
 
-# This line will now work because 'build' is no longer ignored
-COPY ./build ./build
-
-COPY ./prisma ./prisma
-COPY ./entrypoint.sh .
+# Copy the finished build from the builder stage
+COPY --from=builder /app/build ./build
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/entrypoint.sh .
 
 RUN chmod +x ./entrypoint.sh
 RUN npx prisma generate
