@@ -4,13 +4,16 @@ import { defineConfig } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig(({ isSsrBuild }) => ({
-  build: {
-    rollupOptions: isSsrBuild
-      ? {
-          input: './app/entry.server.tsx', // SSR entry point
-        }
-      : undefined,
-  },
+  // build: {
+  //   ssr: true,
+  //   sourcemap: true,
+  //   target: 'es2022',
+  //   rollupOptions: {
+  //     input: isSsrBuild ? './server/server.ts' : undefined,
+  //     external: isSsrBuild ? './index.js' : undefined,
+  //   },
+  // },
+
   server: {
     proxy: {
       // Proxy all requests starting with /socket.io to your Express server
