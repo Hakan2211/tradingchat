@@ -7,7 +7,7 @@ import http from 'node:http';
 import { Server } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 import { type ServerBuild } from 'react-router';
-import { prisma } from '../app/utils/db.server';
+import { prisma } from 'app/utils/db.server';
 import { UserStatus } from '@prisma/client';
 
 const MODE = process.env.NODE_ENV;
@@ -128,7 +128,7 @@ app.post('/resources/api/polar-webhooks', express.json(), async (req, res) => {
 
   try {
     const { validateEvent } = await import('@polar-sh/sdk/webhooks');
-    const { prisma } = await import('../app/utils/db.server');
+    const { prisma } = await import('app/utils/db.server');
 
     const body = JSON.stringify(req.body);
     const headers: Record<string, string> = {};

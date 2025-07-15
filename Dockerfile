@@ -29,6 +29,7 @@ COPY --from=builder /app/build ./build
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/entrypoint.sh .
 COPY --from=builder /app/server ./server
+COPY --from=builder /app ./app
 COPY --from=builder /app/tsconfig.json .
 
 RUN chmod +x ./entrypoint.sh
