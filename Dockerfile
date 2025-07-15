@@ -28,6 +28,7 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/entrypoint.sh .
+COPY --from=builder /app/server ./server
 
 RUN chmod +x ./entrypoint.sh
 RUN npx prisma generate
