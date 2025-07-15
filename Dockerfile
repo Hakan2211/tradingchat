@@ -1,5 +1,5 @@
-# Stage 1: Build the application
-FROM node:20-alpine
+
+FROM node:20-alpine AS builder
 ENV DATABASE_URL=file:./prisma/data/dev.db
 WORKDIR /app
 COPY package*.json ./
@@ -7,25 +7,33 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Install curl for the health check
+FROM node:20-alpine
+WORKDIR /app
+
+
 RUN apk add --no-cache curl
 
-# Make the entrypoint script executable
+
+COPY package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/build ./build
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
+
+
 RUN chmod +x ./entrypoint.sh
 
-# Create the prisma data directory
+
 RUN mkdir -p /app/prisma/data
 
-RUN npx prisma generate
-# Set the port your application will run on
+
 ENV PORT=3000
 EXPOSE 3000
 
-# Docker-native Health Check - increased timeout and retries
+
 HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
   CMD curl -f http://localhost:3000/ || exit 1
 
-# Set the entrypoint and default command
+
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["npm", "run", "start"]
-#CMD ["tail", "-f", "/dev/null"]
