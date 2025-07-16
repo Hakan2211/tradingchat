@@ -113,7 +113,7 @@ export default function About() {
               </p>
             </div>
             <div className="flex justify-center">
-              <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 p-2">
+              <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 dark:ring-zinc-800/50 p-2 border-none">
                 <div className="w-64 h-48 bg-gradient-to-br from-zinc-800 to-zinc-700 rounded-lg flex items-center justify-center">
                   <img
                     src="/images/hakan.jpg"
@@ -136,7 +136,7 @@ export default function About() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
             <div className="flex justify-center lg:order-first">
-              <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 p-2">
+              <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 dark:ring-zinc-800/50 p-2 border-none">
                 <div className="w-64 h-48 bg-gradient-to-br from-zinc-800 to-zinc-700 rounded-lg flex items-center justify-center">
                   <img
                     src="/images/mom.jpg"
@@ -199,9 +199,9 @@ export default function About() {
             ].map((item, index) => (
               <Card
                 key={index}
-                className="bg-transparent backdrop-blur-10 p-6 text-center my-3"
+                className="bg-transparent backdrop-blur-10 p-6 text-center my-3 border-[#ccb389]/20 dark:border-[#333842]"
               >
-                <div className="mx-auto w-12 h-12 bg-gradient-to-br from-[#ccb389] to-[#b8a082] rounded-lg flex items-center justify-center mb-4">
+                <div className="mx-auto w-12 h-12 bg-gradient-to-br from-[#ccb389] to-[#b8a082] rounded-lg flex items-center justify-center mb-4 dark:from-[#ccb389] dark:to-[#b8a082]">
                   <item.icon className="h-6 w-6 text-zinc-900" />
                 </div>
                 <h3 className="text-lg font-medium text-neutral-300 mb-2">
@@ -259,7 +259,10 @@ export default function About() {
                 description: 'features traders actually need',
               },
             ].map((feature, index) => (
-              <Card key={index} className="bg-transparent backdrop-blur-10 p-6">
+              <Card
+                key={index}
+                className="bg-transparent backdrop-blur-10 p-6 border-[#ccb389]/20 dark:border-[#333842]"
+              >
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-gradient-to-br from-[#ccb389] to-[#b8a082] rounded-lg flex items-center justify-center flex-shrink-0">
                     <feature.icon className="h-5 w-5 text-zinc-900" />
@@ -315,7 +318,7 @@ export default function About() {
             </h2>
           </div>
 
-          <Card className="flex items-center  bg-transparent ring-1 ring-[#ccb389]/40 backdrop-blur-10 p-8 mb-8">
+          <Card className="flex items-center  bg-transparent ring-1 ring-[#ccb389]/40 dark:ring-[#ccb389]/40 backdrop-blur-10 p-8 mb-8 border-[#ccb389]/40 dark:border-[#ccb389]/40">
             <h3 className="text-xl font-medium text-[#ccb389] mb-2">
               Mission:
             </h3>
@@ -333,7 +336,7 @@ export default function About() {
             ].map((value, index) => (
               <Card
                 key={index}
-                className="bg-transparent ring-1 ring-zinc-800/50 backdrop-blur-10 p-6 text-center"
+                className="bg-transparent ring-1 ring-zinc-800/50 dark:ring-zinc-800/50 backdrop-blur-10 p-6 text-center border-zinc-800/50 dark:border-zinc-800/50"
               >
                 <h4 className="text-lg font-medium text-[#ccb389] mb-2">
                   {value.title}
@@ -352,7 +355,7 @@ export default function About() {
             </h2>
           </div>
 
-          <Card className="bg-transparent ring-1 ring-[#ccb389]/20 backdrop-blur-10 p-8 text-center">
+          <Card className="bg-transparent ring-1 ring-[#ccb389]/20 dark:ring-[#ccb389]/20 backdrop-blur-10 p-8 text-center border-[#ccb389]/20 dark:border-[#ccb389]/20">
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
               At <span className="text-[#ccb389] font-semibold">$60/month</span>{' '}
               (or{' '}
@@ -375,7 +378,7 @@ export default function About() {
 
         {/* Final Invitation */}
         <div className="py-20">
-          <Card className="bg-gradient-to-br from-slate-800/90 to-black-600/90 ring-1 ring-[#ccb389]/30 backdrop-blur-20 p-12 text-center shadow-2xl shadow-[#ccb389]/10">
+          <Card className="bg-gradient-to-br from-slate-800/90 to-black-600/90 ring-1 ring-[#ccb389]/30 dark:ring-[#ccb389]/30 border-[#ccb389]/30 dark:border-[#ccb389]/30 backdrop-blur-20 p-12 text-center shadow-2xl shadow-[#ccb389]/10 dark:shadow-[#ccb389]/10">
             <h2 className="text-3xl font-serif font-medium text-[#ccb389] mb-6">
               The Invitation
             </h2>

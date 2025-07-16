@@ -8,6 +8,8 @@ import {
   SheetContent,
   SheetTrigger,
   SheetClose,
+  SheetTitle,
+  SheetDescription,
 } from '#/components/ui/sheet';
 import { Menu } from 'lucide-react';
 import { useScrollNav } from '#/hooks/use-scroll-nav';
@@ -129,62 +131,72 @@ const MobileSheetNav = ({ visible }: { visible?: boolean }) => (
         : 'linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%)',
     }}
     transition={{ type: 'spring', stiffness: 200, damping: 50 }}
-    className="relative rounded-full z-50 flex w-full flex-row items-center justify-between p-4 md:hidden translate-y-[10px]"
+    className={cn(
+      'relative z-60 mx-auto md:hidden max-w-5xl flex flex-row items-center justify-between rounded-2xl px-4 py-2 translate-y-[10px] bg-transparent'
+    )}
     style={{
-      boxShadow:
-        '0 4px 15px rgba(20, 20, 20, 0.5), 0 0 10px rgba(20, 20, 20, 0.5)', // Darker but lighter black
+      boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3), 0 0 12px rgba(0, 0, 0, 0.2)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
     }}
   >
-    <Link to="/" className="text-2xl font-bold text-yellow-400">
-      BullBearz
+    <Link to="/" className="text-xl cursor-pointer z-50 text-[#ccb389]">
+      <div className="flex items-center gap-3">
+        <Logo className="w-12 h-12" />
+        <span className="font-serif text-2xl font-light">BullBearz </span>
+      </div>
     </Link>
     <Sheet>
+      <SheetTitle className="sr-only">Menu</SheetTitle>
+      <SheetDescription className="sr-only">Menu</SheetDescription>
       <SheetTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:text-yellow-400"
+          className="text-neutral-300 hover:text-[#ccb389] hover:bg-transparent cursor-pointer"
         >
           <Menu className="h-6 w-6" />
         </Button>
       </SheetTrigger>
       <SheetContent
         side="right"
-        className="bg-[rgba(0,0,0,0.7)] backdrop-blur-md"
+        className="bg-[rgba(0,0,0,0.7)] backdrop-blur-md border-l-zinc-800/60"
       >
         <div className="flex h-full flex-col p-6 space-y-6">
-          <Link to="/" className="text-2xl font-bold text-yellow-400">
-            BullBearz
+          <Link to="/" className="text-xl cursor-pointer z-50 text-[#ccb389]">
+            <div className="flex items-center gap-3">
+              <Logo className="w-10 h-10" />
+              <span className="font-serif text-2xl font-light">BullBearz</span>
+            </div>
           </Link>
           <nav className="flex flex-col gap-6">
             {navItems.map((link) => (
               <SheetClose asChild key={link.link}>
                 <Link
                   to={link.link}
-                  className="text-lg text-white hover:text-yellow-400"
+                  className="text-lg text-neutral-300 hover:text-[#ccb389]"
                   style={{ textShadow: '0 0 5px rgba(255, 255, 255, 0.3)' }}
                 >
                   {link.name}
                 </Link>
               </SheetClose>
             ))}
+            <div className="mt-auto w-fit flex flex-col gap-4">
+              <SheetClose asChild>
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="dark:text-neutral-300  dark:hover:text-neutral-100 hover:bg-gray-800/40 hover:border-gray-800/40 hover:text-neutral-100 text-neutral-300"
+                >
+                  <Link to="/login">Log In</Link>
+                </Button>
+              </SheetClose>
+              <SheetClose asChild>
+                <Button className="bg-gray-800/60 text-neutral-300 border-gray-800/60 hover:bg-gray-800/40 hover:border-gray-800/40 dark:bg-gray-800/60 dark:hover:bg-gray-800/40 border dark:border-gray-800/60  dark:hover:border-gray-700 transition-all duration-300">
+                  <Link to="/register">Get Started</Link>
+                </Button>
+              </SheetClose>
+            </div>
           </nav>
-          <div className="mt-auto flex flex-col gap-4">
-            <SheetClose asChild>
-              <Button
-                asChild
-                variant="ghost"
-                className="text-white hover:text-yellow-400"
-              >
-                <Link to="/login">Log In</Link>
-              </Button>
-            </SheetClose>
-            <SheetClose asChild>
-              <Button className="bg-gradient-to-r from-yellow-400 to-gray-400 text-black hover:from-yellow-500 hover:to-gray-500">
-                <Link to="/signup">Get Started</Link>
-              </Button>
-            </SheetClose>
-          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -208,13 +220,13 @@ export function LandingNavbar() {
           <Button
             asChild
             variant="ghost"
-            className="text-neutral-300 hover:text-neutral-100"
+            className="dark:text-neutral-300  dark:hover:text-neutral-100 hover:bg-gray-800/40 hover:border-gray-800/40 hover:text-neutral-100 text-neutral-300"
           >
             <Link to="/login">Log In</Link>
           </Button>
           <Button
             asChild
-            className="bg-gray-800/60 hover:bg-gray-800/40 border border-gray-800/60  hover:border-gray-700 transition-all duration-300"
+            className="bg-gray-800/60 text-neutral-300 border-gray-800/60 hover:bg-gray-800/40 hover:border-gray-800/40 dark:bg-gray-800/60 dark:hover:bg-gray-800/40 border dark:border-gray-800/60  dark:hover:border-gray-700 transition-all duration-300"
           >
             <Link to="/register">Get Started</Link>
           </Button>

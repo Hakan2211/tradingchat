@@ -11,8 +11,8 @@ import {
   type LoaderFunctionArgs,
 } from 'react-router';
 
-import './app.css';
 import './styles/font.css';
+import './app.css';
 import { GeneralErrorBoundary } from './components/errorBoundary/errorBoundary';
 import { honeypot } from './utils/honeypot.server';
 import { HoneypotProvider } from 'remix-utils/honeypot/react';
