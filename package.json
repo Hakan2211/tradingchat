@@ -9,7 +9,7 @@
     "typecheck": "react-router typegen && tsc",
     "db:seed": "tsx prisma/seed.ts",
     "db:deploy": "prisma migrate deploy",
-    "db:studio:prod": "npx prisma studio --port 5556"
+    "db:studio:prod": "npx prisma studio --port 5556 --host 0.0.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.839.0",
