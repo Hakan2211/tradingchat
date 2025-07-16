@@ -108,8 +108,8 @@ export function PricingSection() {
               className={cn(
                 'flex flex-col rounded-2xl transition-all duration-300 relative',
                 plan.highlighted
-                  ? 'bg-gradient-to-br from-zinc-900/90 to-zinc-800/90 scale-105 ring-1 ring-[#ccb389]/30 shadow-[#ccb389]/10  dark:ring-[#ccb389]/30 shadow-2xl dark:shadow-[#ccb389]/10 border-none'
-                  : 'bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 hover:ring-zinc-700/50 dark:ring-zinc-800/50 dark:hover:ring-zinc-700/50 border-none'
+                  ? 'bg-gradient-to-br from-zinc-900/90 to-zinc-800/90 scale-105 ring-1 ring-[#ccb389]/30 shadow-[#ccb389]/10  dark:ring-[#ccb389]/30 shadow-2xl dark:shadow-[#ccb389]/10 border-[#ccb389]/30 dark:border-[#ccb389]/30'
+                  : 'bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 hover:ring-zinc-700/50 dark:ring-zinc-800/50 dark:hover:ring-zinc-700/50 border-[#333842]'
               )}
               style={
                 plan.highlighted
