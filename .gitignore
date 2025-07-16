@@ -17,6 +17,9 @@
 /prisma/dev.db-journal
 /prisma/adminSeed.ts
 
+*.db
+*.db-journal
+
 .env
 .env.local\
 
