@@ -371,7 +371,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       icon: true,
     },
     orderBy: {
-      name: 'asc',
+      sortOrder: 'asc',
     },
   });
 

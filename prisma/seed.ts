@@ -100,21 +100,23 @@ async function seed() {
 
   console.log('🌱 Seeding default rooms...');
   const defaultRooms = [
-    { name: 'Main', icon: 'MessageCircleMore' },
-    { name: 'Watchlist', icon: 'Eye' },
-    { name: 'Announcements', icon: 'Megaphone' },
-    { name: 'Introductions', icon: 'Handshake' },
-    { name: 'Support', icon: 'CircleHelp' },
+    { name: 'Main', icon: 'MessageCircleMore', sortOrder: 1 },
+    { name: 'Watchlist', icon: 'Eye', sortOrder: 2 },
+    { name: 'Announcements', icon: 'Megaphone', sortOrder: 3 },
+    { name: 'Introductions', icon: 'Handshake', sortOrder: 4 },
+    { name: 'Support', icon: 'CircleHelp', sortOrder: 5 },
   ];
 
   for (const room of defaultRooms) {
     await prisma.room.upsert({
-      where: { name: room.name }, // Use the unique name to find the room
-      update: {}, // Don't update it if it already exists
+      where: { name: room.name },
+      update: {
+        sortOrder: room.sortOrder,
+      },
       create: {
-        // Create it if it doesn't exist
         name: room.name,
         icon: room.icon,
+        sortOrder: room.sortOrder,
       },
     });
   }

@@ -27,6 +27,8 @@ import {
   Paperclip,
   ImageIcon,
   UsersRound,
+  Handshake,
+  Megaphone,
 } from 'lucide-react';
 import { ChatMessage } from '#/components/chat/chat-message';
 import { requirePermission } from '#/utils/permission.server';
@@ -81,6 +83,8 @@ const iconMap: Record<string, LucideIcon> = {
   MessageCircleMore,
   Eye,
   CircleHelp,
+  Handshake,
+  Megaphone,
 };
 
 function RoomIcon({ iconName }: { iconName?: string | null }) {

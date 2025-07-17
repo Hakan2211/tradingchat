@@ -9,14 +9,12 @@ import {
   CardHeader,
   CardTitle,
 } from '#/components/ui/card';
-import { Badge } from '#/components/ui/badge';
 import {
   MessageSquare,
   Bookmark,
   Edit3,
   Trash2,
   Image,
-  UserPlus,
   TrendingUp,
   AlertTriangle,
   ArrowRight,
