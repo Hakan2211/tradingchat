@@ -4,6 +4,8 @@ import {
   MessageCircleMore,
   CircleHelp,
   Hash,
+  Handshake,
+  Megaphone,
   type LucideIcon,
   ChevronRight,
   MessageSquare,
@@ -36,6 +38,8 @@ const iconMap: Record<string, LucideIcon> = {
   MessageCircleMore,
   Eye,
   CircleHelp,
+  Handshake,
+  Megaphone,
 };
 
 function RoomIcon({
