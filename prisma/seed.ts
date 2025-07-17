@@ -97,6 +97,29 @@ async function seed() {
   });
 
   console.log('✅ Roles connected to permissions');
+
+  console.log('🌱 Seeding default rooms...');
+  const defaultRooms = [
+    { name: 'Main', icon: 'MessageCircleMore' },
+    { name: 'Watchlist', icon: 'Eye' },
+    { name: 'Announcements', icon: 'Megaphone' },
+    { name: 'Introductions', icon: 'Handshake' },
+    { name: 'Support', icon: 'CircleHelp' },
+  ];
+
+  for (const room of defaultRooms) {
+    await prisma.room.upsert({
+      where: { name: room.name }, // Use the unique name to find the room
+      update: {}, // Don't update it if it already exists
+      create: {
+        // Create it if it doesn't exist
+        name: room.name,
+        icon: room.icon,
+      },
+    });
+  }
+  console.log('✅ Default rooms seeded');
+
   console.timeEnd('DB has been seeded');
 }
 
