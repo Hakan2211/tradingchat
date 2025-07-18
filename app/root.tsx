@@ -148,7 +148,7 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
 export const meta = ({ data }: { data: LoaderData }) => {
   const origin = data?.requestInfo?.origin || 'https://bullbearz.com';
   const imageUrl =
-    'https://pub-9c15a0205a1d42c8acc549a0dd7d568e.r2.dev/og-image.jpeg';
+    'https://pub-9c15a0205a1d42c8acc549a0dd7d568e.r2.dev/og-image.jpg';
 
   const title = 'BullBearz | The Winning Edge for Traders';
   const description =

@@ -7,7 +7,7 @@ import { requireAnonymous } from '#/utils/auth.server';
 export function createMetaTags({
   title = 'BullBearz | The Winning Edge for Traders',
   description = 'Join a community of elite traders who turn market volatility into opportunity. Learn, share, and forge your winning edge.',
-  imageUrl = 'https://pub-9c15a0205a1d42c8acc549a0dd7d568e.r2.dev/og-image.jpeg',
+  imageUrl = 'https://pub-9c15a0205a1d42c8acc549a0dd7d568e.r2.dev/og-image.jpg',
   siteUrl = 'https://bullbearz.com',
 }: {
   title?: string;
