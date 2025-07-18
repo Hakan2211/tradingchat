@@ -166,11 +166,11 @@ export const meta = ({ data }: { data: LoaderData }) => {
     { property: 'og:image', content: imageUrl },
     { property: 'og:type', content: 'website' },
 
-    { name: 'twitter:card', content: 'summary_large_image' },
-    { name: 'twitter:title', content: title },
-    { name: 'twitter:description', content: description },
-    { name: 'twitter:image', content: imageUrl },
-    { name: 'twitter:site', content: '@hakanbilgo' },
+    // { name: 'twitter:card', content: 'summary_large_image' },
+    // { name: 'twitter:title', content: title },
+    // { name: 'twitter:description', content: description },
+    // { name: 'twitter:image', content: imageUrl },
+    // { name: 'twitter:site', content: '@hakanbilgo' },
   ];
 };
 
