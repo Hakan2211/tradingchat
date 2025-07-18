@@ -43,6 +43,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
 import { useInfiniteMessages } from '#/hooks/use-infinite-messages';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { toast } from 'sonner';
 
 const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const MESSAGE_PAGE_SIZE = 50; //for virtualization
@@ -959,6 +960,22 @@ export default function ChatRoom() {
     }
   }, [bookmarkFetcher.state, bookmarkFetcher.data, user.id, updateBookmark]);
 
+  const handleFormSubmit = () => {
+    const hasText = textareaRef.current?.value.trim() !== '';
+    // stagedFileRef is the source of truth for the file data that will be submitted
+    const hasImage = !!stagedFileRef.current;
+    if (!hasText && !hasImage) {
+      toast.error('A message must have content or an image.');
+      return; // Stop submission
+    }
+
+    if (formRef.current) {
+      // Using requestSubmit to programmatically submit the form,
+      // which respects the form's native behavior and integrations.
+      formRef.current.requestSubmit();
+    }
+  };
+
   const isDm = room.name.startsWith('dm:');
   let headerTitle: string;
   let headerIcon: React.ReactNode;
@@ -1204,12 +1221,8 @@ export default function ChatRoom() {
                 placeholder={`Message #${headerTitle}`}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
-                    const hasText = e.currentTarget.value.trim() !== '';
-                    const hasImage = !!previewUrl || !!stagedFileRef.current;
-                    if ((hasText || hasImage) && formRef.current) {
-                      e.preventDefault();
-                      formRef.current.requestSubmit();
-                    }
+                    e.preventDefault(); // Prevent new line on Enter
+                    handleFormSubmit();
                   }
                 }}
                 onPaste={handlePaste}
@@ -1229,10 +1242,11 @@ export default function ChatRoom() {
                 </Button>
 
                 <Button
-                  type="submit"
+                  type="button"
                   size="icon"
                   className="size-8 bg-background text-sidebar-accent hover:bg-background/80 cursor-pointer transition-colors duration-300"
                   disabled={messageFetcher.state !== 'idle'}
+                  onClick={handleFormSubmit}
                 >
                   <SendHorizonalIcon className="size-4 -rotate-90" />
                 </Button>
