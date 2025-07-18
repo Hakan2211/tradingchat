@@ -187,8 +187,8 @@ export default function Register() {
       <div className="bg-muted relative hidden lg:block">
         <img
           src="/images/bearandbull.webp"
-          alt="A person sitting at a desk with a laptop and a cup of coffee"
-          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
+          alt="Bear and Bull image"
+          className="absolute inset-0 h-full w-full object-cover"
         />
       </div>
       <div className="flex flex-col items-center justify-center p-6 md:p-10">

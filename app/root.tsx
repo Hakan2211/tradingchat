@@ -150,7 +150,7 @@ export const meta = ({ data }: { data: LoaderData }) => {
   const origin = data.requestInfo.origin;
 
   // The absolute URL to your OG image
-  const imageUrl = `${origin}/images/og-image.jpg`;
+  const imageUrl = `${origin}/og-image.jpg`;
 
   const title = 'BullBearz | The Winning Edge for Traders';
   const description =
