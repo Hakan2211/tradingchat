@@ -191,7 +191,7 @@ export default function TermsOfService() {
               </h2>
               <p className="text-zinc-300 leading-relaxed">
                 These Terms of Service shall be governed by and construed in
-                accordance with the laws of Wyoming.
+                accordance with the laws of Turkey.
               </p>
             </CardContent>
           </Card>

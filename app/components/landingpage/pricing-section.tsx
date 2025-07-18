@@ -14,8 +14,8 @@ import { cn } from '#/lib/utils';
 import { Check } from 'lucide-react';
 import { Link } from 'react-router';
 
-const MONTHLY_PLAN_ID = 'efd3d8b4-a4cb-42ce-b178-5d0d40d6ff00';
-const YEARLY_PLAN_ID = 'b5bfcda6-4d3a-46d5-a355-5ad0989486bb';
+const MONTHLY_PLAN_ID = 'a06766cc-44c1-42c5-8d0c-8dba55c89e12';
+const YEARLY_PLAN_ID = '6d4bc03e-e416-4fcf-bb60-ef37766e582f';
 
 // Data for pricing plans
 const pricingPlans = [
