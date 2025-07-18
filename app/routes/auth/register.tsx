@@ -186,7 +186,7 @@ export default function Register() {
     <>
       <div className="bg-muted relative hidden lg:block">
         <img
-          src="/images/athlete.webp"
+          src="/images/bearandbull.webp"
           alt="A person sitting at a desk with a laptop and a cup of coffee"
           className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
         />

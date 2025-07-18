@@ -110,7 +110,7 @@ export default function Login({ className, ...props }: { className?: string }) {
     <>
       <div className="bg-muted relative hidden lg:block">
         <img
-          src="/images/resilience-runner.webp"
+          src="/images/bull.webp"
           alt="A person typing on a laptop in a dark room, with code on the screen"
           className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.3]"
         />

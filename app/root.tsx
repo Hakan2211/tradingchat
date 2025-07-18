@@ -145,6 +145,35 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
   return data(loaderData, { headers });
 }) satisfies LoaderFunction;
 
+export const meta = ({ data }: { data: LoaderData }) => {
+  // Use the origin from the loader data to build absolute URLs
+  const origin = data.requestInfo.origin;
+
+  // The absolute URL to your OG image
+  const imageUrl = `${origin}/images/og-image.jpg`;
+
+  const title = 'BullBearz | The Winning Edge for Traders';
+  const description =
+    'Join a community of elite traders who turn market volatility into opportunity. Learn, share, and forge your winning edge.';
+
+  return [
+    { title: title },
+    { name: 'description', content: description },
+
+    { property: 'og:title', content: title },
+    { property: 'og:description', content: description },
+    { property: 'og:url', content: origin },
+    { property: 'og:image', content: imageUrl },
+    { property: 'og:type', content: 'website' },
+
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: title },
+    { name: 'twitter:description', content: description },
+    { name: 'twitter:image', content: imageUrl },
+    { name: 'twitter:site', content: '@hakanbilgo' },
+  ];
+};
+
 function Document({
   children,
   theme,
