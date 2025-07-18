@@ -20,6 +20,7 @@ import { UserStatus } from '@prisma/client';
 import { toast } from 'sonner';
 import { redirectWithToast } from '#/utils/toaster.server';
 import { isUserAuthorized } from '#/utils/permission.server';
+import { useTranslationProtection } from '#/hooks/useTranslationProtection';
 
 type DirectMessageItem = {
   id: string;
@@ -433,6 +434,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export default function AppLayout() {
   const { user, groupRooms, directMessages, unreadCounts } =
     useLoaderData<typeof loader>();
+
+  useTranslationProtection();
 
   return (
     <SocketProvider

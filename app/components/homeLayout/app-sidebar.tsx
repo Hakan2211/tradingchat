@@ -60,6 +60,7 @@ export function AppSidebar({
           items={isHydrated ? socketDms : directMessages}
           unreadCounts={unreadCounts}
         />
+
         <SidebarMenu>
           <SidebarMenuItem>
             <NavLink to="/bookmarks" end>

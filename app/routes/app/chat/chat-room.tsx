@@ -1008,9 +1008,12 @@ export default function ChatRoom() {
         {/* Header - Fixed at top */}
         <header className="flex-shrink-0 border-b border-border/60 p-4 z-10">
           <div className="flex items-center justify-between">
-            <h1 className="text-lg font-semibold capitalize flex items-center gap-2">
+            <h1
+              className="text-lg font-semibold capitalize flex items-center gap-2"
+              translate="no"
+            >
               {headerIcon}
-              {headerTitle}
+              <span translate="yes">{headerTitle}</span>
             </h1>
             <Button
               variant="ghost"

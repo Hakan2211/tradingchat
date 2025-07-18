@@ -27,6 +27,7 @@ import {
 } from '#/components/ui/collapsible';
 import { Badge } from '#/components/ui/badge';
 import { cn } from '#/lib/utils';
+import React from 'react';
 
 export type NavRoomItem = {
   id: string;
@@ -79,7 +80,10 @@ export function NavRooms({
               tooltip="Rooms"
             >
               <MessageSquare className="size-5" />
-              <span className="group-data-[collapsible=icon]:hidden">
+              <span
+                translate="no"
+                className="group-data-[collapsible=icon]:hidden"
+              >
                 Rooms
               </span>
               <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
@@ -100,16 +104,15 @@ export function NavRooms({
                     <NavLink className="flex-grow" to={`/chat/${item.id}`} end>
                       {({ isActive }) => (
                         <SidebarMenuSubButton
+                          asChild
                           className={cn(
                             'hover:bg-accent/50 hover:text-accent-foreground',
                             isActive && '!bg-accent/60 !text-accent-foreground'
                           )}
-                          asChild
                           isActive={isActive}
                         >
                           <div className="flex w-full items-center justify-between">
                             <div className="flex items-center gap-2 overflow-hidden">
-                              {/* Render our dynamic icon component */}
                               <RoomIcon
                                 className="size-5"
                                 iconName={item.icon}

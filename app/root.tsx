@@ -31,6 +31,7 @@ import { getTheme, type Theme } from './utils/theme.server';
 import { NavigationTracker } from '#/components/navigationTracker/navigation-tracker';
 import { combineHeaders } from '#/utils/misc';
 import { cn } from './lib/utils';
+import TranslationErrorBoundary from './components/errorBoundary/TranslationErrorBoundary';
 
 type RequestInfo = {
   hints: {
@@ -145,37 +146,6 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
   return data(loaderData, { headers });
 }) satisfies LoaderFunction;
 
-export const meta = ({ data }: { data: LoaderData }) => {
-  const origin = data?.requestInfo?.origin || 'https://bullbearz.com';
-  const imageUrl =
-    'https://pub-9c15a0205a1d42c8acc549a0dd7d568e.r2.dev/og-image.jpg';
-
-  const title = 'BullBearz | The Winning Edge for Traders';
-  const description =
-    'Join a community of elite traders who turn market volatility into opportunity. Learn, share, and forge your winning edge.';
-
-  return [
-    { title: title },
-    { name: 'description', content: description },
-
-    { property: 'og:title', content: title },
-    { property: 'og:description', content: description },
-    { property: 'og:url', content: origin },
-    { property: 'og:image', content: imageUrl },
-    { property: 'og:image:width', content: '1200' },
-    { property: 'og:image:height', content: '630' },
-    { property: 'og:type', content: 'website' },
-    { property: 'og:site_name', content: 'BullBearz' },
-
-    { name: 'twitter:card', content: 'summary_large_image' },
-    { name: 'twitter:title', content: title },
-    { name: 'twitter:description', content: description },
-    { name: 'twitter:image', content: imageUrl },
-    { name: 'twitter:site', content: '@hakanbilgo' },
-    { name: 'twitter:creator', content: '@hakanbilgo' },
-  ];
-};
-
 function Document({
   children,
   theme,
@@ -188,6 +158,8 @@ function Document({
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="google" content="notranslate" />
+        <meta name="robots" content="notranslate" />
         <Meta />
         <Links />
         <ClientHintCheck nonce="" />
@@ -232,7 +204,9 @@ export default function AppWithProviders() {
   return (
     <AuthenticityTokenProvider token={typedData.csrfToken}>
       <HoneypotProvider {...typedData.honeyProps}>
-        <App />
+        <TranslationErrorBoundary>
+          <App />
+        </TranslationErrorBoundary>
       </HoneypotProvider>
     </AuthenticityTokenProvider>
   );
