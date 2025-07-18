@@ -146,9 +146,7 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
 }) satisfies LoaderFunction;
 
 export const meta = ({ data }: { data: LoaderData }) => {
-  // Use the origin from the loader data to build absolute URLs
-
-  // The absolute URL to your OG image
+  const origin = data?.requestInfo?.origin || 'https://bullbearz.com';
   const imageUrl =
     'https://pub-9c15a0205a1d42c8acc549a0dd7d568e.r2.dev/og-image.jpeg';
 
@@ -162,15 +160,19 @@ export const meta = ({ data }: { data: LoaderData }) => {
 
     { property: 'og:title', content: title },
     { property: 'og:description', content: description },
-    { property: 'og:url', content: 'https://bullbearz.com' },
+    { property: 'og:url', content: origin },
     { property: 'og:image', content: imageUrl },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
     { property: 'og:type', content: 'website' },
+    { property: 'og:site_name', content: 'BullBearz' },
 
-    // { name: 'twitter:card', content: 'summary_large_image' },
-    // { name: 'twitter:title', content: title },
-    // { name: 'twitter:description', content: description },
-    // { name: 'twitter:image', content: imageUrl },
-    // { name: 'twitter:site', content: '@hakanbilgo' },
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: title },
+    { name: 'twitter:description', content: description },
+    { name: 'twitter:image', content: imageUrl },
+    { name: 'twitter:site', content: '@hakanbilgo' },
+    { name: 'twitter:creator', content: '@hakanbilgo' },
   ];
 };
 
