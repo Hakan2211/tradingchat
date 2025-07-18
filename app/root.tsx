@@ -147,10 +147,10 @@ export const loader = (async ({ request }: LoaderFunctionArgs) => {
 
 export const meta = ({ data }: { data: LoaderData }) => {
   // Use the origin from the loader data to build absolute URLs
-  const origin = data.requestInfo.origin;
 
   // The absolute URL to your OG image
-  const imageUrl = `${origin}/og-image.jpg`;
+  const imageUrl =
+    'https://pub-9c15a0205a1d42c8acc549a0dd7d568e.r2.dev/og-image.jpeg';
 
   const title = 'BullBearz | The Winning Edge for Traders';
   const description =
@@ -162,7 +162,7 @@ export const meta = ({ data }: { data: LoaderData }) => {
 
     { property: 'og:title', content: title },
     { property: 'og:description', content: description },
-    { property: 'og:url', content: origin },
+    { property: 'og:url', content: 'https://bullbearz.com' },
     { property: 'og:image', content: imageUrl },
     { property: 'og:type', content: 'website' },
 
