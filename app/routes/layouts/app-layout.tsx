@@ -100,6 +100,31 @@ function SocketProvider({
   const location = useLocation();
   const currentRoomIdRef = React.useRef(params.roomId);
 
+  // Function to reset document title when there are no unread messages
+  const resetDocumentTitle = React.useCallback(() => {
+    const totalUnreadCount = Object.values(unreadCounts).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+    if (totalUnreadCount === 0) {
+      document.title = 'Bullbearz';
+    }
+  }, [unreadCounts]);
+
+  // Effect to reset document title on visibility change
+  React.useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        resetDocumentTitle();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [resetDocumentTitle]);
+
   // Effect to clear badge count when user enters a room
   React.useEffect(() => {
     currentRoomIdRef.current = params.roomId;
@@ -111,6 +136,11 @@ function SocketProvider({
       });
     }
   }, [params.roomId, location.pathname]);
+
+  // Effect to reset document title when unread counts change to 0
+  React.useEffect(() => {
+    resetDocumentTitle();
+  }, [resetDocumentTitle]);
 
   React.useEffect(() => {
     if (!user?.id) {
@@ -208,7 +238,7 @@ function SocketProvider({
         });
 
         if (document.hidden) {
-          document.title = `(1) New Message! | TradingChat`;
+          document.title = `(1) New Message! | Bullbearz`;
         }
       }
     };

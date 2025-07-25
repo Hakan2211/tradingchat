@@ -1220,7 +1220,7 @@ export default function ChatRoom() {
                 ref={textareaRef}
                 // Use Conform's getInputProps for accessibility and validation
                 {...getInputProps(fields.content, { type: 'text' })}
-                className="flex-1 resize-none border-0 bg-transparent py-3 pl-4 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
+                className="flex-1 resize-none border-0 bg-transparent py-3 pl-4 pr-20 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
                 placeholder={`Message #${headerTitle}`}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {

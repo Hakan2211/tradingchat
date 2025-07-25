@@ -42,38 +42,43 @@ function QuotedMessage({
   };
 }) {
   return (
-    <div className="mb-1 rounded-lg border-l-4 border-muted-foreground/50 bg-muted/50 p-2 text-sm">
-      <div className="flex-1 space-y-1 truncate">
-        <div className="flex items-center gap-3">
-          <p className="font-semibold">
+    <div className="mb-2 flex items-start gap-3 rounded-xl border-l-4 border-primary/30 bg-gradient-to-r from-muted/60 to-muted/40 p-3 text-sm shadow-sm backdrop-blur-sm max-w-full mr-8">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 mb-1">
+          <Reply size={14} className="text-muted-foreground/80 shrink-0" />
+          <p className="font-medium text-foreground/90 truncate text-xs">
             {message.user?.name || 'Unknown User'}
           </p>
-
           <HydratedDate
             date={new Date(message.createdAt)}
             formatStr="HH:mm"
-            className="text-xs text-muted-foreground"
+            className="text-xs text-muted-foreground/80 shrink-0"
             fallback="--:--"
           />
         </div>
+
         {message.content && (
-          <p className="truncate text-muted-foreground">{message.content}</p>
+          <p className="text-muted-foreground/90 line-clamp-3 break-words text-sm leading-relaxed pr-2">
+            {message.content}
+          </p>
         )}
 
         {message.image && !message.content && (
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="flex items-center gap-2 text-muted-foreground/80">
             <ImageIcon className="size-4 shrink-0" />
-            <span>Image</span>
+            <span className="text-sm">Shared an image</span>
           </div>
         )}
       </div>
 
       {message.image && (
-        <img
-          src={getChatImagePath(message.image.id)}
-          alt={message.image.altText ?? 'Replied image'}
-          className="h-10 w-10 shrink-0 rounded-sm object-cover"
-        />
+        <div className="shrink-0">
+          <img
+            src={getChatImagePath(message.image.id)}
+            alt={message.image.altText ?? 'Replied image'}
+            className="h-12 w-12 rounded-lg object-cover border border-border/50 shadow-sm"
+          />
+        </div>
       )}
     </div>
   );
@@ -281,15 +286,9 @@ export function ChatMessage({
             <EditMessageForm message={message} onCancel={onCancelEdit} />
           ) : (
             <div className="flex items-center gap-2">
-              <div className="flex flex-col relative items-start">
+              <div className="flex flex-col items-start">
                 {message.replyTo && (
                   <QuotedMessage message={{ ...message.replyTo }} />
-                )}
-
-                {message.replyTo && (
-                  <div className="absolute right-2 top-[50%] -translate-y-1/2">
-                    <Reply size={16} className="text-muted-foreground/80" />
-                  </div>
                 )}
 
                 {message.content && (
