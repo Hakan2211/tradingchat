@@ -7,7 +7,9 @@ export function trackPath(path: string) {
   // Use a try/catch block in case sessionStorage is disabled (e.g., private browsing)
   try {
     const historyJson = window.sessionStorage.getItem(HISTORY_KEY);
-    const history: string[] = historyJson ? JSON.parse(historyJson) : [];
+    const history: string[] = historyJson
+      ? (JSON.parse(historyJson) as string[])
+      : [];
     history.push(path);
     window.sessionStorage.setItem(HISTORY_KEY, JSON.stringify(history));
   } catch (error) {
@@ -22,7 +24,7 @@ export function hasInAppHistory(): boolean {
   try {
     const historyJson = window.sessionStorage.getItem(HISTORY_KEY);
     if (!historyJson) return false;
-    const history: string[] = JSON.parse(historyJson);
+    const history: string[] = JSON.parse(historyJson) as string[];
     return history.length > 1;
   } catch (error) {
     console.error('Could not access session storage:', error);

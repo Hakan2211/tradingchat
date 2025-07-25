@@ -2,6 +2,7 @@ import * as React from 'react';
 import {
   useLoaderData,
   useFetcher,
+  useSearchParams,
   type LoaderFunctionArgs,
   type ActionFunctionArgs,
 } from 'react-router';
@@ -29,6 +30,7 @@ import {
   UsersRound,
   Handshake,
   Megaphone,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { ChatMessage } from '#/components/chat/chat-message';
 import { requirePermission } from '#/utils/permission.server';
@@ -44,6 +46,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
 import { useInfiniteMessages } from '#/hooks/use-infinite-messages';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { Calendar } from '#/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '#/components/ui/popover';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '#/components/ui/tooltip';
 
 const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const MESSAGE_PAGE_SIZE = 50; //for virtualization
@@ -127,9 +141,29 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   //--------------------------Virtualized Messages---------------------------------------------------------------
   const url = new URL(request.url);
   const cursor = url.searchParams.get('cursor');
+  const dateParam = url.searchParams.get('date');
+
+  // Determine the date range for the query. Default to today if no date is provided or if the format is invalid.
+  const selectedDate =
+    dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
+      ? new Date(dateParam)
+      : new Date();
+
+  // Set timezone to UTC for server-side calculations to avoid timezone issues.
+  const startOfDay = new Date(selectedDate.toISOString().slice(0, 10));
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(startOfDay);
+  endOfDay.setUTCHours(23, 59, 59, 999);
 
   const messageQuery = {
-    where: { roomId },
+    where: {
+      roomId,
+      createdAt: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    },
     select: {
       id: true,
       content: true,
@@ -158,7 +192,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         },
       },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: 'desc' as const },
     take: MESSAGE_PAGE_SIZE,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
   };
@@ -602,6 +636,7 @@ export default function ChatRoom() {
     updateBookmark,
   } = useInfiniteMessages(initialMessagesData);
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(
     null
   );
@@ -611,6 +646,32 @@ export default function ChatRoom() {
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [isUsersListVisible, setIsUsersListVisible] =
     React.useState(userListVisibility);
+  const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
+
+  // Memoize the selected date to avoid re-calculating on every render
+  const selectedDate = React.useMemo(() => {
+    const dateParam = searchParams.get('date');
+    const today = new Date();
+    // Use a more robust date parsing and validation
+    if (dateParam) {
+      const date = new Date(dateParam + 'T00:00:00'); // Specify time to avoid timezone shifts
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    }
+    return today;
+  }, [searchParams]);
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      // Create a fresh URLSearchParams object to avoid issues with stale state.
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.set('date', format(date, 'yyyy-MM-dd'));
+      newSearchParams.delete('cursor'); // Reset pagination when date changes
+      setSearchParams(newSearchParams, { preventScrollReset: true });
+      setIsCalendarOpen(false); // Close the popover after selection
+    }
+  };
 
   const userListFetcher = useFetcher<typeof action>();
 
@@ -633,119 +694,97 @@ export default function ChatRoom() {
   });
   const virtualItems = rowVirtualizer.getVirtualItems();
 
-  // --- Smooth scroll management ---
+  // --- REVISED & SIMPLIFIED SCROLL MANAGEMENT ---
   const prevMessagesLengthRef = React.useRef(messages.length);
   const isUserNearBottomRef = React.useRef(true);
-  const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const lockedScrollRef = React.useRef(false); // Ref to track if user is scrolled up
 
+  // 1. A simple effect to track if the user is near the bottom
   React.useEffect(() => {
     const viewport = scrollViewportRef.current;
     if (!viewport) return;
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = viewport;
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-      isUserNearBottomRef.current = distanceFromBottom < 100; // Within 100px of bottom
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 1;
+      lockedScrollRef.current = !isAtBottom; // Lock scroll if user isn't at the bottom
+      isUserNearBottomRef.current =
+        scrollHeight - scrollTop - clientHeight < 100;
     };
 
-    viewport.addEventListener('scroll', handleScroll);
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
     return () => viewport.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Unified scroll handling for message changes
-  React.useEffect(() => {
+  // 2. This is the key effect for fixing the overlapping and scroll jump issue.
+  React.useLayoutEffect(() => {
     const viewport = scrollViewportRef.current;
     if (!viewport) return;
 
     const previousLength = prevMessagesLengthRef.current;
     const currentLength = messages.length;
 
-    if (currentLength === 0) return;
+    // This case handles loading OLDER messages (prepending)
+    if (currentLength > previousLength && lockedScrollRef.current) {
+      const oldScrollHeight = viewport.scrollHeight;
 
-    // Clear any pending scroll operations
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
+      // The magic: we wait for the DOM to update, then adjust scroll
+      requestAnimationFrame(() => {
+        const newScrollHeight = viewport.scrollHeight;
+        const scrollDifference = newScrollHeight - oldScrollHeight;
+        viewport.scrollTop += scrollDifference;
+      });
     }
-
-    // Handle different scroll scenarios
-    const handleScrollUpdate = () => {
-      if (currentLength > previousLength) {
-        // New messages added
-        if (isUserNearBottomRef.current) {
-          // User was at bottom - smoothly scroll to show new messages
-          viewport.scrollTo({
-            top: viewport.scrollHeight,
-            behavior: 'smooth',
-          });
-        } else {
-          // User was scrolled up - maintain position (for infinite scroll)
-          const oldScrollHeight = viewport.scrollHeight;
-          const oldScrollTop = viewport.scrollTop;
-
-          requestAnimationFrame(() => {
-            const newScrollHeight = viewport.scrollHeight;
-            const scrollDifference = newScrollHeight - oldScrollHeight;
-
-            if (scrollDifference > 0) {
-              // Smooth adjustment instead of instant jump
-              viewport.scrollTo({
-                top: oldScrollTop + scrollDifference,
-                behavior: 'auto', // No animation for position maintenance
-              });
-            }
-          });
-        }
-      }
-    };
-
-    // Small delay to batch rapid message updates
-    scrollTimeoutRef.current = setTimeout(handleScrollUpdate, 16); // ~1 frame delay
+    // This case handles scrolling to the bottom for NEW messages
+    else if (currentLength > previousLength && !lockedScrollRef.current) {
+      rowVirtualizer.scrollToIndex(currentLength - 1, {
+        align: 'end',
+        behavior: 'smooth',
+      });
+    }
 
     prevMessagesLengthRef.current = currentLength;
+  }, [messages.length, rowVirtualizer]);
 
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, [messages.length]);
-
-  // Scroll to bottom on initial load and when room changes
+  // 3. Effect for triggering the fetch of more messages
   React.useEffect(() => {
-    if (messages.length > 0) {
-      const viewport = scrollViewportRef.current;
-      if (viewport) {
-        // Small delay to ensure virtual items are rendered
-        requestAnimationFrame(() => {
-          viewport.scrollTo({
-            top: viewport.scrollHeight,
-            behavior: 'smooth',
-          });
-        });
-      }
-    }
-  }, [room?.id]); // Run when room changes
-
-  // --- Fix #3: Robust Loading Trigger ---
-  React.useEffect(() => {
-    if (!virtualItems.length) return;
+    if (!virtualItems.length || !scrollViewportRef.current) return;
     const firstItem = virtualItems[0];
-    if (firstItem.index === 0 && hasMore && !isLoading) {
+    if (firstItem && firstItem.index === 0 && hasMore && !isLoading) {
       loadMore();
     }
   }, [virtualItems, hasMore, isLoading, loadMore]);
+
+  // 4. Scroll to bottom on initial load and when room changes
+  React.useEffect(() => {
+    if (messages.length > 0) {
+      // Give the virtualizer a moment to calculate before scrolling
+      const timer = setTimeout(() => {
+        rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [room?.id, rowVirtualizer]); // Only runs when the room ID changes
 
   // Socket listeners now use the clean update functions from our hook
   React.useEffect(() => {
     if (!socket || !room) return;
     socket.emit('joinRoom', room.id);
-    socket.on('newMessage', addMessage);
+
+    const handleNewMessage = (newMessage: MessageWithUser) => {
+      // Only add if it's for the current room
+      if (newMessage.roomId === room.id) {
+        addMessage(newMessage);
+      }
+    };
+
+    socket.on('newMessage', handleNewMessage);
     socket.on('messageDeleted', ({ messageId }) => deleteMessage(messageId));
     socket.on('messageEdited', editMessage);
 
     return () => {
       socket.emit('leaveRoom', room.id);
-      socket.off('newMessage', addMessage);
+      socket.off('newMessage', handleNewMessage);
       socket.off('messageDeleted');
       socket.off('messageEdited');
     };
@@ -1015,18 +1054,55 @@ export default function ChatRoom() {
               {headerIcon}
               <span translate="yes">{headerTitle}</span>
             </h1>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleToggleUserList}
-              className={
-                isUsersListVisible
-                  ? 'text-foreground cursor-pointer'
-                  : 'text-muted-foreground hover:text-foreground cursor-pointer'
-              }
-            >
-              <UsersRound className="size-4" />
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <CalendarIcon className="size-4" />
+                        <span className="sr-only">Select a date</span>
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>View messages from a specific date</p>
+                  </TooltipContent>
+                </Tooltip>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={handleDateSelect}
+                    disabled={(date) =>
+                      date > new Date() || date < new Date('2000-01-01')
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <div className="bg-muted-foreground/20 w-px h-5 mx-1.5" />
+              <p className="text-sm font-medium text-muted-foreground hidden sm:block">
+                {format(selectedDate, 'PPP')}
+              </p>
+              <div className="bg-muted-foreground/20 w-px h-5 mx-1.5 hidden sm:block" />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleToggleUserList}
+                className={
+                  isUsersListVisible
+                    ? 'text-foreground cursor-pointer'
+                    : 'text-muted-foreground hover:text-foreground cursor-pointer'
+                }
+              >
+                <UsersRound className="size-4" />
+              </Button>
+            </div>
           </div>
         </header>
 
