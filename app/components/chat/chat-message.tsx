@@ -26,6 +26,13 @@ import {
 } from '#/components/ui/dialog';
 import { DeletedMessage } from './deleted-message';
 import { HydratedDate } from './dateBadge';
+import linkifyit from 'linkify-it';
+import type { Match } from 'linkify-it';
+import { useMemo } from 'react';
+
+// Initialize linkify-it and define the regex for stock tickers
+const linkify = new linkifyit();
+const stockTickerRegex = /\$[A-Z]{1,5}\b/g;
 
 //replyblock UI
 function QuotedMessage({
@@ -243,6 +250,74 @@ export function ChatMessage({
   // The parent component now handles optimistic updates properly
   const isBookmarked = message.bookmarks.length > 0;
 
+  const processedContent = useMemo(() => {
+    if (!message.content) return [];
+
+    const content = message.content;
+    let lastIndex = 0;
+    const parts: (string | React.ReactNode)[] = [];
+
+    // First, process the links
+    const links = linkify.match(content);
+    if (links) {
+      links.forEach((match: Match) => {
+        if (match.index > lastIndex) {
+          parts.push(content.slice(lastIndex, match.index));
+        }
+        parts.push(
+          <a
+            key={match.url}
+            href={match.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline break-all"
+          >
+            {match.text}
+          </a>
+        );
+        lastIndex = match.lastIndex;
+      });
+    }
+    if (lastIndex < content.length) {
+      parts.push(content.slice(lastIndex));
+    }
+
+    // Now, process each part for stock tickers
+    return parts.flatMap((part, index) => {
+      if (typeof part !== 'string') return [part];
+
+      const tickerParts: (string | React.ReactNode)[] = [];
+      let lastTickerIndex = 0;
+      const tickerMatches = [...part.matchAll(stockTickerRegex)];
+
+      if (tickerMatches.length === 0) return [part];
+
+      tickerMatches.forEach((match) => {
+        const ticker = match[0];
+        const startIndex = match.index!;
+
+        if (startIndex > lastTickerIndex) {
+          tickerParts.push(part.slice(lastTickerIndex, startIndex));
+        }
+        tickerParts.push(
+          <span
+            key={`${index}-${lastTickerIndex}`}
+            className="bg-zinc-800/90 dark:bg-[#ccb389]/90 text-[#ccb389] dark:text-zinc-900 font-medium px-1 rounded"
+          >
+            {ticker}
+          </span>
+        );
+        lastTickerIndex = startIndex + ticker.length;
+      });
+
+      if (lastTickerIndex < part.length) {
+        tickerParts.push(part.slice(lastTickerIndex));
+      }
+
+      return tickerParts;
+    });
+  }, [message.content]);
+
   if (message.isDeleted) {
     return <DeletedMessage />;
   }
@@ -302,7 +377,7 @@ export function ChatMessage({
                     )}
                   >
                     <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {message.content}
+                      {processedContent}
                     </p>
                   </div>
                 )}
