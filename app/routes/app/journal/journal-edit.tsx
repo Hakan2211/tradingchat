@@ -1,12 +1,10 @@
 // app/routes/app/journal/journal.edit.$tradeId.tsx
 import { type ActionFunctionArgs, type LoaderFunctionArgs } from 'react-router';
 import { useLoaderData } from 'react-router';
-
 import { parseFormData } from '@mjackson/form-data-parser';
 import { prisma } from '#/utils/db.server';
 import { requireUserId } from '#/utils/auth.server';
 import { TradeForm } from '#/components/journal/tradeForm';
-
 import { invariantResponse } from '#/utils/misc';
 import { redirectWithToast } from '#/utils/toaster.server';
 import { processImage } from '#/utils/image.server';

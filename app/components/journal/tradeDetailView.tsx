@@ -258,25 +258,25 @@ export function TradeDetailView({ trade }: TradeDetailViewProps) {
                     <span className="text-sm">Delete</span>
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="max-w-md">
+                <AlertDialogContent className="max-w-md bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
                   <AlertDialogHeader>
-                    <AlertDialogTitle className="text-lg">
+                    <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                       Delete Trade Entry
                     </AlertDialogTitle>
-                    <AlertDialogDescription className="text-sm text-muted-foreground">
+                    <AlertDialogDescription className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                       This action cannot be undone. The trade entry and all
                       associated data will be permanently deleted.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="text-sm">
+                  <AlertDialogFooter className="gap-3">
+                    <AlertDialogCancel className="bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700">
                       Cancel
                     </AlertDialogCancel>
                     <fetcher.Form method="post">
                       <input type="hidden" name="_intent" value="delete" />
                       <AlertDialogAction
                         type="submit"
-                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm"
+                        className="bg-red-600 hover:bg-red-700 text-white shadow-sm"
                       >
                         Delete
                       </AlertDialogAction>

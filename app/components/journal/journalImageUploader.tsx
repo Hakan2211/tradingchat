@@ -68,10 +68,11 @@ export function JournalImageUploader({
               </h3>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={openFileDialog}
                 disabled={files.length >= maxFiles}
+                className="cursor-pointer"
               >
                 <UploadCloud className="mr-2 h-4 w-4" /> Add More
               </Button>
