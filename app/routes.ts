@@ -31,6 +31,7 @@ export default [
       'routes/resources/create-customer-portal.tsx'
     ),
     route('/change-password', 'routes/resources/change-password.tsx'),
+    route('/journal-images/:imageId', 'routes/resources/journal-images.tsx'),
   ]),
 
   //--------------App Routes-----------------------
@@ -45,6 +46,14 @@ export default [
       route('edit', 'routes/user/user-edit.tsx'),
     ]),
     route('/bookmarks', 'routes/app/bookmarks.tsx'),
+
+    //-----Journal Routes------
+    route('/journal', 'routes/layouts/journal-layout.tsx', [
+      index('routes/app/journal/journal-index.tsx'),
+      route('new', 'routes/app/journal/journal-new.tsx'),
+      route(':tradeId', 'routes/app/journal/journal-detail-view.tsx'),
+      route('edit/:tradeId', 'routes/app/journal/journal-edit.tsx'),
+    ]),
   ]),
 
   //--------------Auth Routes-----------------------

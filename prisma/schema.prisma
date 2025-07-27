@@ -46,6 +46,7 @@ model User {
   hiddenRooms HiddenRoom[]
   unreadMessages UnreadMessage[]
   subscription Subscription?
+  tradeEntries TradeEntry[]
 }
 
 model Subscription{
@@ -234,3 +235,71 @@ model Verification {
 
   @@unique([target, type])
 }
+
+// ------------------------------------------------------------------
+// TRADING JOURNAL MODELS
+// ------------------------------------------------------------------
+enum TradeDirection {
+  LONG
+  SHORT
+}
+enum TradeOutcome {
+  WIN
+  LOSS
+  BREAKEVEN
+}
+enum TagType {
+  STRATEGY
+  SETUP
+  EMOTION
+  MISTAKE
+  CONTEXT
+}
+model TradeEntry {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ticker           String
+  direction        TradeDirection
+  outcome          TradeOutcome
+  tradeDate        DateTime
+  entryPrice       Float?
+  exitPrice        Float?
+  positionSize     Float?
+  pnl              Float?
+  tradeThesis      String?
+  executionQuality String?
+  lessonsLearned   String?
+  emotionalState   String?
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String
+  images TradeImage[]
+  tags   TradeTag[]
+
+  @@index([userId])
+  @@index([ticker])
+}
+
+model TradeImage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  objectKey String   @unique
+  caption   String?
+  imageOrder Int     @default(0)
+  tradeEntry   TradeEntry @relation(fields: [tradeEntryId], references: [id], onDelete: Cascade)
+  tradeEntryId String
+
+  @@index([tradeEntryId])
+}
+
+model TradeTag {
+  id      String  @id @default(cuid())
+  tagName String
+  tagType TagType
+  tradeEntry   TradeEntry @relation(fields: [tradeEntryId], references: [id], onDelete: Cascade)
+  tradeEntryId String
+
+  @@unique([tradeEntryId, tagName, tagType])
+  @@index([tradeEntryId])
+}
+

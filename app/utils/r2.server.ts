@@ -92,3 +92,25 @@ export async function getImageFromR2(objectKey: string) {
     return null;
   }
 }
+
+export async function uploadJournalImageToR2(
+  imageBuffer: Buffer,
+  contentType: string,
+  userId: string
+) {
+  const objectKey = `journal-images/${userId}/${cuid()}`;
+
+  const command = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: objectKey,
+    Body: imageBuffer,
+    ContentType: contentType,
+  });
+
+  await s3.send(command);
+
+  return {
+    objectKey,
+    url: getImageUrl(objectKey),
+  };
+}
