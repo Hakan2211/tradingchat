@@ -1,8 +1,8 @@
 import { Link } from 'react-router';
 import { TradeCard, type TradeCardProps } from './tradeCard';
-import { TradeDirection, TradeOutcome } from '@prisma/client';
+import type { TradeDirection, TradeOutcome } from '@prisma/client';
 import { Button } from '#/components/ui/button';
-import { PlusCircle, TrendingUp, Search } from 'lucide-react';
+import { PlusCircle, TrendingUp } from 'lucide-react';
 
 type TradeForGrid = {
   id: string;

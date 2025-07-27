@@ -12,7 +12,7 @@ import {
   TradeDetailView,
   TradeDetailViewSkeleton,
 } from '#/components/journal/tradeDetailView';
-import { BookOpen, ArrowLeft, BarChart3 } from 'lucide-react';
+import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { redirectWithToast } from '#/utils/toaster.server';
 import { Button } from '#/components/ui/button';
 

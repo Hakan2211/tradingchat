@@ -6,8 +6,8 @@ import { Card } from '#/components/ui/card';
 import { Badge } from '#/components/ui/badge';
 import { AspectRatio } from '#/components/ui/aspect-ratio';
 import { Link, useLocation } from 'react-router';
-import { type TradeDirection, type TradeOutcome } from '@prisma/client';
-import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import type { TradeDirection, TradeOutcome } from '@prisma/client';
+import { Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 const tradeBadgeVariants = cva(

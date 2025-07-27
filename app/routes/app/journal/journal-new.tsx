@@ -1,27 +1,16 @@
 // app/routes/journal.new.tsx
 
-import { redirect, type ActionFunctionArgs } from 'react-router';
-import { ZodError, z } from 'zod';
+import { type ActionFunctionArgs } from 'react-router';
+import { ZodError } from 'zod';
 import { parseFormData } from '@mjackson/form-data-parser';
 import { prisma } from '#/utils/db.server';
 import { requireUserId } from '#/utils/auth.server';
 import { TradeForm } from '#/components/journal/tradeForm';
-import { TradeDirection, TradeOutcome } from '@prisma/client';
 import { processImage } from '#/utils/image.server';
 import { uploadJournalImageToR2 } from '#/utils/r2.server';
 import { invariantResponse } from '#/utils/misc';
 import { redirectWithToast } from '#/utils/toaster.server';
-
-const TradeFormSchema = z.object({
-  ticker: z.string().min(1, 'Ticker is required.').toUpperCase(),
-  tradeDate: z.string().datetime('Invalid date format.'),
-  direction: z.nativeEnum(TradeDirection),
-  outcome: z.nativeEnum(TradeOutcome),
-  pnl: z.coerce.number().optional(),
-  tradeThesis: z.string().optional(),
-  executionQuality: z.string().optional(),
-  lessonsLearned: z.string().optional(),
-});
+import { CreateFormSchema } from '#/utils/journal-validations.server';
 
 // The Action function that handles the form submission
 export async function action({ request }: ActionFunctionArgs) {
@@ -44,7 +33,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const uploadedImages = await Promise.all(uploadPromises);
 
   try {
-    const validatedData = TradeFormSchema.parse(Object.fromEntries(formData));
+    const validatedData = CreateFormSchema.parse(Object.fromEntries(formData));
 
     // --- 3. Save Everything to Database in a Transaction ---
     // A transaction ensures that if any part fails, the whole operation is rolled back.

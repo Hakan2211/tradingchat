@@ -1,11 +1,11 @@
 // app/components/journal/TradeListItem.tsx
 import { Link, useLocation } from 'react-router';
-import { type TradeOutcome, type TradeDirection } from '@prisma/client';
+import type { TradeOutcome, TradeDirection } from '@prisma/client';
 import { Badge } from '#/components/ui/badge';
 import { Card } from '#/components/ui/card';
 import { cn } from '#/lib/utils';
 import { tradeBadgeVariants } from './tradeCard';
-import { ArrowRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export interface TradeListItemProps {
   tradeId: string;

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Link, useFetcher } from 'react-router';
-import { type TradeEntry, type TradeImage } from '@prisma/client';
+import type { TradeEntry, TradeImage } from '@prisma/client';
 import { Badge } from '#/components/ui/badge';
 import {
   Carousel,

@@ -6,7 +6,7 @@ import {
   AccordionTrigger,
 } from '#/components/ui/accordion';
 import { TradeListItem, type TradeListItemProps } from './tradeListItem';
-import { Calendar, TrendingUp } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 
 interface TimeGroupedViewProps {
   groupedTrades: Record<string, TradeListItemProps[]>;

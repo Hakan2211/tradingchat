@@ -1,5 +1,4 @@
 // app/components/journal/TradeForm.tsx
-
 import * as React from 'react';
 import { useFetcher } from 'react-router';
 import { JournalImageUploader } from './journalImageUploader';
@@ -23,12 +22,7 @@ import {
 import { Textarea } from '#/components/ui/textarea';
 import { Separator } from '#/components/ui/separator';
 import { toast } from 'sonner';
-import {
-  TradeDirection,
-  TradeOutcome,
-  type TradeEntry,
-  type TradeImage,
-} from '@prisma/client';
+
 import {
   CalendarIcon,
   Loader2,
@@ -49,6 +43,7 @@ import { RedirectBackButton } from '#/components/navigationTracker/redirect-back
 import { cn } from '#/lib/utils';
 import { format } from 'date-fns';
 import { TimePicker } from '#/components/ui/time-picker';
+import type { TradeEntry, TradeImage } from '@prisma/client';
 
 type TradeWithImages = TradeEntry & { images: TradeImage[] };
 interface TradeFormProps {
@@ -301,13 +296,13 @@ export function TradeForm({ initialData }: TradeFormProps) {
                         <SelectValue placeholder="Select direction..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={TradeDirection.LONG}>
+                        <SelectItem value="LONG">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-green-500" />
                             Long
                           </div>
                         </SelectItem>
-                        <SelectItem value={TradeDirection.SHORT}>
+                        <SelectItem value="SHORT">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-red-500" />
                             Short
@@ -328,19 +323,19 @@ export function TradeForm({ initialData }: TradeFormProps) {
                         <SelectValue placeholder="Select outcome..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={TradeOutcome.WIN}>
+                        <SelectItem value="WIN">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-green-500" />
                             Win
                           </div>
                         </SelectItem>
-                        <SelectItem value={TradeOutcome.LOSS}>
+                        <SelectItem value="LOSS">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-red-500" />
                             Loss
                           </div>
                         </SelectItem>
-                        <SelectItem value={TradeOutcome.BREAKEVEN}>
+                        <SelectItem value="BREAKEVEN">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-yellow-500" />
                             Breakeven

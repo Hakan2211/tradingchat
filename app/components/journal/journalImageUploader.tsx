@@ -3,7 +3,6 @@
 import * as React from 'react';
 import {
   useJournalFileUpload,
-  formatBytes,
   type FileWithPreview,
 } from '#/hooks/use-journal-file-upload';
 import { cn } from '#/lib/utils';

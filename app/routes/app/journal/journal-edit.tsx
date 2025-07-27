@@ -1,35 +1,17 @@
 // app/routes/app/journal/journal.edit.$tradeId.tsx
-
-import {
-  redirect,
-  type ActionFunctionArgs,
-  type LoaderFunctionArgs,
-} from 'react-router';
+import { type ActionFunctionArgs, type LoaderFunctionArgs } from 'react-router';
 import { useLoaderData } from 'react-router';
-import { ZodError, z } from 'zod';
+
 import { parseFormData } from '@mjackson/form-data-parser';
 import { prisma } from '#/utils/db.server';
 import { requireUserId } from '#/utils/auth.server';
-import { TradeForm } from '#/components/journal/tradeForm'; // We'll reuse this
-import { TradeDirection, TradeOutcome } from '@prisma/client';
+import { TradeForm } from '#/components/journal/tradeForm';
+
 import { invariantResponse } from '#/utils/misc';
 import { redirectWithToast } from '#/utils/toaster.server';
 import { processImage } from '#/utils/image.server';
 import { uploadJournalImageToR2, deleteImageFromR2 } from '#/utils/r2.server';
-
-const EditFormSchema = z.object({
-  ticker: z.string().min(1, 'Ticker is required.').toUpperCase(),
-  tradeDate: z.string().datetime('Invalid date format.'),
-  direction: z.nativeEnum(TradeDirection),
-  outcome: z.nativeEnum(TradeOutcome),
-  pnl: z.coerce.number().optional(),
-  tradeThesis: z.string().optional(),
-  executionQuality: z.string().optional(),
-  lessonsLearned: z.string().optional(),
-  // New fields for the update action
-  imagesToDelete: z.array(z.string()).optional(),
-  _intent: z.literal('update'),
-});
+import { EditFormSchema } from '#/utils/journal-validations.server';
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
