@@ -15,7 +15,6 @@ import { prisma } from '#/utils/db.server';
 import { requireUserId } from '#/utils/auth.server';
 import { getUserImagePath, invariantResponse } from '#/utils/misc';
 import { Button } from '#/components/ui/button';
-import { ScrollArea } from '#/components/ui/scroll-area';
 import TextareaAutosize from 'react-textarea-autosize';
 import {
   SendHorizonalIcon,
@@ -60,7 +59,8 @@ import {
 } from '#/components/ui/tooltip';
 
 const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-const MESSAGE_PAGE_SIZE = 50; //for virtualization
+const MESSAGE_PAGE_SIZE = 200; // Increased for better virtualization performance
+const VIRTUALIZATION_THRESHOLD = 100; // Consider non-virtualized approach for smaller lists
 
 type MessageWithUser = {
   id: string;
@@ -685,29 +685,146 @@ export default function ChatRoom() {
   // Ref for the scroll viewport
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
 
-  // --- Virtualizer Setup ---
+  // Height cache for better performance
+  const heightCache = React.useRef(new Map<string, number>());
+
+  // Clear cache when switching rooms
+  React.useEffect(() => {
+    if (messages.length === 0) {
+      heightCache.current.clear();
+    }
+  }, [room?.id]);
+
+  // Optimized height estimation with caching
+  const estimateSize = React.useCallback(
+    (index: number) => {
+      if (hasMore && index === 0) return 60; // Loading indicator
+      const messageIndex = hasMore ? index - 1 : index;
+      const message = messages[messageIndex];
+      if (!message) return 100;
+
+      // Check cache first
+      const cached = heightCache.current.get(message.id);
+      if (cached) return cached;
+
+      // Calculate estimate
+      let estimatedHeight = 60; // Base height for user info + padding
+
+      if (message.content) {
+        // Rough estimation: ~20px per line, assuming ~50 chars per line
+        const lines = Math.ceil((message.content.length || 0) / 50);
+        estimatedHeight += lines * 20;
+      }
+
+      if (message.image) {
+        estimatedHeight += 200; // Image height
+      }
+
+      if (message.replyTo) {
+        estimatedHeight += 40; // Reply preview height
+      }
+
+      const finalHeight = Math.max(estimatedHeight, 60);
+
+      // Cache the result
+      heightCache.current.set(message.id, finalHeight);
+
+      // Optional: Limit cache size for long sessions
+      if (heightCache.current.size > 1000) {
+        const entries = Array.from(heightCache.current.entries());
+        heightCache.current = new Map(entries.slice(-500)); // Keep last 500
+      }
+
+      return finalHeight;
+    },
+    [messages, hasMore]
+  );
+
+  // --- Hybrid Virtualization Approach ---
+  const shouldVirtualize = messages.length > VIRTUALIZATION_THRESHOLD;
+
+  // --- Virtualizer Setup (only when virtualizing) ---
   const rowVirtualizer = useVirtualizer({
     count: hasMore ? messages.length + 1 : messages.length,
     getScrollElement: () => scrollViewportRef.current,
-    estimateSize: () => 100,
-    overscan: 5,
+    estimateSize,
+    overscan: 3, // Reduced from 5
+    // Enable measuring for accurate heights
+    measureElement: (element) => {
+      return element?.getBoundingClientRect().height ?? 0;
+    },
   });
   const virtualItems = rowVirtualizer.getVirtualItems();
 
   // --- REVISED & SIMPLIFIED SCROLL MANAGEMENT ---
   const prevMessagesLengthRef = React.useRef(messages.length);
   const isUserNearBottomRef = React.useRef(true);
-  const lockedScrollRef = React.useRef(false); // Ref to track if user is scrolled up
 
-  // 1. A simple effect to track if the user is near the bottom
+  // Enhanced scroll management with hybrid approach support
+  React.useLayoutEffect(() => {
+    const viewport = scrollViewportRef.current;
+    if (!viewport) return;
+
+    const currentLength = messages.length;
+    const previousLength = prevMessagesLengthRef.current;
+
+    if (currentLength > previousLength) {
+      const isNewMessage = !hasMore || previousLength > 0;
+
+      // Handle loading older messages (prepending)
+      if (hasMore && previousLength > 0 && !isUserNearBottomRef.current) {
+        // This is loading older messages, preserve scroll position
+        const oldScrollHeight = viewport.scrollHeight;
+
+        requestAnimationFrame(() => {
+          const newScrollHeight = viewport.scrollHeight;
+          const scrollDifference = newScrollHeight - oldScrollHeight;
+          viewport.scrollTop += scrollDifference;
+        });
+      }
+      // Handle new messages (scroll to bottom)
+      else if (isNewMessage && isUserNearBottomRef.current) {
+        if (shouldVirtualize) {
+          // Use virtualizer for large lists
+          setTimeout(() => {
+            rowVirtualizer.scrollToIndex(currentLength - 1, {
+              align: 'end',
+              behavior: 'smooth',
+            });
+          }, 50);
+        } else {
+          // Simple scroll to bottom for small lists
+          setTimeout(() => {
+            viewport.scrollTo({
+              top: viewport.scrollHeight,
+              behavior: 'smooth',
+            });
+          }, 50);
+        }
+      }
+    }
+
+    prevMessagesLengthRef.current = currentLength;
+  }, [messages.length, hasMore, rowVirtualizer, shouldVirtualize]);
+
+  // Separate effect for load more at top
+  React.useEffect(() => {
+    if (!virtualItems.length) return;
+    const firstItem = virtualItems[0];
+    const shouldLoadMore = firstItem?.index === 0 && hasMore && !isLoading;
+
+    if (shouldLoadMore) {
+      loadMore();
+    }
+  }, [virtualItems, hasMore, isLoading, loadMore]);
+
+  // Simple scroll position tracking
   React.useEffect(() => {
     const viewport = scrollViewportRef.current;
     if (!viewport) return;
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = viewport;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 1;
-      lockedScrollRef.current = !isAtBottom; // Lock scroll if user isn't at the bottom
       isUserNearBottomRef.current =
         scrollHeight - scrollTop - clientHeight < 100;
     };
@@ -716,55 +833,27 @@ export default function ChatRoom() {
     return () => viewport.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 2. This is the key effect for fixing the overlapping and scroll jump issue.
-  React.useLayoutEffect(() => {
-    const viewport = scrollViewportRef.current;
-    if (!viewport) return;
-
-    const previousLength = prevMessagesLengthRef.current;
-    const currentLength = messages.length;
-
-    // This case handles loading OLDER messages (prepending)
-    if (currentLength > previousLength && lockedScrollRef.current) {
-      const oldScrollHeight = viewport.scrollHeight;
-
-      // The magic: we wait for the DOM to update, then adjust scroll
-      requestAnimationFrame(() => {
-        const newScrollHeight = viewport.scrollHeight;
-        const scrollDifference = newScrollHeight - oldScrollHeight;
-        viewport.scrollTop += scrollDifference;
-      });
-    }
-    // This case handles scrolling to the bottom for NEW messages
-    else if (currentLength > previousLength && !lockedScrollRef.current) {
-      rowVirtualizer.scrollToIndex(currentLength - 1, {
-        align: 'end',
-        behavior: 'smooth',
-      });
-    }
-
-    prevMessagesLengthRef.current = currentLength;
-  }, [messages.length, rowVirtualizer]);
-
-  // 3. Effect for triggering the fetch of more messages
-  React.useEffect(() => {
-    if (!virtualItems.length || !scrollViewportRef.current) return;
-    const firstItem = virtualItems[0];
-    if (firstItem && firstItem.index === 0 && hasMore && !isLoading) {
-      loadMore();
-    }
-  }, [virtualItems, hasMore, isLoading, loadMore]);
-
-  // 4. Scroll to bottom on initial load and when room changes
+  // Scroll to bottom on initial load and when room changes
   React.useEffect(() => {
     if (messages.length > 0) {
-      // Give the virtualizer a moment to calculate before scrolling
       const timer = setTimeout(() => {
-        rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+        if (shouldVirtualize) {
+          // Use virtualizer for large lists
+          rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+        } else {
+          // Simple scroll to bottom for small lists
+          const viewport = scrollViewportRef.current;
+          if (viewport) {
+            viewport.scrollTo({
+              top: viewport.scrollHeight,
+              behavior: 'auto',
+            });
+          }
+        }
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [room?.id, rowVirtualizer]); // Only runs when the room ID changes
+  }, [room?.id, rowVirtualizer, shouldVirtualize]); // Only runs when the room ID changes
 
   // Socket listeners now use the clean update functions from our hook
   React.useEffect(() => {
@@ -1106,11 +1195,8 @@ export default function ChatRoom() {
           </div>
         </header>
 
-        {/* Messages Area - Scrollable container (takes remaining space) ------
-        ScrollArea from shadcn/ui not working - it is scrolling the whole page 
-        instead of this area! Scrollarea and tanstack virtual colliding? I replaced the div with Scrollarea and it works! Hybrid approach 
-         with the inner div which is for the virtualization*/}
-        <ScrollArea className="flex-1 min-h-0 relative">
+        {/* Messages Area - Scrollable container (takes remaining space) */}
+        <div className="flex-1 min-h-0 relative">
           <div
             className="absolute inset-0 overflow-auto"
             style={{
@@ -1119,20 +1205,27 @@ export default function ChatRoom() {
             }}
             ref={scrollViewportRef}
           >
-            <div
-              style={{
-                height: `${rowVirtualizer.getTotalSize()}px`,
-                width: '100%',
-                position: 'relative',
-              }}
-            >
-              {virtualItems.map((virtualRow) => {
-                const isLoaderRow = hasMore && virtualRow.index === 0;
-                if (isLoaderRow) {
+            {shouldVirtualize ? (
+              // Virtualized implementation for large lists
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {virtualItems.map((virtualRow) => {
+                  const isLoaderRow = hasMore && virtualRow.index === 0;
+
                   return (
                     <div
-                      key="loader"
-                      ref={rowVirtualizer.measureElement}
+                      key={
+                        isLoaderRow
+                          ? 'loader'
+                          : messages[
+                              hasMore ? virtualRow.index - 1 : virtualRow.index
+                            ]?.id
+                      }
                       data-index={virtualRow.index}
                       style={{
                         position: 'absolute',
@@ -1141,41 +1234,76 @@ export default function ChatRoom() {
                         width: '100%',
                         transform: `translateY(${virtualRow.start}px)`,
                       }}
-                      className="flex justify-center py-4"
+                      ref={rowVirtualizer.measureElement}
                     >
-                      <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted/20 border-t-muted" />
+                      {isLoaderRow ? (
+                        <div className="flex justify-center py-4">
+                          <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted/20 border-t-muted" />
+                        </div>
+                      ) : (
+                        (() => {
+                          const messageIndex = hasMore
+                            ? virtualRow.index - 1
+                            : virtualRow.index;
+                          const message = messages[messageIndex];
+
+                          if (!message) return null;
+
+                          const previousMessage = messages[messageIndex - 1];
+                          const showDateBadge = shouldShowDateBadge(
+                            new Date(message.createdAt),
+                            previousMessage
+                              ? new Date(previousMessage.createdAt)
+                              : null
+                          );
+
+                          return (
+                            <div className="mx-auto max-w-4xl px-4 py-1">
+                              {showDateBadge && (
+                                <DateBadge
+                                  className="mb-2"
+                                  date={new Date(message.createdAt)}
+                                />
+                              )}
+                              <ChatMessage
+                                message={message}
+                                isCurrentUser={message.user?.id === user.id}
+                                currentUser={user}
+                                onStartReply={handleStartReply}
+                                deleteFetcher={deleteFetcher}
+                                editingMessageId={editingMessageId}
+                                onStartEdit={handleStartEdit}
+                                onCancelEdit={handleCancelEdit}
+                                onBookmarkToggle={handleBookmarkToggle}
+                              />
+                            </div>
+                          );
+                        })()
+                      )}
                     </div>
                   );
-                }
+                })}
+              </div>
+            ) : (
+              // Simple non-virtualized implementation for small lists
+              <div className="w-full">
+                {hasMore && (
+                  <div className="flex justify-center py-4">
+                    <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted/20 border-t-muted" />
+                  </div>
+                )}
+                {messages.map((message, index) => {
+                  const previousMessage = messages[index - 1];
+                  const showDateBadge = shouldShowDateBadge(
+                    new Date(message.createdAt),
+                    previousMessage ? new Date(previousMessage.createdAt) : null
+                  );
 
-                const messageIndex = hasMore
-                  ? virtualRow.index - 1
-                  : virtualRow.index;
-                const message = messages[messageIndex];
-
-                if (!message) return null;
-
-                const previousMessage = messages[messageIndex - 1];
-
-                const showDateBadge = shouldShowDateBadge(
-                  new Date(message.createdAt),
-                  previousMessage ? new Date(previousMessage.createdAt) : null
-                );
-
-                return (
-                  <div
-                    key={message.id}
-                    ref={rowVirtualizer.measureElement}
-                    data-index={virtualRow.index}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                  >
-                    <div className="mx-auto max-w-4xl px-4 py-1">
+                  return (
+                    <div
+                      key={message.id}
+                      className="mx-auto max-w-4xl px-4 py-1"
+                    >
                       {showDateBadge && (
                         <DateBadge
                           className="mb-2"
@@ -1191,16 +1319,15 @@ export default function ChatRoom() {
                         editingMessageId={editingMessageId}
                         onStartEdit={handleStartEdit}
                         onCancelEdit={handleCancelEdit}
-                        //bookmarkFetcher={bookmarkFetcher}
                         onBookmarkToggle={handleBookmarkToggle}
                       />
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Footer - Fixed at bottom */}
         <footer className="flex-shrink-0 border-t border-border/60 p-2 sm:p-4 z-10">
