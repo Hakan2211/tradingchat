@@ -756,69 +756,24 @@ export default function ChatRoom() {
   });
   const virtualItems = rowVirtualizer.getVirtualItems();
 
-  // --- REVISED & SIMPLIFIED SCROLL MANAGEMENT ---
-  const prevMessagesLengthRef = React.useRef(messages.length);
+  // --- CLEAN SCROLL MANAGEMENT ---
   const isUserNearBottomRef = React.useRef(true);
+  const hasInitialScrolledRef = React.useRef(false);
 
-  // Enhanced scroll management with hybrid approach support
-  React.useLayoutEffect(() => {
+  // Helper to scroll to bottom with smooth animation
+  const scrollToBottom = React.useCallback(() => {
     const viewport = scrollViewportRef.current;
     if (!viewport) return;
 
-    const currentLength = messages.length;
-    const previousLength = prevMessagesLengthRef.current;
+    // Always scroll the container to its max scrollHeight,
+    // using smooth behavior for both virtualized and non-virtualized lists
+    viewport.scrollTo({
+      top: viewport.scrollHeight,
+      behavior: 'smooth',
+    });
+  }, []);
 
-    if (currentLength > previousLength) {
-      const isNewMessage = !hasMore || previousLength > 0;
-
-      // Handle loading older messages (prepending)
-      if (hasMore && previousLength > 0 && !isUserNearBottomRef.current) {
-        // This is loading older messages, preserve scroll position
-        const oldScrollHeight = viewport.scrollHeight;
-
-        requestAnimationFrame(() => {
-          const newScrollHeight = viewport.scrollHeight;
-          const scrollDifference = newScrollHeight - oldScrollHeight;
-          viewport.scrollTop += scrollDifference;
-        });
-      }
-      // Handle new messages (scroll to bottom)
-      else if (isNewMessage && isUserNearBottomRef.current) {
-        if (shouldVirtualize) {
-          // Use virtualizer for large lists
-          setTimeout(() => {
-            rowVirtualizer.scrollToIndex(currentLength - 1, {
-              align: 'end',
-              behavior: 'smooth',
-            });
-          }, 50);
-        } else {
-          // Simple scroll to bottom for small lists
-          setTimeout(() => {
-            viewport.scrollTo({
-              top: viewport.scrollHeight,
-              behavior: 'smooth',
-            });
-          }, 50);
-        }
-      }
-    }
-
-    prevMessagesLengthRef.current = currentLength;
-  }, [messages.length, hasMore, rowVirtualizer, shouldVirtualize]);
-
-  // Separate effect for load more at top
-  React.useEffect(() => {
-    if (!virtualItems.length) return;
-    const firstItem = virtualItems[0];
-    const shouldLoadMore = firstItem?.index === 0 && hasMore && !isLoading;
-
-    if (shouldLoadMore) {
-      loadMore();
-    }
-  }, [virtualItems, hasMore, isLoading, loadMore]);
-
-  // Simple scroll position tracking
+  // Track whether user is near bottom
   React.useEffect(() => {
     const viewport = scrollViewportRef.current;
     if (!viewport) return;
@@ -833,51 +788,75 @@ export default function ChatRoom() {
     return () => viewport.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Scroll to bottom on initial load and when room changes
+  // Reset initial scroll flag when room changes
   React.useEffect(() => {
-    if (messages.length > 0) {
-      const timer = setTimeout(() => {
-        if (shouldVirtualize) {
-          // Use virtualizer for large lists
-          rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
-        } else {
-          // Simple scroll to bottom for small lists
-          const viewport = scrollViewportRef.current;
-          if (viewport) {
-            viewport.scrollTo({
-              top: viewport.scrollHeight,
-              behavior: 'auto',
-            });
-          }
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [room?.id, rowVirtualizer, shouldVirtualize]); // Only runs when the room ID changes
+    hasInitialScrolledRef.current = false;
+  }, [room?.id]);
 
-  // Socket listeners now use the clean update functions from our hook
+  // Scroll to bottom on initial load and when room changes (instant, non-smooth)
+  React.useEffect(() => {
+    if (messages.length > 0 && !isLoading && !hasInitialScrolledRef.current) {
+      // Wait for DOM to be fully updated and measured
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const viewport = scrollViewportRef.current;
+          if (!viewport) return;
+
+          // Instant scroll to bottom when entering a room
+          viewport.scrollTo({
+            top: viewport.scrollHeight,
+            behavior: 'auto', // instant, not smooth
+          });
+
+          // Mark that we've done the initial scroll for this room
+          hasInitialScrolledRef.current = true;
+        });
+      });
+    }
+  }, [messages.length, isLoading]); // Check whenever messages or loading state changes
+
+  // Load more trigger for virtualized lists
+  React.useEffect(() => {
+    if (!shouldVirtualize || !virtualItems.length) return;
+    const firstItem = virtualItems[0];
+    const shouldLoadMore = firstItem?.index === 0 && hasMore && !isLoading;
+
+    if (shouldLoadMore) {
+      loadMore();
+    }
+  }, [virtualItems, hasMore, isLoading, loadMore, shouldVirtualize]);
+
+  // Socket handler: only handle state updates
   React.useEffect(() => {
     if (!socket || !room) return;
     socket.emit('joinRoom', room.id);
 
-    const handleNewMessage = (newMessage: MessageWithUser) => {
-      // Only add if it's for the current room
-      if (newMessage.roomId === room.id) {
-        addMessage(newMessage);
-      }
+    const onNew = (msg: MessageWithUser) => {
+      if (msg.roomId === room.id) addMessage(msg);
     };
-
-    socket.on('newMessage', handleNewMessage);
+    socket.on('newMessage', onNew);
     socket.on('messageDeleted', ({ messageId }) => deleteMessage(messageId));
     socket.on('messageEdited', editMessage);
 
     return () => {
       socket.emit('leaveRoom', room.id);
-      socket.off('newMessage', handleNewMessage);
+      socket.off('newMessage', onNew);
       socket.off('messageDeleted');
       socket.off('messageEdited');
     };
   }, [socket, room?.id, addMessage, deleteMessage, editMessage]);
+
+  // After messages update, if the user is at the bottom, smooth scroll down
+  React.useEffect(() => {
+    if (isUserNearBottomRef.current) {
+      // Wait two RAFs so the new row is in the DOM & measured
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom();
+        });
+      });
+    }
+  }, [messages.length, scrollToBottom]);
 
   const [form, fields] = useForm({
     id: 'send-message-form',
