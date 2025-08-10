@@ -67,7 +67,7 @@ type LoaderData = {
     }[];
     subscription: {
       status: string;
-      currentPeriodEnd: Date;
+      currentPeriodEnd: Date | null;
       cancelAtPeriodEnd: boolean;
     } | null;
   } | null;
