@@ -29,6 +29,35 @@ const httpServer = http.createServer(app);
 app.get('/healthz', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Debug endpoint to check environment and startup status
+app.get('/debug', (req, res) => {
+  try {
+    const envStatus = {
+      NODE_ENV: process.env.NODE_ENV,
+      hasStripeKey: !!process.env.STRIPE_SECRET_KEY,
+      hasStripePublishable: !!process.env.STRIPE_PUBLISHABLE_KEY,
+      hasStripeWebhook: !!process.env.STRIPE_WEBHOOK_SECRET,
+      hasPolarToken: !!process.env.POLAR_ACCESS_TOKEN,
+      hasPolarWebhook: !!process.env.POLAR_WEBHOOK_SECRET,
+      hasDatabaseUrl: !!process.env.DATABASE_URL,
+      hasHoneypot: !!process.env.HONEYPOT_SECRET,
+      hasCsrfSecret: !!process.env.CSRF_SESSION_SECRET,
+    };
+    
+    res.status(200).json({ 
+      status: 'Environment Check', 
+      env: envStatus,
+      timestamp: new Date().toISOString() 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'error', 
+      error: error.message,
+      timestamp: new Date().toISOString() 
+    });
+  }
+});
 const onlineUsers = new Map<string, Set<string>>();
 
 const io = new Server(httpServer, {

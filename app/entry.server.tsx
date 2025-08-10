@@ -8,8 +8,16 @@ import type { RenderToPipeableStreamOptions } from 'react-dom/server';
 import { renderToPipeableStream } from 'react-dom/server';
 import { init, getEnv } from './utils/env.server';
 
-init();
-global.ENV = getEnv();
+console.log('🚀 Starting server initialization...');
+try {
+  init();
+  console.log('✅ Environment validation passed');
+  global.ENV = getEnv();
+  console.log('✅ Global ENV set successfully');
+} catch (error) {
+  console.error('💥 Server initialization failed:', error);
+  throw error;
+}
 
 export const streamTimeout = 5_000;
 

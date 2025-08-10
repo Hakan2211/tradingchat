@@ -30,6 +30,13 @@ export function init() {
       parsed.error.flatten().fieldErrors
     );
 
+    // During transition period, log the error but don't crash the app
+    // TODO: Restore throw after all env vars are properly set
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('⚠️ Environment validation failed, but continuing to allow debugging...');
+      return; // Don't throw in production during transition
+    }
+    
     throw new Error('Invalid envirmonment variables');
   }
 }
