@@ -5,6 +5,11 @@ const schema = z.object({
   HONEYPOT_SECRET: z.string(),
   DATABASE_URL: z.string(),
   CSRF_SESSION_SECRET: z.string(),
+  STRIPE_SECRET_KEY: z.string().min(1, 'STRIPE_SECRET_KEY is required'),
+  STRIPE_PUBLISHABLE_KEY: z
+    .string()
+    .min(1, 'STRIPE_PUBLISHABLE_KEY is required'),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1, 'STRIPE_WEBHOOK_SECRET is required'),
   POLAR_ACCESS_TOKEN: z.string().min(1, 'POLAR_ACCESS_TOKEN is required'),
   POLAR_WEBHOOK_SECRET: z.string().min(1, 'POLAR_WEBHOOK_SECRET is required'),
 });

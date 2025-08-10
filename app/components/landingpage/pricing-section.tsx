@@ -1,5 +1,5 @@
 // app/components/landingpage/pricing-section.tsx
-import { useState } from 'react';
+
 import { Button } from '#/components/ui/button';
 import {
   Card,
@@ -14,8 +14,9 @@ import { cn } from '#/lib/utils';
 import { Check } from 'lucide-react';
 import { Link } from 'react-router';
 
-const MONTHLY_PLAN_ID = 'a06766cc-44c1-42c5-8d0c-8dba55c89e12';
-const YEARLY_PLAN_ID = '6d4bc03e-e416-4fcf-bb60-ef37766e582f';
+// You'll need to update these with your actual Stripe price IDs
+const MONTHLY_PRICE_ID = 'price_1Rrb4pKGFIDGl3wFyCy8Wsua'; // Replace with your monthly price ID
+const YEARLY_PRICE_ID = 'price_1Rrb5gKGFIDGl3wFpIHuvGZs'; // Replace with your yearly price ID
 
 // Data for pricing plans
 const pricingPlans = [
@@ -33,7 +34,7 @@ const pricingPlans = [
     ],
     highlighted: false,
     cta: 'Get Access Now',
-    link: `/register?tierId=${MONTHLY_PLAN_ID}`,
+    link: `/register?priceId=${MONTHLY_PRICE_ID}`,
   },
   {
     name: 'Yearly Plan',
@@ -47,7 +48,7 @@ const pricingPlans = [
     ],
     highlighted: true,
     cta: 'Get Access Now',
-    link: `/register?tierId=${YEARLY_PLAN_ID}`,
+    link: `/register?priceId=${YEARLY_PRICE_ID}`,
   },
   {
     name: 'For Organizations',

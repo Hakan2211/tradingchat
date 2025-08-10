@@ -7,6 +7,5 @@ if (!process.env.POLAR_ACCESS_TOKEN) {
 }
 
 export const polar = new Polar({
-  server: 'production',
   accessToken: process.env.POLAR_ACCESS_TOKEN,
 });

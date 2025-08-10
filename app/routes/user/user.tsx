@@ -17,6 +17,18 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       bio: true,
       createdAt: true,
       image: { select: { id: true, updatedAt: true } },
+      subscription: {
+        select: {
+          id: true,
+          status: true,
+          currentPeriodEnd: true,
+          cancelAtPeriodEnd: true,
+          stripeCustomerId: true,
+          polarCustomerId: true,
+          stripeSubscriptionId: true,
+          polarSubscriptionId: true,
+        },
+      },
     },
   });
 

@@ -71,8 +71,20 @@ export default function UserIndexView() {
       })
     : 'N/A';
 
-  const subscription = loggedInUser?.subscription;
+  // Use subscription data from the user being viewed (for own profile)
+  // or fallback to logged in user's subscription for permission checks
+  const subscription =
+    isOwnProfile && user.subscription
+      ? user.subscription
+      : loggedInUser?.subscription;
   const isTrialing = subscription?.status === 'trialing';
+
+  // Determine which provider this customer is using
+  const hasStripeCustomer = user.subscription?.stripeCustomerId;
+  const hasPolarCustomer = user.subscription?.polarCustomerId;
+  const hasActiveSubscription =
+    subscription &&
+    ['active', 'trialing', 'complimentary'].includes(subscription.status);
 
   return (
     <>
@@ -95,14 +107,15 @@ export default function UserIndexView() {
                 <p className="text-blue-900/80 dark:text-blue-300/80 mb-4">
                   Your trial access expires on{' '}
                   <strong>
-                    {new Date(subscription.currentPeriodEnd).toLocaleDateString(
-                      'en-US',
-                      {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      }
-                    )}
+                    {subscription.currentPeriodEnd
+                      ? new Date(
+                          subscription.currentPeriodEnd
+                        ).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })
+                      : 'N/A'}
                   </strong>
                   . Upgrade now to keep your access.
                 </p>
@@ -182,7 +195,7 @@ export default function UserIndexView() {
               )}
             </Card>
 
-            {canManageSubscription && subscription && (
+            {canManageSubscription && hasActiveSubscription && (
               <Card className="lg:col-span-3">
                 <CardHeader>
                   <CardTitle>Subscription Management</CardTitle>
@@ -206,51 +219,81 @@ export default function UserIndexView() {
                       {subscription.status.replace('_', ' ')}
                     </Badge>
                   </div>
-                  {subscription.status !== 'complimentary' && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        {subscription.cancelAtPeriodEnd
-                          ? 'Expires on'
-                          : 'Renews on'}
-                      </p>
-                      <p className="text-foreground">
-                        {new Date(
-                          subscription.currentPeriodEnd
-                        ).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </p>
-                    </div>
-                  )}
-                  {/* <Form method="GET" action="/resources/create-customer-portal"> */}
-                  {subscription.status === 'active' && (
-                    <Button asChild type="submit">
-                      <Link
-                        // target="_blank"
-                        // rel="noreferrer noopener"
-                        to="/resources/create-customer-portal"
-                        aria-disabled={isRedirecting}
-                      >
-                        {isRedirecting ? (
-                          <>
-                            <Loader2 className="size-4 animate-spin" />
-                            Redirecting...
-                          </>
-                        ) : (
-                          'Manage Subscription'
-                        )}
-                      </Link>
-                    </Button>
-                  )}
-                  {/* </Form> */}
-                  {subscription.status === 'active' && (
-                    <p className="text-xs text-muted-foreground">
-                      You'll be redirected to our secure payment partner to
-                      update your plan, payment method, or cancel.
+
+                  {/* Show provider info during transition period */}
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Payment Provider
                     </p>
-                  )}
+                    <p className="text-foreground">
+                      {hasStripeCustomer
+                        ? 'Stripe'
+                        : hasPolarCustomer
+                        ? 'Polar'
+                        : 'Unknown'}
+                    </p>
+                  </div>
+
+                  {subscription.status !== 'complimentary' &&
+                    subscription.currentPeriodEnd && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          {subscription.cancelAtPeriodEnd
+                            ? 'Expires on'
+                            : 'Renews on'}
+                        </p>
+                        <p className="text-foreground">
+                          {subscription.currentPeriodEnd
+                            ? new Date(
+                                subscription.currentPeriodEnd
+                              ).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })
+                            : 'N/A'}
+                        </p>
+                      </div>
+                    )}
+
+                  {/* Only show manage subscription button for active subscriptions with customer IDs */}
+                  {subscription.status === 'active' &&
+                    (hasStripeCustomer || hasPolarCustomer) && (
+                      <Button asChild type="submit">
+                        <Link
+                          to="/resources/create-customer-portal"
+                          aria-disabled={isRedirecting}
+                        >
+                          {isRedirecting ? (
+                            <>
+                              <Loader2 className="size-4 animate-spin" />
+                              Redirecting...
+                            </>
+                          ) : (
+                            'Manage Subscription'
+                          )}
+                        </Link>
+                      </Button>
+                    )}
+
+                  {subscription.status === 'active' &&
+                    (hasStripeCustomer || hasPolarCustomer) && (
+                      <p className="text-xs text-muted-foreground">
+                        You'll be redirected to{' '}
+                        {hasStripeCustomer ? 'Stripe' : 'Polar'} to update your
+                        plan, payment method, or cancel your subscription.
+                      </p>
+                    )}
+
+                  {/* Show warning if subscription exists but no customer ID */}
+                  {subscription.status === 'active' &&
+                    !hasStripeCustomer &&
+                    !hasPolarCustomer && (
+                      <p className="text-sm text-orange-600 dark:text-orange-400">
+                        Subscription management is temporarily unavailable.
+                        Please contact support for assistance.
+                      </p>
+                    )}
                 </CardContent>
               </Card>
             )}

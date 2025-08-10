@@ -23,13 +23,13 @@ import { HoneypotInputs } from 'remix-utils/honeypot/react';
 import { checkHoneypot } from '#/utils/honeypot.server';
 import { requireAnonymous, signup } from '#/utils/auth.server';
 import { z } from 'zod';
-import { useIsSubmitting, formatPrice, extractPriceInfo } from '#/utils/misc';
+import { useIsSubmitting } from '#/utils/misc';
 import ErrorAlert from '#/components/errorAlert/errorAlert';
 import { parseWithZod, getZodConstraint } from '@conform-to/zod';
 import { useForm, getFormProps, getInputProps } from '@conform-to/react';
 import { AnimatePresence } from 'framer-motion';
 import { redirect } from 'react-router';
-import { polar } from '#/utils/polar.server';
+import { stripe } from '#/utils/stripe.server';
 import { RadioGroup, RadioGroupItem } from '#/components/ui/radio-group';
 import { useEffect, useState } from 'react';
 import { cn } from '#/lib/utils';
@@ -40,52 +40,52 @@ const RegisterSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   username: z.string().min(3, 'Username must be at least 3 characters'),
   redirectTo: z.string().optional(),
-  tierId: z.string().min(1, 'A subscription plan must be selected'),
+  priceId: z.string().min(1, 'A subscription plan must be selected'),
 });
 
-type PolarProduct = any;
+type StripeProduct = {
+  id: string;
+  name: string;
+  description: string;
+  default_price: {
+    id: string;
+    currency: string;
+    unit_amount: number;
+    recurring?: {
+      interval: string;
+      interval_count: number;
+    };
+  };
+};
 
 type LoaderData = {
-  plans: PolarProduct[];
+  plans: StripeProduct[];
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireAnonymous(request);
 
   try {
-    const productsResponse = await polar.products.list({
+    // Fetch products with their default prices from Stripe
+    const productsResponse = await stripe.products.list({
+      active: true,
+      expand: ['data.default_price'],
       limit: 10,
     });
 
-    // Convert the paginator to an array using the working approach
-    const plans: PolarProduct[] = [];
-    for await (const page of productsResponse) {
-      // Handle the Polar API pagination structure that we know works
-      if (
-        page &&
-        typeof page === 'object' &&
-        'result' in page &&
-        page.result &&
-        'items' in page.result &&
-        Array.isArray(page.result.items)
-      ) {
-        plans.push(...(page.result.items as unknown as PolarProduct[]));
-      } else if (Array.isArray(page)) {
-        plans.push(...(page as PolarProduct[]));
-      } else if (
-        page &&
-        typeof page === 'object' &&
-        'results' in page &&
-        Array.isArray(page.results)
-      ) {
-        plans.push(...(page.results as PolarProduct[]));
-      }
-    }
+    const plans: StripeProduct[] = productsResponse.data
+      .filter((product) => product.default_price) // Only include products with default prices
+      .map((product) => ({
+        id: product.id,
+        name: product.name,
+        description: product.description || '',
+        default_price: product.default_price as any,
+      }));
 
-    console.log(`✅ Successfully fetched ${plans.length} plans from Polar.`);
+    console.log(`✅ Successfully fetched ${plans.length} plans from Stripe.`);
     return { plans };
   } catch (error) {
-    console.error('❌ Failed to fetch subscription plans from Polar:', error);
+    console.error('❌ Failed to fetch subscription plans from Stripe:', error);
     return { plans: [] }; // Return empty array on error
   }
 }
@@ -134,8 +134,8 @@ export async function action({ request }: ActionFunctionArgs) {
   //   },
   //   { headers: { 'Set-Cookie': sessionCookie } }
   // );
-  const checkoutUrl = `/checkout?tierId=${
-    submission.value.tierId
+  const checkoutUrl = `/checkout?priceId=${
+    submission.value.priceId
   }&email=${encodeURIComponent(result.user.email)}`;
   return redirect(checkoutUrl);
 }
@@ -148,31 +148,34 @@ export default function Register() {
   const { plans } = useLoaderData<LoaderData>();
 
   // Determine the default plan selection:
-  // 1. Use the tierId from the URL if it exists.
+  // 1. Use the priceId from the URL if it exists.
   // 2. Otherwise, find the "Yearly Plan" to highlight it.
   // 3. Fallback to the first plan in the list.
-  const tierIdFromUrl = searchParams.get('tierId');
+  const priceIdFromUrl = searchParams.get('priceId');
 
   const defaultYearlyPlan = plans.find((p) =>
     p?.name?.toLowerCase?.()?.includes('yearly')
   );
-  const defaultTierId =
-    tierIdFromUrl || defaultYearlyPlan?.id || plans[0]?.id || '';
+  const defaultPriceId =
+    priceIdFromUrl ||
+    defaultYearlyPlan?.default_price?.id ||
+    plans[0]?.default_price?.id ||
+    '';
 
-  // Use state to manage the selected tier - initialize to empty first
-  const [selectedTierId, setSelectedTierId] = useState<string>('');
+  // Use state to manage the selected price - initialize to empty first
+  const [selectedPriceId, setSelectedPriceId] = useState<string>('');
 
   // Set initial value only once when we have plans
   useEffect(() => {
-    if (plans.length > 0 && selectedTierId === '' && defaultTierId) {
-      setSelectedTierId(defaultTierId);
+    if (plans.length > 0 && selectedPriceId === '' && defaultPriceId) {
+      setSelectedPriceId(defaultPriceId);
     }
-  }, [plans.length, defaultTierId, selectedTierId]);
+  }, [plans.length, defaultPriceId, selectedPriceId]);
 
   const [form, fields] = useForm({
     lastResult: actionData,
     constraint: getZodConstraint(RegisterSchema),
-    defaultValue: { redirectTo, tierId: selectedTierId || defaultTierId },
+    defaultValue: { redirectTo, priceId: selectedPriceId || defaultPriceId },
     onValidate({ formData }) {
       return parseWithZod(formData, {
         schema: RegisterSchema,
@@ -222,8 +225,8 @@ export default function Register() {
                 <div className="grid gap-2">
                   <Label>Choose Your Plan</Label>
                   <RadioGroup
-                    value={selectedTierId}
-                    onValueChange={setSelectedTierId}
+                    value={selectedPriceId}
+                    onValueChange={setSelectedPriceId}
                     className="grid grid-cols-1 gap-2 pt-2"
                   >
                     {plans.length === 0 ? (
@@ -235,26 +238,33 @@ export default function Register() {
                       </div>
                     ) : (
                       plans.map((plan) => {
-                        const price = plan.prices?.find(
-                          (p: any) => p.type === 'recurring'
-                        );
-                        const priceInfo = extractPriceInfo(price);
+                        const price = plan.default_price;
+                        const amount = price.unit_amount
+                          ? price.unit_amount / 100
+                          : 0; // Convert from cents
+                        const interval = price.recurring?.interval || 'month';
 
                         return (
                           <Label
-                            key={plan.id}
-                            htmlFor={fields.tierId.id + '-' + plan.id}
+                            key={plan.default_price.id}
+                            htmlFor={
+                              fields.priceId.id + '-' + plan.default_price.id
+                            }
                             className={cn(
                               'flex items-center justify-between rounded-lg border-2 p-3 transition-all cursor-pointer',
-                              selectedTierId === plan.id
+                              selectedPriceId === plan.default_price.id
                                 ? 'border-[#ccb389] bg-primary/5'
                                 : 'border-muted hover:border-muted-foreground/50'
                             )}
                           >
                             <div className="flex items-center gap-3">
                               <RadioGroupItem
-                                value={plan.id}
-                                id={fields.tierId.id + '-' + plan.id}
+                                value={plan.default_price.id}
+                                id={
+                                  fields.priceId.id +
+                                  '-' +
+                                  plan.default_price.id
+                                }
                               />
                               <div>
                                 <p className="font-semibold">{plan.name}</p>
@@ -263,14 +273,9 @@ export default function Register() {
                                 </p>
                               </div>
                             </div>
-                            {priceInfo && priceInfo.amount && (
-                              <span className="font-semibold text-sm">
-                                {formatPrice(
-                                  priceInfo.amount,
-                                  priceInfo.interval
-                                )}
-                              </span>
-                            )}
+                            <span className="font-semibold text-sm">
+                              ${amount.toFixed(2)}/{interval}
+                            </span>
                           </Label>
                         );
                       })
@@ -279,13 +284,13 @@ export default function Register() {
                   {/* Hidden input for form submission */}
                   <input
                     type="hidden"
-                    name={fields.tierId.name}
-                    value={selectedTierId}
-                    onChange={() => {}} // Controlled by selectedTierId state
+                    name={fields.priceId.name}
+                    value={selectedPriceId}
+                    onChange={() => {}} // Controlled by selectedPriceId state
                   />
                   <ErrorAlert
-                    id={fields.tierId.errorId}
-                    errors={fields.tierId.errors}
+                    id={fields.priceId.errorId}
+                    errors={fields.priceId.errors}
                   />
                 </div>
                 <div className="grid gap-2">

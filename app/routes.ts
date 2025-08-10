@@ -25,7 +25,7 @@ export default [
     route('/user-status', 'routes/resources/user-status.tsx'),
     route('/create-dm', 'routes/resources/create-dm.tsx'),
     route('/hide-dm', 'routes/resources/hide-dm.tsx'),
-    route('/api/polar-webhooks', 'routes/resources/polar-webhooks.tsx'),
+    route('/api/stripe-webhooks', 'routes/resources/stripe-webhooks.tsx'),
     route(
       '/create-customer-portal',
       'routes/resources/create-customer-portal.tsx'

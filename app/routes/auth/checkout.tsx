@@ -1,17 +1,17 @@
 import { redirect, type LoaderFunctionArgs } from 'react-router';
 import { requireAnonymous } from '#/utils/auth.server';
 import { getDomainUrl, invariantResponse } from '#/utils/misc';
-import { polar } from '#/utils/polar.server';
+import { stripe } from '#/utils/stripe.server';
 import { prisma } from '#/utils/db.server';
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireAnonymous(request);
 
   const url = new URL(request.url);
-  const tierId = url.searchParams.get('tierId');
+  const priceId = url.searchParams.get('priceId'); // Change from tierId to priceId for Stripe
   const email = url.searchParams.get('email');
 
-  invariantResponse(tierId, 'tierId is required');
+  invariantResponse(priceId, 'priceId is required');
   invariantResponse(email, 'email is required');
 
   const user = await prisma.user.findUnique({
@@ -23,28 +23,37 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const domainUrl = getDomainUrl(request);
   const successUrl = `${domainUrl}/payment-success?userId=${user.id}`;
+  const cancelUrl = `${domainUrl}/register`;
 
-  // 4. Create a Polar Checkout session
-  console.log('Creating checkout session with:', {
-    products: [tierId],
+  // 4. Create a Stripe Checkout session
+  console.log('Creating Stripe checkout session with:', {
+    priceId: priceId,
     successUrl: successUrl,
     customerEmail: user.email,
   });
 
-  const checkoutSession = await polar.checkouts.create({
-    products: [tierId],
-    successUrl: successUrl,
-    customerEmail: user.email,
-    requireBillingAddress: false,
+  const checkoutSession = await stripe.checkout.sessions.create({
+    mode: 'subscription',
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    customer_email: user.email,
+    client_reference_id: user.id,
     metadata: {
       userId: user.id,
     },
   });
 
-  console.log('Created checkout session:', {
+  console.log('Created Stripe checkout session:', {
     id: checkoutSession.id,
     url: checkoutSession.url,
-    successUrl: checkoutSession.successUrl,
+    successUrl: checkoutSession.success_url,
   });
 
   invariantResponse(
@@ -52,7 +61,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     'Could not create a checkout session.'
   );
 
-  // 5. Redirect the user to Polar's checkout page
+  // 5. Redirect the user to Stripe's checkout page
   return redirect(checkoutSession.url);
 }
 
