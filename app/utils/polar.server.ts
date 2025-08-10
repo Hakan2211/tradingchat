@@ -6,6 +6,9 @@ if (!process.env.POLAR_ACCESS_TOKEN) {
   );
 }
 
-export const polar = new Polar({
-  accessToken: process.env.POLAR_ACCESS_TOKEN,
-});
+// Only initialize Polar if access token is available
+export const polar = process.env.POLAR_ACCESS_TOKEN
+  ? new Polar({
+      accessToken: process.env.POLAR_ACCESS_TOKEN,
+    })
+  : null;

@@ -33,7 +33,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // If they have a Polar ID, send them to the Polar Portal
-  if (subscription?.polarCustomerId) {
+  if (subscription?.polarCustomerId && polar) {
     const portalSession = await polar.customerSessions.create({
       customerId: subscription.polarCustomerId,
     });
