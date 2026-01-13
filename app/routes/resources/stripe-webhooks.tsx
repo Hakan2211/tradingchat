@@ -43,21 +43,22 @@ export async function action({ request }: ActionFunctionArgs) {
           subscriptionId
         )) as Stripe.Subscription;
 
+        // In newer Stripe API versions (2025+), period dates are on the subscription item
+        const subscriptionItem = subscription.items.data[0];
+        const periodStart = subscriptionItem.current_period_start;
+        const periodEnd = subscriptionItem.current_period_end;
+
         await prisma.subscription.create({
           data: {
             userId: userId,
             stripeSubscriptionId: subscription.id,
             stripeCustomerId: customerId,
             status: toDbStatus(subscription.status),
-            tierId: subscription.items.data[0].price.product as string,
-            priceId: subscription.items.data[0].price.id,
+            tierId: subscriptionItem.price.product as string,
+            priceId: subscriptionItem.price.id,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
-            currentPeriodStart: new Date(
-              ((subscription as any).current_period_start as number) * 1000
-            ),
-            currentPeriodEnd: new Date(
-              ((subscription as any).current_period_end as number) * 1000
-            ),
+            currentPeriodStart: new Date(periodStart * 1000),
+            currentPeriodEnd: new Date(periodEnd * 1000),
             startedAt: new Date(subscription.created * 1000),
           },
         });
@@ -68,15 +69,17 @@ export async function action({ request }: ActionFunctionArgs) {
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
+        // In newer Stripe API versions (2025+), period dates are on the subscription item
+        const subscriptionItem = subscription.items.data[0];
+        const periodEnd = subscriptionItem.current_period_end;
+
         await prisma.subscription.update({
           where: { stripeSubscriptionId: subscription.id },
           data: {
             status: toDbStatus(subscription.status),
-            priceId: subscription.items.data[0].price.id,
+            priceId: subscriptionItem.price.id,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
-            currentPeriodEnd: new Date(
-              ((subscription as any).current_period_end as number) * 1000
-            ),
+            currentPeriodEnd: new Date(periodEnd * 1000),
           },
         });
         console.log(`✅ Subscription UPDATED/DELETED: ${subscription.id}`);

@@ -15,6 +15,7 @@ export default defineConfig(({ isSsrBuild }) => ({
   // },
 
   server: {
+    allowedHosts: ['.ngrok-free.app'],
     proxy: {
       // Proxy all requests starting with /socket.io to your Express server
       '/socket.io': {
