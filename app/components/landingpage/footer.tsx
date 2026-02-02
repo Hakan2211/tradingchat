@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { Twitter } from 'lucide-react';
+import { Twitter, Globe } from 'lucide-react';
 
 // Data for footer links, organized by category
 const footerLinks = [
@@ -37,11 +37,11 @@ const socialLinks = [
     href: 'https://x.com/hakanbilgo',
     icon: (props: any) => <Twitter {...props} />,
   },
-  // {
-  //   name: 'GitHub',
-  //   href: '#',
-  //   icon: (props: any) => <Github {...props} />,
-  // },
+  {
+    name: 'Website',
+    href: 'https://www.hakanda.com',
+    icon: (props: any) => <Globe {...props} />,
+  },
 ];
 
 export function Footer() {

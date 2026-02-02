@@ -5,10 +5,8 @@ import { Button } from '#/components/ui/button';
 import { Link } from 'react-router';
 import {
   Heart,
-  Users,
   BookOpen,
   Target,
-  TrendingUp,
   MessageSquare,
   Bookmark,
   BarChart3,
@@ -18,13 +16,12 @@ import {
 export const meta: MetaFunction = () => {
   return [
     {
-      title:
-        "About BullBearz - Trading Is Hard. You Don't Have To Do It Alone.",
+      title: 'About BullBearz - Built by a Trader, For Traders',
     },
     {
       name: 'description',
       content:
-        'The story of Hakan, an electrical engineer turned trader who built BullBearz from rock bottom - a real trading community for real traders.',
+        'BullBearz is a trading community built from scratch by Hakan - an electrical engineer turned trader who combined his passion for trading and coding to create what he wished existed.',
     },
   ];
 };
@@ -43,17 +40,18 @@ export default function About() {
         {/* Hero Section */}
         <div className="pt-20 pb-16 text-center">
           <h1 className="text-4xl md:text-5xl font-serif font-medium tracking-tight text-neutral-300 mb-6 leading-[1.3]">
-            Trading Is Hard.
+            Built by a Trader.
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[#ccb389] to-[#b8a082]">
-              You Don't Have To Do It Alone.
+              For Traders.
             </span>
           </h1>
           <p className="mx-auto max-w-3xl text-xl leading-8 text-zinc-400 text-pretty mb-8">
-            A chat platform built from scratch by a trader, for traders —
-            real-time collaboration, genuine insights, authentic community.
+            I combined my passion for trading with my coding skills to build the
+            platform I always wished existed — real-time collaboration, genuine
+            insights, and an authentic community.
           </p>
           <p className="text-lg text-[#ccb389] font-medium mb-8">
-            BullBearz exists so you never have to trade alone again.
+            Welcome to BullBearz.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
@@ -63,14 +61,6 @@ export default function About() {
             >
               <Link to="/register">Join Now</Link>
             </Button>
-            {/* <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="border-[#ccb389]/30 text-neutral-300 hover:bg-[#ccb389]/10 hover:border-[#ccb389]/50"
-            >
-              <Link to="/roadmap">See Full Roadmap</Link>
-            </Button> */}
           </div>
         </div>
         <div
@@ -78,11 +68,11 @@ export default function About() {
           aria-hidden="true"
         />
 
-        {/* Rock Bottom Section */}
+        {/* The Story Section */}
         <div className="py-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-serif font-medium text-[#ccb389] mb-4">
-              Rock Bottom
+              The Story
             </h2>
           </div>
 
@@ -96,20 +86,22 @@ export default function About() {
                   rel="noopener noreferrer"
                   className="text-[#ccb389] underline hover:text-[#b8a082]/60 underline-offset-4 transition-colors duration-200"
                 >
-                  <span className="text-[#ccb389] font-medium">Hakan</span>.
-                </a>{' '}
-                Electrical engineer turned full-time trader. I thought I knew
-                what "hard" meant.
+                  <span className="text-[#ccb389] font-medium">Hakan</span>
+                </a>
+                — an electrical engineer who fell in love with trading. After
+                years of navigating the markets, I noticed something frustrating
+                about the trading community landscape.
               </p>
               <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-                I was wrong.
+                Most trading communities were just{' '}
+                <span className="text-[#ccb389]">noise</span>. Alert services
+                pushing tickers. Self-proclaimed gurus selling dreams. Crowds
+                where individual voices got lost in the chaos.
               </p>
               <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-                There's a special kind of loneliness that comes with staring at
-                charts at 3 AM, watching your account bleed red while the world
-                sleeps. When COVID hit and everyone seemed to be printing money,
-                I was paralyzed — too scared to take trades, too proud to quit,
-                too broke to keep going.
+                I wanted something different. A place where traders could have
+                real conversations, share genuine insights, and grow together.
+                So I decided to build it myself.
               </p>
             </div>
             <div className="flex justify-center">
@@ -117,7 +109,7 @@ export default function About() {
                 <div className="w-64 h-48 bg-gradient-to-br from-zinc-800 to-zinc-700 rounded-lg flex items-center justify-center">
                   <img
                     src="/images/hakan.jpg"
-                    alt="Hakan at his trading desk"
+                    alt="Hakan"
                     className="w-full h-full object-cover rounded-lg"
                   />
                 </div>
@@ -126,11 +118,11 @@ export default function About() {
           </div>
         </div>
 
-        {/* The Lifeline Section */}
+        {/* The Build Section */}
         <div className="py-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-serif font-medium text-[#ccb389] mb-4">
-              The Lifeline
+              The Build
             </h2>
           </div>
 
@@ -139,8 +131,8 @@ export default function About() {
               <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 dark:ring-zinc-800/50 p-2 border-none">
                 <div className="w-64 h-48 bg-gradient-to-br from-zinc-800 to-zinc-700 rounded-lg flex items-center justify-center">
                   <img
-                    src="/images/mom.jpg"
-                    alt="Hakan with his mother"
+                    src="/images/desk-workspace.jpg"
+                    alt="Hakan's workspace"
                     className="w-full h-full object-cover rounded-lg"
                   />
                 </div>
@@ -148,35 +140,35 @@ export default function About() {
             </div>
             <div className="lg:col-span-2">
               <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-                My mother saved my life. Not metaphorically.{' '}
-                <span className="text-[#ccb389]">Literally.</span> She saw me
-                disappearing into a darkness where trading losses felt like life
-                failures, where every red day brought thoughts I'm not proud of.
-                She refused to let me give up — not on trading, not on building
-                something meaningful, not on myself.
+                I invested my time into learning full-stack development — not to
+                become a developer, but to bring this vision to life. Every line
+                of code, every feature, every design decision comes from{' '}
+                <span className="text-[#ccb389]">
+                  real trading experience
+                </span>
+                .
               </p>
               <p className="text-lg text-zinc-300 leading-relaxed">
-                That's when I realized:{' '}
+                BullBearz is my passion project:{' '}
                 <span className="text-[#ccb389] font-medium">
-                  this struggle isn't unique to me. It's the trader's condition.
+                  a trader who codes, building tools for traders who trade.
                 </span>
               </p>
             </div>
           </div>
         </div>
 
-        {/* Finding Community Section */}
+        {/* Community Power Section */}
         <div className="py-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-serif font-medium text-[#ccb389] mb-4">
-              Finding Community
+              The Power of Community
             </h2>
           </div>
 
           <p className="text-lg text-zinc-300 leading-relaxed mb-8">
-            After hitting rock bottom, I started joining chat rooms. For the
-            first time in months, I wasn't alone with my thoughts. I discovered
-            the power of:
+            Trading doesn't have to be a solo journey. The best traders I know
+            understand the power of:
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -214,14 +206,33 @@ export default function About() {
 
           <div className="bg-transparent backdrop-blur-10">
             <p className="text-lg text-zinc-300 leading-relaxed mb-4">
-              But here's what frustrated me: most chat rooms were just noise.
-              Alert services pushing tickers. Gurus selling dreams. Crowds
-              hiding individual voices.
+              This is what BullBearz is built around — creating a space where
+              these connections happen naturally, without the noise.
             </p>
             <p className="text-lg text-[#ccb389] font-medium">
-              I wanted something different. Something real.
+              Real traders. Real conversations. Real growth.
             </p>
           </div>
+        </div>
+
+        {/* The Platform Section */}
+        <div className="py-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-serif font-medium text-[#ccb389] mb-4">
+              The Platform
+            </h2>
+            <p className="text-lg text-zinc-400">
+              Here's what I've been building.
+            </p>
+          </div>
+
+          <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 dark:ring-zinc-800/50 p-3 border-none">
+            <img
+              src="/images/platform-bullbearz.jpg"
+              alt="BullBearz platform screenshot"
+              className="w-full h-auto rounded-lg"
+            />
+          </Card>
         </div>
 
         {/* Core Features Section */}
@@ -281,31 +292,29 @@ export default function About() {
           </div>
         </div>
 
-        {/* Why I Built It This Way */}
+        {/* Why It's Different */}
         <div className="py-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-serif font-medium text-[#ccb389] mb-4">
-              Why I Built It This Way
+              Why It's Different
             </h2>
           </div>
 
           <div className="bg-transparent backdrop-blur-10 p-8 text-pretty">
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-              While recovering from my lowest point, I invested time and money
-              learning full-stack development. Not because I wanted to become a
-              developer, but because I needed to build something that didn't
-              exist.
-            </p>
-            <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-              I'm coding everything from scratch. No team (yet), no venture
+              I'm building everything from scratch. No team (yet), no venture
               capital, no corporate agenda. Just a trader who knows what traders
               actually need.
             </p>
+            <p className="text-lg text-zinc-300 leading-relaxed mb-6">
+              Every feature addresses a real problem I've experienced. The
+              journal feature? Because tracking emotional patterns is just as
+              important as tracking P&L. The sector-specific rooms? Because
+              context matters more than noise.
+            </p>
             <p className="text-lg text-zinc-300 leading-relaxed">
-              Every feature addresses a real problem I've faced. The journal
-              feature? Because I needed to track not just my trades, but my
-              emotional patterns. The sector-specific rooms? Because context
-              matters more than noise.
+              This isn't a side project or a quick cash grab — it's something
+              I'm genuinely excited to work on every single day.
             </p>
           </div>
         </div>
@@ -376,39 +385,63 @@ export default function About() {
           </Card>
         </div>
 
+        {/* My Biggest Supporter Section */}
+        <div className="py-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-serif font-medium text-[#ccb389] mb-4">
+              My Biggest Supporter
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+            <div className="flex justify-center">
+              <Card className="bg-gradient-to-br from-zinc-900/60 to-zinc-800/60 ring-1 ring-zinc-800/50 dark:ring-zinc-800/50 p-2 border-none">
+                <div className="w-64 h-48 bg-gradient-to-br from-zinc-800 to-zinc-700 rounded-lg flex items-center justify-center">
+                  <img
+                    src="/images/mom.jpg"
+                    alt="Hakan with his mother"
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                </div>
+              </Card>
+            </div>
+            <div className="lg:col-span-2">
+              <p className="text-lg text-zinc-300 leading-relaxed mb-6">
+                Behind every passion project is someone who believes in you.
+                For me, that's my mother. She's been my biggest cheerleader
+                through every late night coding session, every feature launch,
+                and every pivot along the way.
+              </p>
+              <p className="text-lg text-zinc-300 leading-relaxed">
+                None of this would be possible without her unwavering support.{' '}
+                <span className="text-[#ccb389] font-medium">Thanks, Mom.</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Final Invitation */}
         <div className="py-20">
           <Card className="bg-gradient-to-br from-slate-800/90 to-black-600/90 ring-1 ring-[#ccb389]/30 dark:ring-[#ccb389]/30 border-[#ccb389]/30 dark:border-[#ccb389]/30 backdrop-blur-20 p-12 text-center shadow-2xl shadow-[#ccb389]/10 dark:shadow-[#ccb389]/10">
             <h2 className="text-3xl font-serif font-medium text-[#ccb389] mb-6">
-              The Invitation
+              Join the Community
             </h2>
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-              Whether you're a weekend swing trader, scalper, large-cap trader,
-              small-cap trader, momentum trader, or finance student just
-              starting out, there's a seat at our table. Bring your questions,
-              your boldest ideas, or just your willingness to learn.
+              Whether you're a swing trader, scalper, momentum trader, or just
+              getting started — there's a place for you here. Bring your
+              questions, your ideas, and your willingness to grow alongside
+              other traders.
             </p>
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-              We celebrate wins, dissect losses, and treat failure as the
-              greatest teacher.
+              We celebrate wins, learn from losses, and build together.
             </p>
-            <p className="text-xl text-[#ccb389] font-medium mb-6">
-              Trading is hard. You Shouldn’t Have to Go It Alone.
-            </p>
-            <p className="text-lg text-zinc-300 leading-relaxed mb-8">
-              Join <span className="text-[#ccb389]">BullBearz</span> today and
-              turn every red candle into a lesson, every green candle into
-              celebration.
-              <br />
-              Let's trade 'em well together.
+            <p className="text-xl text-[#ccb389] font-medium mb-8">
+              Let's trade 'em well.
             </p>
 
             <div className="border-t border-zinc-700/50 pt-6 mb-8">
               <p className="text-lg text-zinc-300 mb-1">— Hakan</p>
-              {/* <p className="text-sm text-zinc-400 mb-1">
-                Founder & Lead Developer
-              </p> */}
-              <p className="text-sm text-zinc-500">July 7, 2025</p>
+              <p className="text-sm text-zinc-500">Founder of BullBearz</p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -419,14 +452,6 @@ export default function About() {
               >
                 <Link to="/register">Join Now</Link>
               </Button>
-              {/* <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="border-[#ccb389]/30 text-neutral-300 hover:bg-[#ccb389]/10 hover:border-[#ccb389]/50"
-              >
-                <Link to="/roadmap">See Full Roadmap</Link>
-              </Button> */}
             </div>
           </Card>
         </div>
