@@ -5,6 +5,9 @@
 FROM node:20 AS builder
 WORKDIR /app
 
+# Ensure devDependencies (vite, typescript, etc.) are installed regardless of build args
+ENV NODE_ENV=development
+
 COPY package*.json ./
 RUN npm ci
 COPY . .
