@@ -15,7 +15,7 @@ import { ThemeSwitch } from '#/routes/resources/theme-switch';
 import { useRequestInfo } from '#/utils/request-info';
 import { NavRooms, type NavRoomItem } from '#/components/homeLayout/nav-room';
 import { NavLink } from 'react-router';
-import { Bookmark, NotebookPen } from 'lucide-react';
+import { Bookmark, NotebookPen, Radar } from 'lucide-react';
 import { NavDms, type NavDmItem } from '#/components/homeLayout/nav-dms';
 import { useSocketContext } from '#/routes/layouts/app-layout';
 import { useHydrated } from 'remix-utils/use-hydrated';
@@ -76,6 +76,25 @@ export function AppSidebar({
                   <NotebookPen />
                   <span className="group-data-[collapsible=icon]:hidden">
                     Journal
+                  </span>
+                </SidebarMenuButton>
+              )}
+            </NavLink>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <NavLink to="/scanner" end>
+              {({ isActive }) => (
+                <SidebarMenuButton
+                  className={cn(
+                    'h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground',
+                    isActive && '!bg-accent/60 !text-accent-foreground'
+                  )}
+                  isActive={isActive}
+                  tooltip="Scanner"
+                >
+                  <Radar />
+                  <span className="group-data-[collapsible=icon]:hidden">
+                    Scanner
                   </span>
                 </SidebarMenuButton>
               )}

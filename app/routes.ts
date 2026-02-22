@@ -32,6 +32,7 @@ export default [
     ),
     route('/change-password', 'routes/resources/change-password.tsx'),
     route('/journal-images/:imageId', 'routes/resources/journal-images.tsx'),
+    route('/scanner', 'routes/resources/scanner.tsx'),
   ]),
 
   //--------------App Routes-----------------------
@@ -46,6 +47,9 @@ export default [
       route('edit', 'routes/user/user-edit.tsx'),
     ]),
     route('/bookmarks', 'routes/app/bookmarks.tsx'),
+
+    //-----Scanner Routes------
+    route('/scanner', 'routes/app/scanner/scanner-index.tsx'),
 
     //-----Journal Routes------
     route('/journal', 'routes/layouts/journal-layout.tsx', [

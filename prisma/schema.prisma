@@ -54,6 +54,7 @@ model User {
   tradeEntries   TradeEntry[]
   unreadMessages UnreadMessage[]
   image          UserImage?
+  scannerEntries ScannerEntry[]  @relation("ScannerEntries")
   roles          Role[]          @relation("RoleToUser")
   rooms          Room[]          @relation("RoomMembers")
 }
@@ -278,6 +279,12 @@ enum TagType {
   CONTEXT
 }
 
+enum ScannerStatus {
+  WATCHING
+  PLAYED_OUT
+  DIDNT_PLAY_OUT
+}
+
 model TradeTag {
   id           String     @id @default(cuid())
   tagName      String
@@ -287,4 +294,25 @@ model TradeTag {
 
   @@unique([tradeEntryId, tagName, tagType])
   @@index([tradeEntryId])
+}
+
+model ScannerEntry {
+  id                String        @id @default(cuid())
+  ticker            String
+  targetDate        DateTime
+  volume            String?
+  description       String
+  setupType         String?
+  status            ScannerStatus @default(WATCHING)
+  outcomeNotes      String?
+  executionGapNotes String?
+  priceLevels       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdById       String
+  createdBy         User          @relation("ScannerEntries", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById])
+  @@index([targetDate])
+  @@index([ticker])
 }
