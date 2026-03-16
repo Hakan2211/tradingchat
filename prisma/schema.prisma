@@ -55,6 +55,8 @@ model User {
   unreadMessages UnreadMessage[]
   image          UserImage?
   scannerEntries ScannerEntry[]  @relation("ScannerEntries")
+  themes         Theme[]         @relation("ThemeEntries")
+  themeTickers   ThemeTicker[]   @relation("ThemeTickerEntries")
   roles          Role[]          @relation("RoleToUser")
   rooms          Room[]          @relation("RoomMembers")
 }
@@ -285,6 +287,16 @@ enum ScannerStatus {
   DIDNT_PLAY_OUT
 }
 
+enum ThemeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TickerRole {
+  LEADER
+  SYMPATHY
+}
+
 model TradeTag {
   id           String     @id @default(cuid())
   tagName      String
@@ -314,5 +326,43 @@ model ScannerEntry {
 
   @@index([createdById])
   @@index([targetDate])
+  @@index([ticker])
+}
+
+model Theme {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  status      ThemeStatus @default(ACTIVE)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  createdById String
+  createdBy   User        @relation("ThemeEntries", fields: [createdById], references: [id], onDelete: Cascade)
+  tickers     ThemeTicker[]
+
+  @@index([createdById])
+  @@index([status])
+}
+
+model ThemeTicker {
+  id         String     @id @default(cuid())
+  ticker     String
+  role       TickerRole @default(SYMPATHY)
+  float      String?
+  volume     String?
+  marketCap  String?
+  priceAtAdd String?
+  notes      String?
+  sortOrder  Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  themeId    String
+  theme      Theme      @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  addedById  String
+  addedBy    User       @relation("ThemeTickerEntries", fields: [addedById], references: [id], onDelete: Cascade)
+
+  @@unique([themeId, ticker])
+  @@index([themeId])
   @@index([ticker])
 }
