@@ -93,9 +93,9 @@ export default function JournalIndexPage() {
   const totalPnL = allTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
 
   return (
-    <div className="min-h-full bg-card">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
       {/* Premium Header Section */}
-      <div className="border-b bg-card/95 backdrop-blur-sm">
+      <div className="shrink-0 border-b bg-card/95 backdrop-blur-sm">
         <div className="p-6 md:p-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             {/* Title Section */}
@@ -170,87 +170,89 @@ export default function JournalIndexPage() {
       </div>
 
       {/* Main Content */}
-      <div className="p-6 md:p-8">
-        <Tabs
-          value={activeView}
-          onValueChange={onTabChange}
-          className="flex-grow flex flex-col"
-        >
-          {/* Premium Tab Navigation */}
-          <div className="mb-8">
-            <TabsList className="inline-flex h-11 items-center justify-center rounded-xl bg-transparent p-1.5 text-muted-foreground shadow-sm border">
-              <TabsTrigger
-                value="grid"
-                className="data-[state=active]:bg-neutral-100/80  inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all dark:hover:bg-[#111827]/90 hover:bg-[#f3f4f6]/90"
-              >
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Grid View
-              </TabsTrigger>
-              <TabsTrigger
-                value="daily"
-                className="data-[state=active]:bg-neutral-100/80  inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all dark:hover:bg-[#111827]/90 hover:bg-[#f3f4f6]/90"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Daily
-              </TabsTrigger>
-              <TabsTrigger
-                value="weekly"
-                className="data-[state=active]:bg-neutral-100/80  inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all dark:hover:bg-[#111827]/90 hover:bg-[#f3f4f6]/90"
-              >
-                Weekly
-              </TabsTrigger>
-              <TabsTrigger
-                value="monthly"
-                className="data-[state=active]:bg-neutral-100/80  inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all dark:hover:bg-[#111827]/90 hover:bg-[#f3f4f6]/90"
-              >
-                Monthly
-              </TabsTrigger>
-            </TabsList>
-          </div>
+      <div className="relative flex-1 min-h-0">
+        <div className="absolute inset-0 overflow-y-auto p-6 md:p-8">
+          <Tabs
+            value={activeView}
+            onValueChange={onTabChange}
+            className="flex flex-col"
+          >
+            {/* Premium Tab Navigation */}
+            <div className="mb-8">
+              <TabsList className="inline-flex h-11 items-center justify-center rounded-xl bg-transparent p-1.5 text-muted-foreground shadow-sm border">
+                <TabsTrigger
+                  value="grid"
+                  className="data-[state=active]:bg-neutral-100/80  inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all dark:hover:bg-[#111827]/90 hover:bg-[#f3f4f6]/90"
+                >
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Grid View
+                </TabsTrigger>
+                <TabsTrigger
+                  value="daily"
+                  className="data-[state=active]:bg-neutral-100/80  inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all dark:hover:bg-[#111827]/90 hover:bg-[#f3f4f6]/90"
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Daily
+                </TabsTrigger>
+                <TabsTrigger
+                  value="weekly"
+                  className="data-[state=active]:bg-neutral-100/80  inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all dark:hover:bg-[#111827]/90 hover:bg-[#f3f4f6]/90"
+                >
+                  Weekly
+                </TabsTrigger>
+                <TabsTrigger
+                  value="monthly"
+                  className="data-[state=active]:bg-neutral-100/80  inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-all dark:hover:bg-[#111827]/90 hover:bg-[#f3f4f6]/90"
+                >
+                  Monthly
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-          {/* Tab Content with smooth transitions */}
-          <div className="flex-grow">
-            <TabsContent
-              value="grid"
-              className="flex-grow mt-0 data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300"
-            >
-              <GridView trades={allTrades} />
-            </TabsContent>
-            <TabsContent
-              value="daily"
-              className="flex-grow mt-0 data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300"
-            >
-              <TimeGroupedView
-                groupedTrades={byDay}
-                formatTitle={(dateStr) =>
-                  format(parseISO(dateStr), 'EEEE, MMMM d, yyyy')
-                }
-              />
-            </TabsContent>
-            <TabsContent
-              value="weekly"
-              className="flex-grow mt-0 data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300"
-            >
-              <TimeGroupedView
-                groupedTrades={byWeek}
-                formatTitle={(dateStr) =>
-                  `Week of ${format(parseISO(dateStr), 'MMMM d, yyyy')}`
-                }
-              />
-            </TabsContent>
-            <TabsContent
-              value="monthly"
-              className="flex-grow mt-0 data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300"
-            >
-              <TimeGroupedView
-                groupedTrades={byMonth}
-                formatTitle={(dateStr) =>
-                  format(parseISO(dateStr), 'MMMM yyyy')
-                }
-              />
-            </TabsContent>
-          </div>
-        </Tabs>
+            {/* Tab Content with smooth transitions */}
+            <div className="flex-grow">
+              <TabsContent
+                value="grid"
+                className="flex-grow mt-0 data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300"
+              >
+                <GridView trades={allTrades} />
+              </TabsContent>
+              <TabsContent
+                value="daily"
+                className="flex-grow mt-0 data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300"
+              >
+                <TimeGroupedView
+                  groupedTrades={byDay}
+                  formatTitle={(dateStr) =>
+                    format(parseISO(dateStr), 'EEEE, MMMM d, yyyy')
+                  }
+                />
+              </TabsContent>
+              <TabsContent
+                value="weekly"
+                className="flex-grow mt-0 data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300"
+              >
+                <TimeGroupedView
+                  groupedTrades={byWeek}
+                  formatTitle={(dateStr) =>
+                    `Week of ${format(parseISO(dateStr), 'MMMM d, yyyy')}`
+                  }
+                />
+              </TabsContent>
+              <TabsContent
+                value="monthly"
+                className="flex-grow mt-0 data-[state=inactive]:opacity-0 data-[state=active]:opacity-100 transition-opacity duration-300"
+              >
+                <TimeGroupedView
+                  groupedTrades={byMonth}
+                  formatTitle={(dateStr) =>
+                    format(parseISO(dateStr), 'MMMM yyyy')
+                  }
+                />
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
       </div>
     </div>
   );

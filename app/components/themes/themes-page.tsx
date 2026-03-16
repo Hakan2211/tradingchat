@@ -88,9 +88,9 @@ export function ThemesPage({ themes, canEdit }: ThemesPageProps) {
   }, []);
 
   return (
-    <div className="min-h-full bg-card">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
       {/* Header */}
-      <div className="border-b bg-card/95 backdrop-blur-sm">
+      <div className="border-b bg-card/95 backdrop-blur-sm shrink-0">
         <div className="p-6 md:p-8">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10">
@@ -107,11 +107,11 @@ export function ThemesPage({ themes, canEdit }: ThemesPageProps) {
       </div>
 
       {/* Two-panel layout */}
-      <div className="p-6 md:p-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Panel: Theme List */}
-          <div className="lg:w-[300px] shrink-0">
-            <div className="lg:sticky lg:top-6">
+      <div className="relative flex-1 min-h-0">
+        <div className="absolute inset-0 overflow-hidden p-6 md:p-8">
+          <div className="flex h-full min-h-0 flex-col gap-8 overflow-hidden lg:flex-row">
+            {/* Left Panel: Theme List */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:w-[300px] lg:flex-none lg:shrink-0">
               <ThemeList
                 themes={themes}
                 canEdit={canEdit}
@@ -123,34 +123,34 @@ export function ThemesPage({ themes, canEdit }: ThemesPageProps) {
                 onShowFilterChange={setShowFilter}
               />
             </div>
-          </div>
 
-          {/* Right Panel: Ticker List */}
-          <div className="flex-1 min-w-0">
-            {selectedTheme ? (
-              <ThemeTickerList
-                themeName={selectedTheme.name}
-                themeId={selectedTheme.id}
-                tickers={selectedTheme.tickers}
-                canEdit={canEdit}
-                onAddTicker={handleAddTicker}
-                onEditTicker={handleEditTicker}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="p-4 rounded-xl bg-muted/50 mb-4">
-                  <Layers className="h-10 w-10 text-muted-foreground/40" />
-                </div>
-                <p className="text-lg font-medium text-muted-foreground">
-                  Select a theme to view its tickers
-                </p>
-                {canEdit && themes.length === 0 && (
-                  <p className="text-sm text-muted-foreground/70 mt-2">
-                    Or create a new theme to get started
+            {/* Right Panel: Ticker List */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              {selectedTheme ? (
+                <ThemeTickerList
+                  themeName={selectedTheme.name}
+                  themeId={selectedTheme.id}
+                  tickers={selectedTheme.tickers}
+                  canEdit={canEdit}
+                  onAddTicker={handleAddTicker}
+                  onEditTicker={handleEditTicker}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <div className="p-4 rounded-xl bg-muted/50 mb-4">
+                    <Layers className="h-10 w-10 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-lg font-medium text-muted-foreground">
+                    Select a theme to view its tickers
                   </p>
-                )}
-              </div>
-            )}
+                  {canEdit && themes.length === 0 && (
+                    <p className="text-sm text-muted-foreground/70 mt-2">
+                      Or create a new theme to get started
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

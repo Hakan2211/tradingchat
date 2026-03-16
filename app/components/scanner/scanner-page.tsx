@@ -57,9 +57,9 @@ export function ScannerPage({
   }, []);
 
   return (
-    <div className="min-h-full bg-card">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
       {/* Header */}
-      <div className="border-b bg-card/95 backdrop-blur-sm">
+      <div className="shrink-0 border-b bg-card/95 backdrop-blur-sm">
         <div className="p-6 md:p-8">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10">
@@ -76,28 +76,30 @@ export function ScannerPage({
       </div>
 
       {/* Two-panel layout */}
-      <div className="p-6 md:p-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Panel: Calendar */}
-          <div className="lg:w-[320px] shrink-0">
-            <div className="lg:sticky lg:top-6">
-              <ScannerCalendar
-                datesWithEntries={datesWithEntries}
+      <div className="relative flex-1 min-h-0">
+        <div className="absolute inset-0 overflow-y-auto p-6 md:p-8">
+          <div className="flex flex-col gap-8 lg:flex-row">
+            {/* Left Panel: Calendar */}
+            <div className="shrink-0 lg:w-[320px]">
+              <div className="lg:sticky lg:top-6">
+                <ScannerCalendar
+                  datesWithEntries={datesWithEntries}
+                  canEdit={canEdit}
+                  onAddEntry={handleAddEntry}
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                />
+              </div>
+            </div>
+
+            {/* Right Panel: Entry List */}
+            <div className="min-w-0 flex-1">
+              <ScannerEntryList
+                entries={entries}
                 canEdit={canEdit}
-                onAddEntry={handleAddEntry}
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
+                onEdit={handleEditEntry}
               />
             </div>
-          </div>
-
-          {/* Right Panel: Entry List */}
-          <div className="flex-1 min-w-0">
-            <ScannerEntryList
-              entries={entries}
-              canEdit={canEdit}
-              onEdit={handleEditEntry}
-            />
           </div>
         </div>
       </div>

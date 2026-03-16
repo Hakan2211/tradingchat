@@ -78,9 +78,9 @@ export function ThemeList({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Themes
         </h2>
@@ -98,7 +98,7 @@ export function ThemeList({
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-1 p-1 rounded-lg bg-muted/50">
+      <div className="flex shrink-0 gap-1 rounded-lg bg-muted/50 p-1">
         {(['all', 'active', 'inactive'] as const).map((filter) => (
           <button
             key={filter}
@@ -116,72 +116,74 @@ export function ThemeList({
       </div>
 
       {/* Theme List */}
-      <div className="space-y-1.5">
-        {filteredThemes.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            {showFilter === 'all'
-              ? 'No themes yet'
-              : `No ${showFilter} themes`}
-          </div>
-        ) : (
-          filteredThemes.map((theme) => (
-            <div
-              key={theme.id}
-              className={cn(
-                'group flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors',
-                selectedThemeId === theme.id
-                  ? 'bg-accent/60 text-accent-foreground'
-                  : 'hover:bg-accent/30'
-              )}
-              onClick={() => onSelectTheme(theme.id)}
-            >
-              <div className="p-1.5 rounded-md bg-primary/10 shrink-0">
-                <Layers className="h-4 w-4 text-muted-foreground/80" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm truncate">
-                    {theme.name}
-                  </span>
-                  <ThemeStatusBadge status={theme.status} />
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {theme._count.tickers}{' '}
-                  {theme._count.tickers === 1 ? 'ticker' : 'tickers'}
-                </p>
-              </div>
-
-              {/* Edit / Delete Actions */}
-              {canEdit && (
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 cursor-pointer hover:bg-accent"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditTheme(theme);
-                    }}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 cursor-pointer text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteThemeId(theme.id);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              )}
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="space-y-1.5">
+          {filteredThemes.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              {showFilter === 'all'
+                ? 'No themes yet'
+                : `No ${showFilter} themes`}
             </div>
-          ))
-        )}
+          ) : (
+            filteredThemes.map((theme) => (
+              <div
+                key={theme.id}
+                className={cn(
+                  'group flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors',
+                  selectedThemeId === theme.id
+                    ? 'bg-accent/60 text-accent-foreground'
+                    : 'hover:bg-accent/30'
+                )}
+                onClick={() => onSelectTheme(theme.id)}
+              >
+                <div className="shrink-0 rounded-md bg-primary/10 p-1.5">
+                  <Layers className="h-4 w-4 text-muted-foreground/80" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium">
+                      {theme.name}
+                    </span>
+                    <ThemeStatusBadge status={theme.status} />
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {theme._count.tickers}{' '}
+                    {theme._count.tickers === 1 ? 'ticker' : 'tickers'}
+                  </p>
+                </div>
+
+                {/* Edit / Delete Actions */}
+                {canEdit && (
+                  <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 cursor-pointer hover:bg-accent"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditTheme(theme);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteThemeId(theme.id);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Delete Confirmation Dialog */}

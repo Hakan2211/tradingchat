@@ -473,18 +473,18 @@ export default function AppLayout() {
       initialDms={directMessages}
       initialUnreadCounts={unreadCounts}
     >
-      <SidebarProvider>
+      <SidebarProvider className="h-svh overflow-hidden">
         <AppSidebar
           user={user}
           rooms={groupRooms}
           directMessages={directMessages}
         />
-        <SidebarInset>
+        <SidebarInset className="min-h-0 overflow-hidden">
           <header className="flex h-14 shrink-0 items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1 cursor-pointer aspect-square rounded-md p-4 text-sidebar hover:!bg-sidebar-accent hover:!text-sidebar-accent-foreground" />
           </header>
-          <main className="flex-1 p-2 md:p-3 h-[calc(100svh-3.5rem)]">
-            <div className="h-full w-full text-card-foreground rounded-3xl shadow-sm overflow-hidden">
+          <main className="flex flex-1 min-h-0 overflow-hidden p-2 md:p-3">
+            <div className="h-full min-h-0 w-full overflow-hidden rounded-3xl text-card-foreground shadow-sm">
               <Outlet />
             </div>
           </main>

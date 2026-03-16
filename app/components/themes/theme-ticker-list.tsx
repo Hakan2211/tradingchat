@@ -89,9 +89,9 @@ export function ThemeTickerList({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{themeName}</h2>
           <p className="text-sm text-muted-foreground">
@@ -112,104 +112,114 @@ export function ThemeTickerList({
       </div>
 
       {/* Ticker Cards */}
-      {sortedTickers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="p-3 rounded-xl bg-muted/50 mb-3">
-            <Layers className="h-8 w-8 text-muted-foreground/50" />
-          </div>
-          <p className="text-muted-foreground font-medium">
-            No tickers in this theme yet
-          </p>
-          {canEdit && (
-            <p className="text-sm text-muted-foreground/70 mt-1">
-              Click "Add Ticker" to get started
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        {sortedTickers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-3 rounded-xl bg-muted/50 p-3">
+              <Layers className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <p className="font-medium text-muted-foreground">
+              No tickers in this theme yet
             </p>
-          )}
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          {sortedTickers.map((ticker) => (
-            <div
-              key={ticker.id}
-              className="group rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/20"
-            >
-              <div className="flex items-start justify-between gap-3">
-                {/* Left: Ticker info */}
-                <div className="flex-1 min-w-0 space-y-2">
-                  {/* Ticker name + role */}
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="text-lg font-bold tracking-wide">
-                      {ticker.ticker}
-                    </span>
-                    <TickerRoleBadge role={ticker.role} />
+            {canEdit && (
+              <p className="mt-1 text-sm text-muted-foreground/70">
+                Click "Add Ticker" to get started
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {sortedTickers.map((ticker) => (
+              <div
+                key={ticker.id}
+                className="group rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/20"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  {/* Left: Ticker info */}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    {/* Ticker name + role */}
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="text-lg font-bold tracking-wide">
+                        {ticker.ticker}
+                      </span>
+                      <TickerRoleBadge role={ticker.role} />
+                    </div>
+
+                    {/* Data grid */}
+                    <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+                      {ticker.float && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Scale className="h-3.5 w-3.5" />
+                          <span className="text-xs text-muted-foreground/70">Float:</span>
+                          <span className="font-medium text-foreground">
+                            {ticker.float}
+                          </span>
+                        </div>
+                      )}
+                      {ticker.volume && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <BarChart3 className="h-3.5 w-3.5" />
+                          <span className="text-xs text-muted-foreground/70">Vol:</span>
+                          <span className="font-medium text-foreground">
+                            {ticker.volume}
+                          </span>
+                        </div>
+                      )}
+                      {ticker.marketCap && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          <span className="text-xs text-muted-foreground/70">MCap:</span>
+                          <span className="font-medium text-foreground">
+                            {ticker.marketCap}
+                          </span>
+                        </div>
+                      )}
+                      {ticker.priceAtAdd && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <TrendingUp className="h-3.5 w-3.5" />
+                          <span className="text-xs text-muted-foreground/70">Price:</span>
+                          <span className="font-medium text-foreground">
+                            {ticker.priceAtAdd}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Notes */}
+                    {ticker.notes && (
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {ticker.notes}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Data grid */}
-                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
-                    {ticker.float && (
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Scale className="h-3.5 w-3.5" />
-                        <span className="text-xs text-muted-foreground/70">Float:</span>
-                        <span className="font-medium text-foreground">{ticker.float}</span>
-                      </div>
-                    )}
-                    {ticker.volume && (
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <BarChart3 className="h-3.5 w-3.5" />
-                        <span className="text-xs text-muted-foreground/70">Vol:</span>
-                        <span className="font-medium text-foreground">{ticker.volume}</span>
-                      </div>
-                    )}
-                    {ticker.marketCap && (
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <DollarSign className="h-3.5 w-3.5" />
-                        <span className="text-xs text-muted-foreground/70">MCap:</span>
-                        <span className="font-medium text-foreground">{ticker.marketCap}</span>
-                      </div>
-                    )}
-                    {ticker.priceAtAdd && (
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <TrendingUp className="h-3.5 w-3.5" />
-                        <span className="text-xs text-muted-foreground/70">Price:</span>
-                        <span className="font-medium text-foreground">{ticker.priceAtAdd}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Notes */}
-                  {ticker.notes && (
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {ticker.notes}
-                    </p>
+                  {/* Right: Actions */}
+                  {canEdit && (
+                    <div className="shrink-0 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 cursor-pointer hover:bg-accent"
+                        onClick={() => onEditTicker(ticker)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeleteTickerId(ticker.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   )}
                 </div>
-
-                {/* Right: Actions */}
-                {canEdit && (
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 cursor-pointer hover:bg-accent"
-                      onClick={() => onEditTicker(ticker)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 cursor-pointer text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => setDeleteTickerId(ticker.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

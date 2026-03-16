@@ -84,9 +84,9 @@ export default function TradeDetailPage() {
   const previousViewSearch = location.state?.previousSearch || '';
 
   return (
-    <div className="min-h-full bg-card">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
       {/* Premium Navigation Header */}
-      <div className="border-b bg-card/95 backdrop-blur-sm sticky top-0 z-10">
+      <div className="shrink-0 border-b bg-card/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto p-6 md:p-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
@@ -131,16 +131,18 @@ export default function TradeDetailPage() {
       </div>
 
       {/* Main Content */}
-      <TradeDetailView trade={trade} />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <TradeDetailView trade={trade} />
+      </div>
     </div>
   );
 }
 
 export function HydrateFallback() {
   return (
-    <div className="min-h-full bg-card">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
       {/* Skeleton Header */}
-      <div className="border-b bg-card/95 backdrop-blur-sm">
+      <div className="shrink-0 border-b bg-card/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto p-6 md:p-8">
           <div className="flex items-center gap-6">
             <div className="w-32 h-10 bg-muted rounded-lg animate-pulse"></div>
@@ -154,7 +156,9 @@ export function HydrateFallback() {
           </div>
         </div>
       </div>
-      <TradeDetailViewSkeleton />
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <TradeDetailViewSkeleton />
+      </div>
     </div>
   );
 }

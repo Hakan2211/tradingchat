@@ -127,9 +127,9 @@ export function TradeForm({ initialData }: TradeFormProps) {
   }, [fetcher.data]);
 
   return (
-    <div className="bg-card h-full">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card">
       {/* Header with Back Button */}
-      <div className="border-b bg-card/95 backdrop-blur-sm sticky top-0 z-10">
+      <div className="shrink-0 border-b bg-card/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
@@ -162,7 +162,7 @@ export function TradeForm({ initialData }: TradeFormProps) {
       </div>
 
       {/* Main Content */}
-      <div className="p-4 sm:p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
         <fetcher.Form onSubmit={handleSubmit} encType="multipart/form-data">
           <Card className="border shadow-sm">
             <CardHeader className="pb-4">
