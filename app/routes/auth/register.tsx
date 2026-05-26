@@ -21,7 +21,7 @@ import { AuthenticityTokenInput } from 'remix-utils/csrf/react';
 import { validateCSRF } from '#/utils/csrf.server';
 import { HoneypotInputs } from 'remix-utils/honeypot/react';
 import { checkHoneypot } from '#/utils/honeypot.server';
-import { requireAnonymous, signup } from '#/utils/auth.server';
+import { requireAnonymous, createPendingRegistration } from '#/utils/auth.server';
 import { z } from 'zod';
 import { useIsSubmitting } from '#/utils/misc';
 import ErrorAlert from '#/components/errorAlert/errorAlert';
@@ -94,7 +94,7 @@ export async function action({ request }: ActionFunctionArgs) {
   await requireAnonymous(request);
   const formData = await request.formData();
   await validateCSRF(formData, request.headers);
-  checkHoneypot(formData);
+  await checkHoneypot(formData);
 
   const submission = parseWithZod(formData, {
     schema: RegisterSchema,
@@ -104,9 +104,12 @@ export async function action({ request }: ActionFunctionArgs) {
     return submission.reply();
   }
 
-  const result = await signup(submission.value);
+  // Stash the sign-up as a pending registration. The real User is only created
+  // by the Stripe webhook after payment succeeds, so unpaid/bot sign-ups never
+  // pollute the User table.
+  const result = await createPendingRegistration(submission.value);
 
-  if (result && 'error' in result) {
+  if ('error' in result) {
     if (result.field) {
       return submission.reply({
         fieldErrors: { [result.field]: [result.error] },
@@ -116,28 +119,8 @@ export async function action({ request }: ActionFunctionArgs) {
       formErrors: [result.error ?? 'An unknown error occurred'],
     });
   }
-  // const { dbSession } = result;
-  // const session = await getSession();
-  // session.set(sessionKey, dbSession.id);
 
-  // 2. GET THE SESSION COOKIE HEADER
-  // const sessionCookie = await sessionStorage.commitSession(session, {
-  //   expires: getSessionExpirationDate(),
-  // });
-
-  // return redirectWithToast(
-  //   safeRedirect(submission.value.redirectTo, '/home'),
-  //   {
-  //     title: 'Welcome!',
-  //     description: 'Your account has been created successfully.',
-  //     type: 'success',
-  //   },
-  //   { headers: { 'Set-Cookie': sessionCookie } }
-  // );
-  const checkoutUrl = `/checkout?priceId=${
-    submission.value.priceId
-  }&email=${encodeURIComponent(result.user.email)}`;
-  return redirect(checkoutUrl);
+  return redirect(`/checkout?registrationId=${result.registration.id}`);
 }
 
 export default function Register() {

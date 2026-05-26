@@ -46,7 +46,7 @@ export async function action({ request }: ActionFunctionArgs) {
   await requireAnonymous(request);
   const formData = await request.formData();
   await validateCSRF(formData, request.headers);
-  checkHoneypot(formData);
+  await checkHoneypot(formData);
 
   const submission = parseWithZod(formData, {
     schema: LoginSchema,

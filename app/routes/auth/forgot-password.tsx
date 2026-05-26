@@ -50,7 +50,7 @@ export async function action({ request }: ActionFunctionArgs) {
   await requireAnonymous(request);
   const formData = await request.formData();
   await validateCSRF(formData, request.headers);
-  checkHoneypot(formData);
+  await checkHoneypot(formData);
 
   const submission = await parseWithZod(formData, {
     schema: ForgotPasswordSchema.superRefine(async (data, ctx) => {

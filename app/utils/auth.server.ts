@@ -153,87 +153,144 @@ export async function createFreshSession(userId: string) {
   });
 }
 
-export async function signup({
+// Pending registrations expire after this long. The Stripe webhook turns them
+// into real Users when payment completes; abandoned/bot rows simply lapse.
+const REGISTRATION_TTL_MS = 1000 * 60 * 60; // 1 hour
+
+/**
+ * Validates a sign-up and stashes it as a pending `Registration`. No `User` is
+ * created here — that happens in the Stripe webhook only after a successful
+ * payment (see `createUserFromRegistration`). This keeps the User table free of
+ * unpaid/bot accounts.
+ */
+export async function createPendingRegistration({
   email,
   password,
   name,
   username,
+  priceId,
 }: {
   email: string;
   password: string;
   name: string;
-  username?: string;
+  username: string;
+  priceId: string;
 }) {
-  const lowercaseUsername = username?.toLowerCase();
+  const lowercaseUsername = username.toLowerCase();
   const lowercaseEmail = email.toLowerCase();
 
-  // --- CONFLICT CHECKS (BEFORE ANY WRITES) ---
-
-  // Check 1: Is this username already in use by anyone?
-  // This is the check that was failing to stop the execution flow.
-  if (lowercaseUsername) {
-    const userWithUsername = await prisma.user.findUnique({
-      where: { username: lowercaseUsername },
-    });
-    if (userWithUsername) {
-      // If a user is found, STOP and return the client-side error.
-      return { error: 'This username is already taken.', field: 'username' };
-    }
+  // --- CONFLICT CHECKS against REAL users only ---
+  // Pending registrations are allowed to collide with each other; the webhook
+  // re-checks before creating the user.
+  const userWithUsername = await prisma.user.findUnique({
+    where: { username: lowercaseUsername },
+    select: { id: true },
+  });
+  if (userWithUsername) {
+    return {
+      error: 'This username is already taken.',
+      field: 'username' as const,
+    };
   }
 
-  // Check 2: Is this email already in use?
   const userWithEmail = await prisma.user.findUnique({
     where: { email: lowercaseEmail },
-    select: { id: true, email: true, subscription: { select: { id: true } } },
+    select: { id: true, subscription: { select: { id: true } } },
   });
-
-  // If the email is being used...
-  if (userWithEmail) {
-    // Case A: The user is an active subscriber. Hard stop.
-    if (userWithEmail.subscription) {
-      return {
-        error: 'A user with this email already has an active subscription.',
-        field: 'email',
-      };
-    } else {
-      // Case B: The user is a "limbo" user. Let's get them to checkout.
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const updatedUser = await prisma.user.update({
-        where: { id: userWithEmail.id },
-        select: { id: true, email: true },
-        data: {
-          name,
-          username: lowercaseUsername,
-          password: {
-            update: {
-              hash: hashedPassword,
-            },
-          },
-        },
-      });
-      return { user: updatedUser };
-    }
+  // Only block when the existing account is an actual subscriber. "Limbo" users
+  // (no subscription) are leftovers and may re-register; the webhook will reuse
+  // their row.
+  if (userWithEmail?.subscription) {
+    return {
+      error: 'A user with this email already has an active subscription.',
+      field: 'email' as const,
+    };
   }
 
-  // --- CREATE NEW USER ---
-  // This block is now UNREACHABLE if there is any username or email conflict.
+  const passwordHash = await bcrypt.hash(password, 10);
+  const expiresAt = new Date(Date.now() + REGISTRATION_TTL_MS);
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    select: { id: true, email: true },
-    data: {
+  // Upsert by email so a retry (e.g. abandoned checkout, then re-submit)
+  // refreshes the pending row instead of failing on the unique email.
+  const registration = await prisma.registration.upsert({
+    where: { email: lowercaseEmail },
+    create: {
       email: lowercaseEmail,
-      username: lowercaseUsername,
       name,
-      roles: { connect: { name: 'user' } },
-      password: {
-        create: {
-          hash: hashedPassword,
+      username: lowercaseUsername,
+      passwordHash,
+      priceId,
+      expiresAt,
+    },
+    update: {
+      name,
+      username: lowercaseUsername,
+      passwordHash,
+      priceId,
+      expiresAt,
+    },
+    select: { id: true },
+  });
+
+  return { registration };
+}
+
+/**
+ * Turns a pending `Registration` into a real `User` (called from the Stripe
+ * webhook after payment). Idempotent: a retried webhook delivery will not
+ * create a duplicate user, and a pre-existing "limbo" user with the same email
+ * is reused. Returns the user id, or null if the registration no longer exists.
+ */
+export async function createUserFromRegistration(registrationId: string) {
+  const registration = await prisma.registration.findUnique({
+    where: { id: registrationId },
+  });
+  if (!registration) return null;
+
+  const { email, name, username, passwordHash } = registration;
+
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  let userId: string;
+  if (existing) {
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        name,
+        username,
+        roles: { connect: { name: 'user' } },
+        password: {
+          upsert: {
+            create: { hash: passwordHash },
+            update: { hash: passwordHash },
+          },
         },
       },
-    },
-  });
-  return { user };
+    });
+    userId = existing.id;
+  } else {
+    const created = await prisma.user.create({
+      select: { id: true },
+      data: {
+        email,
+        name,
+        username,
+        roles: { connect: { name: 'user' } },
+        password: { create: { hash: passwordHash } },
+      },
+    });
+    userId = created.id;
+  }
+
+  // The pending row has served its purpose.
+  await prisma.registration
+    .delete({ where: { id: registrationId } })
+    .catch(() => {});
+
+  return { userId, email };
 }
 
 export async function resetUserPassword({

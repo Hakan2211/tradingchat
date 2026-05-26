@@ -87,6 +87,21 @@ model Password {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// A pending sign-up. Rows are created when someone submits the register form
+// and are turned into real Users by the Stripe webhook only after payment
+// succeeds. Unpaid/abandoned rows (incl. bot spam) never become Users and are
+// safe to purge after they expire.
+model Registration {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  username     String
+  passwordHash String
+  priceId      String
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+}
+
 model Session {
   id             String   @id @default(cuid())
   userId         String
