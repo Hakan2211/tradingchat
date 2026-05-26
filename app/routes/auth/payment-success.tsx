@@ -8,80 +8,67 @@ import {
 import { invariantResponse } from '#/utils/misc';
 import { prisma } from '#/utils/db.server';
 import { createFreshSession } from '#/utils/auth.server';
+import { stripe } from '#/utils/stripe.server';
 
 // A helper function to introduce a small delay for polling
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * This loader acts as a programmatic gatekeeper after successful payment.
- * It verifies the checkout, waits for the webhook to confirm the subscription
- * in our DB, creates a session, and redirects to the app.
+ * It verifies the Stripe checkout session, waits for the webhook to create the
+ * user + subscription in our DB, creates a login session, and redirects to the
+ * app. The user only exists once the webhook has run, so we resolve them via
+ * the Stripe checkout session id rather than a userId.
  */
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
-  const userId = url.searchParams.get('userId');
+  const checkoutSessionId = url.searchParams.get('session_id');
 
-  console.log('Payment success loader called with:', {
-    userId,
-    fullUrl: request.url,
-  });
+  invariantResponse(checkoutSessionId, 'Checkout session id is missing.');
 
-  invariantResponse(userId, 'User ID is missing.');
+  // 1. Confirm the checkout with Stripe and get the subscription id.
+  const checkoutSession = await stripe.checkout.sessions.retrieve(
+    checkoutSessionId
+  );
 
-  // 1. Verify the user exists
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true },
-  });
+  invariantResponse(
+    checkoutSession.payment_status === 'paid' ||
+      checkoutSession.status === 'complete',
+    'Payment has not been completed.'
+  );
 
-  invariantResponse(user, 'User specified in URL not found.');
+  const stripeSubscriptionId = checkoutSession.subscription as string | null;
+  invariantResponse(
+    stripeSubscriptionId,
+    'No subscription found on this checkout session.'
+  );
 
-  console.log('User found:', user.email);
-
-  // 2. Poll our database to confirm the webhook has been processed
-  let subscription = null;
-  console.log('Starting to poll for subscription for userId:', userId);
-
+  // 2. Poll our DB until the webhook has created the user + subscription.
+  let subscription: { userId: string } | null = null;
   for (let i = 0; i < 15; i++) {
-    // Poll up to 15 times (approx 15 seconds)
-
-    // First, let's check if there are any subscriptions for this user at all
-    const allUserSubscriptions = await prisma.subscription.findMany({
-      where: {
-        userId: String(userId),
-      },
-    });
-
-    console.log(`All subscriptions for user ${userId}:`, allUserSubscriptions);
-
-    subscription = await prisma.subscription.findFirst({
-      where: {
-        userId: String(userId),
-        status: 'active',
-      },
+    subscription = await prisma.subscription.findUnique({
+      where: { stripeSubscriptionId },
+      select: { userId: true },
     });
 
     console.log(
       `Polling attempt ${i + 1}/15:`,
-      subscription ? 'Found active subscription!' : 'No active subscription yet'
+      subscription ? 'Subscription confirmed!' : 'Not confirmed yet'
     );
 
-    if (subscription) {
-      break; // Found it! Exit the loop.
-    }
+    if (subscription) break;
     await sleep(1000); // Wait 1 second before trying again
   }
 
-  // 3. If after polling, we still have no active subscription, something went wrong.
-  // Send them to the pricing page with an error.
+  // 3. If after polling there's still no subscription, something went wrong.
   invariantResponse(
     subscription,
     'Subscription could not be confirmed. Please contact support.',
     { status: 500 }
   );
 
-  // 4. SUCCESS! The subscription is confirmed. Create a fresh session for the user.
-  const { id: sessionId } = await createFreshSession(String(userId));
+  // 4. SUCCESS! Create a fresh login session for the newly created user.
+  const { id: sessionId } = await createFreshSession(subscription.userId);
 
   const session = await getSession();
   session.set(sessionKey, sessionId);

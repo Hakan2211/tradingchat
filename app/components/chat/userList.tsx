@@ -243,7 +243,7 @@ export function UserList({
       <header className="flex-none border-b p-4">
         <h2 className="text-sm">Members — {onlineCount} Online</h2>
       </header>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="space-y-1 p-2">
           {groupedUsers.admins.length > 0 && (
             <div className="mb-2">

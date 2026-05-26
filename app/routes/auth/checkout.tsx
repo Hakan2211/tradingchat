@@ -8,28 +8,31 @@ export async function loader({ request }: LoaderFunctionArgs) {
   await requireAnonymous(request);
 
   const url = new URL(request.url);
-  const priceId = url.searchParams.get('priceId'); // Change from tierId to priceId for Stripe
-  const email = url.searchParams.get('email');
+  const registrationId = url.searchParams.get('registrationId');
 
-  invariantResponse(priceId, 'priceId is required');
-  invariantResponse(email, 'email is required');
+  invariantResponse(registrationId, 'registrationId is required');
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, email: true },
+  const registration = await prisma.registration.findUnique({
+    where: { id: registrationId },
+    select: { id: true, email: true, priceId: true, expiresAt: true },
   });
 
-  invariantResponse(user, 'User not found', { status: 404 });
+  // Missing or expired pending registration → send them back to start over.
+  if (!registration || registration.expiresAt.getTime() < Date.now()) {
+    return redirect('/register');
+  }
 
   const domainUrl = getDomainUrl(request);
-  const successUrl = `${domainUrl}/payment-success?userId=${user.id}`;
+  // Use the Stripe-provided checkout session id so payment-success can resolve
+  // the (webhook-created) user without needing a userId up front.
+  const successUrl = `${domainUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${domainUrl}/register`;
 
   // 4. Create a Stripe Checkout session
   console.log('Creating Stripe checkout session with:', {
-    priceId: priceId,
+    priceId: registration.priceId,
     successUrl: successUrl,
-    customerEmail: user.email,
+    customerEmail: registration.email,
   });
 
   const checkoutSession = await stripe.checkout.sessions.create({
@@ -37,16 +40,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     payment_method_types: ['card'],
     line_items: [
       {
-        price: priceId,
+        price: registration.priceId,
         quantity: 1,
       },
     ],
     success_url: successUrl,
     cancel_url: cancelUrl,
-    customer_email: user.email,
-    client_reference_id: user.id,
+    customer_email: registration.email,
+    client_reference_id: registration.id,
     metadata: {
-      userId: user.id,
+      registrationId: registration.id,
     },
   });
 

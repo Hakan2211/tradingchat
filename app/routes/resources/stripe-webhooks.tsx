@@ -2,6 +2,7 @@
 import { type ActionFunctionArgs } from 'react-router';
 import { stripe } from '#/utils/stripe.server';
 import { prisma } from '#/utils/db.server';
+import { createUserFromRegistration } from '#/utils/auth.server';
 import type Stripe from 'stripe';
 
 // This function ensures all Stripe statuses are mapped to your DB enum
@@ -29,13 +30,40 @@ export async function action({ request }: ActionFunctionArgs) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.client_reference_id ?? session.metadata?.userId;
         const subscriptionId = session.subscription as string;
         const customerId = session.customer as string;
 
-        if (!userId || !subscriptionId || !customerId) {
+        if (!subscriptionId || !customerId) {
           throw new Error(
             'Webhook Error: checkout.session.completed missing required data.'
+          );
+        }
+
+        // Resolve the user. New flow: a pending Registration is turned into a
+        // real User now that payment has succeeded. Fall back to the old
+        // metadata.userId (for any in-flight legacy sessions) or the email.
+        const registrationId =
+          session.client_reference_id ?? session.metadata?.registrationId;
+
+        let userId: string | undefined;
+        if (registrationId) {
+          const result = await createUserFromRegistration(registrationId);
+          userId = result?.userId;
+        }
+        if (!userId && session.metadata?.userId) {
+          userId = session.metadata.userId;
+        }
+        if (!userId && session.customer_email) {
+          const existing = await prisma.user.findUnique({
+            where: { email: session.customer_email.toLowerCase() },
+            select: { id: true },
+          });
+          userId = existing?.id;
+        }
+
+        if (!userId) {
+          throw new Error(
+            'Webhook Error: could not resolve a user for completed checkout.'
           );
         }
 
@@ -48,8 +76,10 @@ export async function action({ request }: ActionFunctionArgs) {
         const periodStart = subscriptionItem.current_period_start;
         const periodEnd = subscriptionItem.current_period_end;
 
-        await prisma.subscription.create({
-          data: {
+        // Upsert so a retried webhook delivery doesn't create a duplicate.
+        await prisma.subscription.upsert({
+          where: { stripeSubscriptionId: subscription.id },
+          create: {
             userId: userId,
             stripeSubscriptionId: subscription.id,
             stripeCustomerId: customerId,
@@ -60,6 +90,12 @@ export async function action({ request }: ActionFunctionArgs) {
             currentPeriodStart: new Date(periodStart * 1000),
             currentPeriodEnd: new Date(periodEnd * 1000),
             startedAt: new Date(subscription.created * 1000),
+          },
+          update: {
+            status: toDbStatus(subscription.status),
+            priceId: subscriptionItem.price.id,
+            cancelAtPeriodEnd: subscription.cancel_at_period_end,
+            currentPeriodEnd: new Date(periodEnd * 1000),
           },
         });
         console.log(`✅ Subscription CREATED for user ${userId}`);
