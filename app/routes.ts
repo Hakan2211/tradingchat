@@ -34,6 +34,8 @@ export default [
     route('/journal-images/:imageId', 'routes/resources/journal-images.tsx'),
     route('/scanner', 'routes/resources/scanner.tsx'),
     route('/themes', 'routes/resources/themes.tsx'),
+    route('/live-session', 'routes/resources/live-session.tsx'),
+    route('/live-token', 'routes/resources/live-token.tsx'),
   ]),
 
   //--------------App Routes-----------------------

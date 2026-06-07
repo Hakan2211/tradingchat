@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router';
+import { NavLink } from "react-router";
 import {
   Eye,
   MessageCircleMore,
@@ -9,7 +9,7 @@ import {
   type LucideIcon,
   ChevronRight,
   MessageSquare,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -19,15 +19,15 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from '#/components/ui/sidebar';
+} from "#/components/ui/sidebar";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '#/components/ui/collapsible';
-import { Badge } from '#/components/ui/badge';
-import { cn } from '#/lib/utils';
-import React from 'react';
+} from "#/components/ui/collapsible";
+import { Badge } from "#/components/ui/badge";
+import { cn } from "#/lib/utils";
+import React from "react";
 
 export type NavRoomItem = {
   id: string;
@@ -62,9 +62,11 @@ function RoomIcon({
 export function NavRooms({
   items,
   unreadCounts,
+  liveRoomIds = [],
 }: {
   items: NavRoomItem[];
   unreadCounts: Record<string, number>;
+  liveRoomIds?: string[];
 }) {
   if (!items.length) {
     return null;
@@ -95,6 +97,7 @@ export function NavRooms({
             <SidebarMenuSub className="gap-2 mt-1">
               {items.map((item) => {
                 const unreadCount = unreadCounts[item.id] || 0;
+                const isLive = liveRoomIds.includes(item.id);
 
                 return (
                   <SidebarMenuSubItem
@@ -106,8 +109,8 @@ export function NavRooms({
                         <SidebarMenuSubButton
                           asChild
                           className={cn(
-                            'hover:bg-accent/50 hover:text-accent-foreground',
-                            isActive && '!bg-accent/60 !text-accent-foreground'
+                            "hover:bg-accent/50 hover:text-accent-foreground",
+                            isActive && "!bg-accent/60 !text-accent-foreground"
                           )}
                           isActive={isActive}
                         >
@@ -119,14 +122,21 @@ export function NavRooms({
                               />
                               <span className="capitalize">{item.name}</span>
                             </div>
-                            {unreadCount > 0 && (
-                              <Badge
-                                variant="outline"
-                                className="ml-2 h-5 shrink-0 justify-center rounded-full px-2 text-xs font-medium text-primary"
-                              >
-                                {unreadCount}
-                              </Badge>
-                            )}
+                            <div className="flex items-center">
+                              {isLive && (
+                                <Badge className="ml-2 h-5 shrink-0 animate-pulse justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
+                                  LIVE
+                                </Badge>
+                              )}
+                              {unreadCount > 0 && (
+                                <Badge
+                                  variant="outline"
+                                  className="ml-2 h-5 shrink-0 justify-center rounded-full px-2 text-xs font-medium text-primary"
+                                >
+                                  {unreadCount}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </SidebarMenuSubButton>
                       )}

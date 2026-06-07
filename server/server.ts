@@ -1,37 +1,40 @@
-import { createRequestHandler } from '@react-router/express';
-import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
-import compression from 'compression';
-import morgan from 'morgan';
-import http from 'node:http';
-import { Server } from 'socket.io';
-import rateLimit from 'express-rate-limit';
-import { type ServerBuild } from 'react-router';
-import { prisma } from 'app/utils/db.server';
-import { UserStatus } from '@prisma/client';
+import "dotenv/config";
+import { createRequestHandler } from "@react-router/express";
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
+import compression from "compression";
+import morgan from "morgan";
+import http from "node:http";
+import { Server } from "socket.io";
+import rateLimit from "express-rate-limit";
+import { type ServerBuild } from "react-router";
+import { prisma } from "app/utils/db.server";
+import { liveSessions } from "app/utils/live-session.server";
+import { RoomServiceClient } from "livekit-server-sdk";
+import { UserStatus } from "@prisma/client";
 
 const MODE = process.env.NODE_ENV;
-const IS_PROD = MODE === 'production';
+const IS_PROD = MODE === "production";
 
 const viteDevServer = IS_PROD
   ? undefined
-  : await import('vite').then((vite) =>
+  : await import("vite").then((vite) =>
       vite.createServer({
         server: { middlewareMode: true },
         // THIS IS THE CRITICAL FIX for the browser not loading
-        appType: 'custom',
+        appType: "custom",
       })
     );
 
 const app = express();
 const httpServer = http.createServer(app);
 
-app.get('/healthz', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get("/healthz", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // Debug endpoint to check environment and startup status
-app.get('/debug', (req, res) => {
+app.get("/debug", (req, res) => {
   try {
     const envStatus = {
       NODE_ENV: process.env.NODE_ENV,
@@ -44,31 +47,31 @@ app.get('/debug', (req, res) => {
       hasHoneypot: !!process.env.HONEYPOT_SECRET,
       hasCsrfSecret: !!process.env.CSRF_SESSION_SECRET,
     };
-    
-    res.status(200).json({ 
-      status: 'Environment Check', 
+
+    res.status(200).json({
+      status: "Environment Check",
       env: envStatus,
-      timestamp: new Date().toISOString() 
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ 
-      status: 'error', 
-      error: error.message,
-      timestamp: new Date().toISOString() 
+    res.status(500).json({
+      status: "error",
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
     });
   }
 });
 const onlineUsers = new Map<string, Set<string>>();
 
 const io = new Server(httpServer, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-io.on('connection', (socket) => {
-  console.log('✅ User connected:', socket.id);
+io.on("connection", (socket) => {
+  console.log("✅ User connected:", socket.id);
   const userId = socket.handshake.auth.userId as string | undefined;
 
-  socket.on('client.ready.get_users', async () => {
+  socket.on("client.ready.get_users", async () => {
     console.log(`Server: Received request for user list from ${socket.id}`);
 
     try {
@@ -82,7 +85,7 @@ io.on('connection', (socket) => {
       userStatuses.forEach((u) => statusesMap.set(u.id, u.status));
 
       // Emit back to the specific client that asked for it.
-      socket.emit('online.users', {
+      socket.emit("online.users", {
         userIds: onlineUserIds,
         statuses: Object.fromEntries(statusesMap),
       });
@@ -93,25 +96,25 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error(`Server: Error sending user list to ${socket.id}:`, error);
       // Send an empty response to prevent client from hanging
-      socket.emit('online.users', {
+      socket.emit("online.users", {
         userIds: [],
         statuses: {},
       });
     }
   });
 
-  socket.on('joinRoom', (roomId: string) => {
+  socket.on("joinRoom", (roomId: string) => {
     socket.join(roomId);
     console.log(`Socket ${socket.id} joined room ${roomId}`);
   });
 
-  socket.on('leaveRoom', (roomId: string) => {
+  socket.on("leaveRoom", (roomId: string) => {
     socket.leave(roomId);
     console.log(`Socket ${socket.id} left room ${roomId}`);
   });
 
-  socket.on('disconnect', () => {
-    console.log('❌ User disconnected:', socket.id);
+  socket.on("disconnect", () => {
+    console.log("❌ User disconnected:", socket.id);
     if (userId) {
       const userSockets = onlineUsers.get(userId);
       if (userSockets) {
@@ -120,7 +123,7 @@ io.on('connection', (socket) => {
         if (userSockets.size === 0) {
           onlineUsers.delete(userId);
           // Broadcast that this user is now offline
-          io.emit('user.offline', { userId });
+          io.emit("user.offline", { userId });
           console.log(`User ${userId} went offline.`);
         }
       }
@@ -137,7 +140,7 @@ io.on('connection', (socket) => {
       if (!onlineUsers.has(userId)) {
         onlineUsers.set(userId, new Set());
         if (user) {
-          io.emit('user.online', { userId, status: user.status });
+          io.emit("user.online", { userId, status: user.status });
           console.log(`User ${userId} came online.`);
         }
       }
@@ -146,10 +149,50 @@ io.on('connection', (socket) => {
   }
 });
 
+// --- Live session reconciliation sweep -------------------------------------
+// Live sessions live in an in-memory map (app/utils/live-session.server.ts).
+// If a broadcaster's tab dies without clicking "End Session", the map entry
+// goes stale. Every 45s we check LiveKit for the broadcaster's presence and
+// end the session after two consecutive misses (~90-135s).
+if (process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY) {
+  const roomService = new RoomServiceClient(
+    process.env.LIVEKIT_URL.replace(/^ws/, "http"),
+    process.env.LIVEKIT_API_KEY,
+    process.env.LIVEKIT_API_SECRET
+  );
+  setInterval(async () => {
+    for (const [roomId, session] of liveSessions) {
+      // Grace period so a broadcaster who just started has time to connect.
+      if (Date.now() - session.startedAt < 90_000) continue;
+      try {
+        const participants = await roomService
+          .listParticipants(roomId)
+          .catch(() => []);
+        const broadcasterPresent = participants.some(
+          (p) => p.identity === session.broadcasterId
+        );
+        session.missedSweeps = broadcasterPresent
+          ? 0
+          : session.missedSweeps + 1;
+        if (session.missedSweeps >= 2) {
+          liveSessions.delete(roomId);
+          await roomService.deleteRoom(roomId).catch(() => {});
+          io.emit("room.live.ended", { roomId });
+          console.log(
+            `Live session in room ${roomId} ended by sweep (broadcaster gone).`
+          );
+        }
+      } catch {
+        // Never let the sweep crash the server.
+      }
+    }
+  }, 45_000);
+}
+
 // Standard middleware
 app.use(compression());
-app.disable('x-powered-by');
-app.use(morgan('tiny'));
+app.disable("x-powered-by");
+app.use(morgan("tiny"));
 
 // Vite middleware is the key to serving the app in development
 if (viteDevServer) {
@@ -157,10 +200,10 @@ if (viteDevServer) {
 } else {
   // Production static asset serving
   app.use(
-    '/assets',
-    express.static('build/client/assets', { immutable: true, maxAge: '1y' })
+    "/assets",
+    express.static("build/client/assets", { immutable: true, maxAge: "1y" })
   );
-  app.use(express.static('build/client', { maxAge: '1h' }));
+  app.use(express.static("build/client", { maxAge: "1h" }));
 }
 
 // Your Rate Limiting logic remains the same
@@ -182,8 +225,8 @@ const strongRateLimit = rateLimit({
 const generalRateLimit = rateLimit(rateLimitDefault);
 
 app.use((req, res, next) => {
-  const strongPaths = ['/register'];
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
+  const strongPaths = ["/register"];
+  if (req.method !== "GET" && req.method !== "HEAD") {
     if (strongPaths.some((path) => req.path.includes(path))) {
       return strongestRateLimit(req, res, next);
     }
@@ -196,12 +239,12 @@ app.use((req, res, next) => {
 async function getBuild() {
   try {
     const build = viteDevServer
-      ? await viteDevServer.ssrLoadModule('virtual:react-router/server-build')
+      ? await viteDevServer.ssrLoadModule("virtual:react-router/server-build")
       : // @ts-expect-error - this will exist in production
-        await import('../build/server/index.js');
+        await import("../build/server/index.js");
     return build as ServerBuild;
   } catch (error) {
-    console.error('Failed to load server build:', error);
+    console.error("Failed to load server build:", error);
     // In dev, Vite will show an error overlay, so we can throw
     if (!IS_PROD) throw error;
     // In prod, we should not crash the server
@@ -219,7 +262,7 @@ const handler = async (
     const build = await getBuild();
     if (!build) {
       // If the build fails in prod, send a 500
-      res.status(500).send('Server Error');
+      res.status(500).send("Server Error");
       return;
     }
     const handler = createRequestHandler({
@@ -241,29 +284,29 @@ httpServer.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, shutting down gracefully");
   httpServer.close(() => {
-    console.log('HTTP server closed');
+    console.log("HTTP server closed");
     process.exit(0);
   });
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
+process.on("SIGINT", () => {
+  console.log("SIGINT received, shutting down gracefully");
   httpServer.close(() => {
-    console.log('HTTP server closed');
+    console.log("HTTP server closed");
     process.exit(0);
   });
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
 });
 
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
   process.exit(1);
 });
 

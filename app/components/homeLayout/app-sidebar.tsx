@@ -1,5 +1,5 @@
-import * as React from 'react';
-import { NavUser } from '#/components/homeLayout/nav-user';
+import * as React from "react";
+import { NavUser } from "#/components/homeLayout/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -10,16 +10,16 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarMenu,
-} from '#/components/ui/sidebar';
-import { ThemeSwitch } from '#/routes/resources/theme-switch';
-import { useRequestInfo } from '#/utils/request-info';
-import { NavRooms, type NavRoomItem } from '#/components/homeLayout/nav-room';
-import { NavLink } from 'react-router';
-import { Bookmark, Layers, NotebookPen, Radar } from 'lucide-react';
-import { NavDms, type NavDmItem } from '#/components/homeLayout/nav-dms';
-import { useSocketContext } from '#/routes/layouts/app-layout';
-import { useHydrated } from 'remix-utils/use-hydrated';
-import { cn } from '#/lib/utils';
+} from "#/components/ui/sidebar";
+import { ThemeSwitch } from "#/routes/resources/theme-switch";
+import { useRequestInfo } from "#/utils/request-info";
+import { NavRooms, type NavRoomItem } from "#/components/homeLayout/nav-room";
+import { NavLink } from "react-router";
+import { Bookmark, Layers, NotebookPen, Radar } from "lucide-react";
+import { NavDms, type NavDmItem } from "#/components/homeLayout/nav-dms";
+import { useSocketContext } from "#/routes/layouts/app-layout";
+import { useHydrated } from "remix-utils/use-hydrated";
+import { cn } from "#/lib/utils";
 
 type AppSidebarProps = {
   user: {
@@ -45,7 +45,11 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const requestInfo = useRequestInfo();
-  const { directMessages: socketDms, unreadCounts } = useSocketContext();
+  const {
+    directMessages: socketDms,
+    unreadCounts,
+    liveSessions,
+  } = useSocketContext();
   const isHydrated = useHydrated();
 
   return (
@@ -55,7 +59,11 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarSeparator />
       <SidebarContent className="p-2">
-        <NavRooms items={rooms} unreadCounts={unreadCounts} />
+        <NavRooms
+          items={rooms}
+          unreadCounts={unreadCounts}
+          liveRoomIds={Object.keys(liveSessions)}
+        />
         <NavDms
           items={isHydrated ? socketDms : directMessages}
           unreadCounts={unreadCounts}
@@ -67,8 +75,8 @@ export function AppSidebar({
               {({ isActive }) => (
                 <SidebarMenuButton
                   className={cn(
-                    'h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground',
-                    isActive && '!bg-accent/60 !text-accent-foreground'
+                    "h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground",
+                    isActive && "!bg-accent/60 !text-accent-foreground"
                   )}
                   isActive={isActive}
                   tooltip="Trading Journal"
@@ -86,8 +94,8 @@ export function AppSidebar({
               {({ isActive }) => (
                 <SidebarMenuButton
                   className={cn(
-                    'h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground',
-                    isActive && '!bg-accent/60 !text-accent-foreground'
+                    "h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground",
+                    isActive && "!bg-accent/60 !text-accent-foreground"
                   )}
                   isActive={isActive}
                   tooltip="Scanner"
@@ -105,8 +113,8 @@ export function AppSidebar({
               {({ isActive }) => (
                 <SidebarMenuButton
                   className={cn(
-                    'h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground',
-                    isActive && '!bg-accent/60 !text-accent-foreground'
+                    "h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground",
+                    isActive && "!bg-accent/60 !text-accent-foreground"
                   )}
                   isActive={isActive}
                   tooltip="Themes"
@@ -124,8 +132,8 @@ export function AppSidebar({
               {({ isActive }) => (
                 <SidebarMenuButton
                   className={cn(
-                    'h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground',
-                    isActive && '!bg-accent/60 !text-accent-foreground'
+                    "h-10 text-base cursor-pointer [&>svg]:size-5 hover:!bg-accent/50 hover:!text-accent-foreground",
+                    isActive && "!bg-accent/60 !text-accent-foreground"
                   )}
                   isActive={isActive}
                   tooltip="Bookmarks"

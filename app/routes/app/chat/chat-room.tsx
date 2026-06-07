@@ -1,21 +1,21 @@
-import * as React from 'react';
+import * as React from "react";
 import {
   useLoaderData,
   useFetcher,
   useSearchParams,
   type LoaderFunctionArgs,
   type ActionFunctionArgs,
-} from 'react-router';
-import { z } from 'zod';
-import { getFormProps, getInputProps, useForm } from '@conform-to/react';
-import { getZodConstraint, parseWithZod } from '@conform-to/zod';
-import { useSocketContext } from '#/routes/layouts/app-layout';
-import type { Server } from 'socket.io';
-import { prisma } from '#/utils/db.server';
-import { requireUserId } from '#/utils/auth.server';
-import { getUserImagePath, invariantResponse } from '#/utils/misc';
-import { Button } from '#/components/ui/button';
-import TextareaAutosize from 'react-textarea-autosize';
+} from "react-router";
+import { z } from "zod";
+import { getFormProps, getInputProps, useForm } from "@conform-to/react";
+import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+import { useSocketContext } from "#/routes/layouts/app-layout";
+import type { Server } from "socket.io";
+import { prisma } from "#/utils/db.server";
+import { requireUserId } from "#/utils/auth.server";
+import { getUserImagePath, invariantResponse } from "#/utils/misc";
+import { Button } from "#/components/ui/button";
+import TextareaAutosize from "react-textarea-autosize";
 import {
   SendHorizonalIcon,
   type LucideIcon,
@@ -30,33 +30,43 @@ import {
   Handshake,
   Megaphone,
   Calendar as CalendarIcon,
-} from 'lucide-react';
-import { ChatMessage } from '#/components/chat/chat-message';
-import { requirePermission } from '#/utils/permission.server';
-import { parseFormData, type FileUpload } from '@mjackson/form-data-parser';
-import { processImage } from '#/utils/image.server';
-import { uploadImageToR2, deleteImageFromR2 } from '#/utils/r2.server';
-import { getChatImagePath } from '#/utils/misc';
-import { DateBadge, shouldShowDateBadge } from '#/components/chat/dateBadge';
-import { UserList } from '#/components/chat/userList';
-import { getUserListVisibility } from '#/utils/userlist.server';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar';
-import { useInfiniteMessages } from '#/hooks/use-infinite-messages';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { Calendar } from '#/components/ui/calendar';
+} from "lucide-react";
+import { ChatMessage } from "#/components/chat/chat-message";
+import { requirePermission } from "#/utils/permission.server";
+import { parseFormData, type FileUpload } from "@mjackson/form-data-parser";
+import { processImage } from "#/utils/image.server";
+import { uploadImageToR2, deleteImageFromR2 } from "#/utils/r2.server";
+import { getChatImagePath } from "#/utils/misc";
+import { DateBadge, shouldShowDateBadge } from "#/components/chat/dateBadge";
+import { UserList } from "#/components/chat/userList";
+import { getUserListVisibility } from "#/utils/userlist.server";
+import { motion, AnimatePresence } from "framer-motion";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
+import { useInfiniteMessages } from "#/hooks/use-infinite-messages";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { Calendar } from "#/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '#/components/ui/popover';
+} from "#/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '#/components/ui/tooltip';
+} from "#/components/ui/tooltip";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "#/components/ui/resizable";
+import { userHasRole } from "#/utils/userPermissionRole";
+import { GoLiveDialog } from "#/components/live/go-live-dialog";
+import { JoinBanner } from "#/components/live/join-banner";
+import { LiveStage } from "#/components/live/live-stage";
+import { LiveAudioBar } from "#/components/live/live-audio-bar";
 
 const MAX_CHAT_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const MESSAGE_PAGE_SIZE = 200; // Increased for better virtualization performance
@@ -117,15 +127,15 @@ const MessageSchema = z.object({
   content: z
     .string()
     .trim()
-    .max(1000, 'Message cannot be more than 1000 characters')
-    .transform((val) => (val === '' ? undefined : val))
+    .max(1000, "Message cannot be more than 1000 characters")
+    .transform((val) => (val === "" ? undefined : val))
     .optional(),
   replyToId: z.string().optional(),
 });
 
 const EditMessageSchema = z.object({
   messageId: z.string(),
-  content: z.string().min(1, 'Message cannot be empty').max(1000),
+  content: z.string().min(1, "Message cannot be empty").max(1000),
 });
 
 const ChatImageSchema = z.object({
@@ -136,12 +146,12 @@ const ChatImageSchema = z.object({
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
   const { roomId } = params;
-  invariantResponse(roomId, 'Room ID is required', { status: 404 });
+  invariantResponse(roomId, "Room ID is required", { status: 404 });
 
   //--------------------------Virtualized Messages---------------------------------------------------------------
   const url = new URL(request.url);
-  const cursor = url.searchParams.get('cursor');
-  const dateParam = url.searchParams.get('date');
+  const cursor = url.searchParams.get("cursor");
+  const dateParam = url.searchParams.get("date");
 
   // Determine the date range for the query. Default to today if no date is provided or if the format is invalid.
   const selectedDate =
@@ -192,7 +202,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         },
       },
     },
-    orderBy: { createdAt: 'desc' as const },
+    orderBy: { createdAt: "desc" as const },
     take: MESSAGE_PAGE_SIZE,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
   };
@@ -244,12 +254,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       },
       status: true,
       messages: {
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 1,
         select: { createdAt: true },
       },
     },
-    orderBy: { name: 'asc' },
+    orderBy: { name: "asc" },
   });
 
   // Clear unread messages for this room and user
@@ -275,7 +285,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       },
     },
   });
-  invariantResponse(room, 'Room not found', { status: 404 });
+  invariantResponse(room, "Room not found", { status: 404 });
 
   const userListVisibility = await getUserListVisibility(request);
 
@@ -286,15 +296,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const userId = await requireUserId(request);
   const { roomId } = params;
-  invariantResponse(roomId, 'Cannot submit message without a room ID');
+  invariantResponse(roomId, "Cannot submit message without a room ID");
 
   const formData = await parseFormData(request, {
     maxFileSize: MAX_CHAT_IMAGE_SIZE,
   });
 
-  const intent = formData.get('intent');
+  const intent = formData.get("intent");
 
-  const imageFile = formData.get('chatImage') as FileUpload | string | null;
+  const imageFile = formData.get("chatImage") as FileUpload | string | null;
 
   let imageCreateData: {
     contentType: string;
@@ -303,7 +313,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   } | null = null;
 
   // 1. Prepare the image data, but DON'T create the DB record yet.
-  if (imageFile && typeof imageFile !== 'string' && imageFile.size > 0) {
+  if (imageFile && typeof imageFile !== "string" && imageFile.size > 0) {
     const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
     const { data: optimizedBuffer, contentType } = await processImage(
       imageBuffer
@@ -322,9 +332,9 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   }
 
   // --- DELETE INTENT LOGIC ---
-  if (intent === 'deleteMessage') {
-    const messageId = formData.get('messageId');
-    invariantResponse(typeof messageId === 'string', 'Message ID is required');
+  if (intent === "deleteMessage") {
+    const messageId = formData.get("messageId");
+    invariantResponse(typeof messageId === "string", "Message ID is required");
 
     // 1. Check for replies AT THE SAME TIME we fetch the message for permission checks.
     // This is highly efficient.
@@ -338,12 +348,12 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
         image: { select: { id: true, objectKey: true } },
       },
     });
-    invariantResponse(message, 'Message not found', { status: 404 });
+    invariantResponse(message, "Message not found", { status: 404 });
 
     // Your permission check remains the same
     await requirePermission(
       request,
-      'delete:message',
+      "delete:message",
       message.userId || undefined
     );
 
@@ -360,7 +370,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
         const msgUpdate = await tx.message.update({
           where: { id: messageId },
           data: {
-            content: '[message deleted]',
+            content: "[message deleted]",
             isDeleted: true,
             userId: null,
           },
@@ -388,7 +398,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
         await deleteImageFromR2(objectKeyToDelete);
       }
 
-      io.to(roomId).emit('messageEdited', updatedMessage);
+      io.to(roomId).emit("messageEdited", updatedMessage);
     } else {
       // --- HARD DELETE PATH (This was already correct) ---
       // The `onDelete: Cascade` in your schema handles this case correctly.
@@ -400,15 +410,15 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
         await deleteImageFromR2(objectKeyToDelete);
       }
 
-      io.to(roomId).emit('messageDeleted', { messageId });
+      io.to(roomId).emit("messageDeleted", { messageId });
     }
 
-    return { status: 'success' as const };
+    return { status: "success" as const };
   }
 
-  if (intent === 'editMessage') {
+  if (intent === "editMessage") {
     const submission = parseWithZod(formData, { schema: EditMessageSchema });
-    if (submission.status !== 'success') {
+    if (submission.status !== "success") {
       return submission.reply();
     }
     const { messageId, content } = submission.value;
@@ -417,12 +427,12 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       where: { id: messageId },
       select: { userId: true },
     });
-    invariantResponse(message, 'Message not found', { status: 404 });
+    invariantResponse(message, "Message not found", { status: 404 });
 
     // Use your existing permission checker for "update"
     await requirePermission(
       request,
-      'update:message',
+      "update:message",
       message.userId || undefined
     );
 
@@ -434,15 +444,15 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
     // Broadcast the edit to all clients
     const { io } = context as { io: Server };
-    io.to(roomId).emit('messageEdited', updatedMessage);
+    io.to(roomId).emit("messageEdited", updatedMessage);
 
-    return { status: 'success' as const };
+    return { status: "success" as const };
   }
 
   //------Bookmark Intent Logic------
-  if (intent === 'toggleBookmark') {
-    const messageId = formData.get('messageId');
-    invariantResponse(typeof messageId === 'string', 'Message ID is required');
+  if (intent === "toggleBookmark") {
+    const messageId = formData.get("messageId");
+    invariantResponse(typeof messageId === "string", "Message ID is required");
 
     // try {
     //   const message = await prisma.message.findUnique({
@@ -476,7 +486,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
     // Note: No socket broadcast is needed as this is a private user action.
     return {
-      status: 'success' as const,
+      status: "success" as const,
       toggledMessageId: messageId,
       bookmarked: isNowBookmarked,
     };
@@ -489,13 +499,13 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
   const submission = parseWithZod(formData, { schema: MessageSchema });
 
-  if (submission.status !== 'success') {
+  if (submission.status !== "success") {
     return submission.reply();
   }
 
   invariantResponse(
     submission.value.content || imageCreateData,
-    'A message must have content or an image.'
+    "A message must have content or an image."
   );
 
   const { io } = context as { io: Server };
@@ -504,9 +514,9 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     select: { name: true, members: { select: { id: true } } },
   });
 
-  invariantResponse(room, 'Room not found', { status: 404 });
+  invariantResponse(room, "Room not found", { status: 404 });
 
-  if (room && room.name.startsWith('dm:')) {
+  if (room && room.name.startsWith("dm:")) {
     // Find the other user in the room
     const otherMember = room.members.find((member) => member.id !== userId);
     if (otherMember) {
@@ -528,10 +538,10 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       if (sender) {
         const dmData = {
           id: roomId,
-          name: sender.name ?? 'Direct Message',
+          name: sender.name ?? "Direct Message",
           userImage: sender.image,
         };
-        io.to(`user:${otherMember.id}`).emit('dm.activated', dmData);
+        io.to(`user:${otherMember.id}`).emit("dm.activated", dmData);
       }
     }
   }
@@ -577,7 +587,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     },
   });
   const messageToBroadcast = newMessage;
-  io.to(roomId).emit('newMessage', messageToBroadcast);
+  io.to(roomId).emit("newMessage", messageToBroadcast);
 
   const socketsInRoom = await io.in(roomId).fetchSockets();
   const activeUserIdsInRoom = new Set(
@@ -600,11 +610,11 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     });
 
     // 4. Emit a notification event ONLY to that specific user's personal channel.
-    io.to(`user:${recipient.id}`).emit('notification', {
+    io.to(`user:${recipient.id}`).emit("notification", {
       roomId: roomId,
       unreadCount: unreadRecord.count,
       sender: {
-        name: newMessage.user?.name ?? 'Someone',
+        name: newMessage.user?.name ?? "Someone",
       },
     });
   }
@@ -623,7 +633,31 @@ export default function ChatRoom() {
     return <div>Loading...</div>;
   }
 
-  const { socket, onlineUserIds, userStatuses, isReady } = useSocketContext();
+  const { socket, onlineUserIds, userStatuses, isReady, liveSessions } =
+    useSocketContext();
+
+  // ----- Live session state -----
+  const liveSession = liveSessions[room.id];
+  const isBroadcaster = liveSession?.broadcasterId === user.id;
+  const [joinedLive, setJoinedLive] = React.useState(false);
+  // Leave the stage when the session ends or the user switches rooms.
+  React.useEffect(() => {
+    if (!liveSession) setJoinedLive(false);
+  }, [liveSession]);
+  React.useEffect(() => {
+    setJoinedLive(false);
+  }, [room.id]);
+  const canGoLive =
+    !room.name.startsWith("dm:") &&
+    (userHasRole(user, "admin") || userHasRole(user, "moderator"));
+  const showStage =
+    !!liveSession &&
+    liveSession.mode === "screen" &&
+    (isBroadcaster || joinedLive);
+  const showAudioBar =
+    !!liveSession &&
+    liveSession.mode === "audio" &&
+    (isBroadcaster || joinedLive);
   const {
     messages,
     setMessages,
@@ -650,11 +684,11 @@ export default function ChatRoom() {
 
   // Memoize the selected date to avoid re-calculating on every render
   const selectedDate = React.useMemo(() => {
-    const dateParam = searchParams.get('date');
+    const dateParam = searchParams.get("date");
     const today = new Date();
     // Use a more robust date parsing and validation
     if (dateParam) {
-      const date = new Date(dateParam + 'T00:00:00'); // Specify time to avoid timezone shifts
+      const date = new Date(dateParam + "T00:00:00"); // Specify time to avoid timezone shifts
       if (!isNaN(date.getTime())) {
         return date;
       }
@@ -666,8 +700,8 @@ export default function ChatRoom() {
     if (date) {
       // Create a fresh URLSearchParams object to avoid issues with stale state.
       const newSearchParams = new URLSearchParams(searchParams);
-      newSearchParams.set('date', format(date, 'yyyy-MM-dd'));
-      newSearchParams.delete('cursor'); // Reset pagination when date changes
+      newSearchParams.set("date", format(date, "yyyy-MM-dd"));
+      newSearchParams.delete("cursor"); // Reset pagination when date changes
       setSearchParams(newSearchParams, { preventScrollReset: true });
       setIsCalendarOpen(false); // Close the popover after selection
     }
@@ -769,7 +803,7 @@ export default function ChatRoom() {
     // using smooth behavior for both virtualized and non-virtualized lists
     viewport.scrollTo({
       top: viewport.scrollHeight,
-      behavior: 'smooth',
+      behavior: "smooth",
     });
   }, []);
 
@@ -784,8 +818,8 @@ export default function ChatRoom() {
         scrollHeight - scrollTop - clientHeight < 100;
     };
 
-    viewport.addEventListener('scroll', handleScroll, { passive: true });
-    return () => viewport.removeEventListener('scroll', handleScroll);
+    viewport.addEventListener("scroll", handleScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", handleScroll);
   }, []);
 
   // Reset initial scroll flag when room changes
@@ -805,7 +839,7 @@ export default function ChatRoom() {
           // Instant scroll to bottom when entering a room
           viewport.scrollTo({
             top: viewport.scrollHeight,
-            behavior: 'auto', // instant, not smooth
+            behavior: "auto", // instant, not smooth
           });
 
           // Mark that we've done the initial scroll for this room
@@ -829,20 +863,20 @@ export default function ChatRoom() {
   // Socket handler: only handle state updates
   React.useEffect(() => {
     if (!socket || !room) return;
-    socket.emit('joinRoom', room.id);
+    socket.emit("joinRoom", room.id);
 
     const onNew = (msg: MessageWithUser) => {
       if (msg.roomId === room.id) addMessage(msg);
     };
-    socket.on('newMessage', onNew);
-    socket.on('messageDeleted', ({ messageId }) => deleteMessage(messageId));
-    socket.on('messageEdited', editMessage);
+    socket.on("newMessage", onNew);
+    socket.on("messageDeleted", ({ messageId }) => deleteMessage(messageId));
+    socket.on("messageEdited", editMessage);
 
     return () => {
-      socket.emit('leaveRoom', room.id);
-      socket.off('newMessage', onNew);
-      socket.off('messageDeleted');
-      socket.off('messageEdited');
+      socket.emit("leaveRoom", room.id);
+      socket.off("newMessage", onNew);
+      socket.off("messageDeleted");
+      socket.off("messageEdited");
     };
   }, [socket, room?.id, addMessage, deleteMessage, editMessage]);
 
@@ -859,7 +893,7 @@ export default function ChatRoom() {
   }, [messages.length, scrollToBottom]);
 
   const [form, fields] = useForm({
-    id: 'send-message-form',
+    id: "send-message-form",
     constraint: getZodConstraint(MessageSchema),
     lastResult: messageFetcher.data,
     onValidate({ formData }) {
@@ -871,7 +905,7 @@ export default function ChatRoom() {
     setReplyingTo(message);
     // Optional: focus the textarea for better UX
     const contentElement = formRef.current?.elements.namedItem(
-      'content'
+      "content"
     ) as HTMLElement;
     contentElement?.focus();
   };
@@ -909,8 +943,8 @@ export default function ChatRoom() {
 
       // Submit the request
       bookmarkFetcher.submit(
-        { intent: 'toggleBookmark', messageId },
-        { method: 'POST' }
+        { intent: "toggleBookmark", messageId },
+        { method: "POST" }
       );
     },
     [messages, user.id, updateBookmark, bookmarkFetcher]
@@ -985,7 +1019,7 @@ export default function ChatRoom() {
     const items = event.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
       // We only care about image files
-      if (items[i].type.indexOf('image') !== -1) {
+      if (items[i].type.indexOf("image") !== -1) {
         const file = items[i].getAsFile();
         if (file) {
           event.preventDefault();
@@ -1011,15 +1045,15 @@ export default function ChatRoom() {
     // Tell the server to set the cookie for future visits
     userListFetcher.submit(
       { visible: newVisibility.toString() },
-      { method: 'POST', action: '/resources/userlist-toggle' }
+      { method: "POST", action: "/resources/userlist-toggle" }
     );
   };
 
   // --- Form Reset Logic ---
   React.useEffect(() => {
     if (
-      messageFetcher.state === 'idle' &&
-      messageFetcher.data?.status === 'success'
+      messageFetcher.state === "idle" &&
+      messageFetcher.data?.status === "success"
     ) {
       formRef.current?.reset();
       setReplyingTo(null);
@@ -1036,14 +1070,14 @@ export default function ChatRoom() {
 
   React.useEffect(() => {
     if (
-      bookmarkFetcher.state === 'idle' &&
-      bookmarkFetcher.data?.status === 'success' &&
+      bookmarkFetcher.state === "idle" &&
+      bookmarkFetcher.data?.status === "success" &&
       (bookmarkFetcher.data as any)?.toggledMessageId
     ) {
       const messageId = (bookmarkFetcher.data as any).toggledMessageId;
       const isNowBookmarked = (bookmarkFetcher.data as any).bookmarked;
 
-      if (typeof isNowBookmarked === 'boolean') {
+      if (typeof isNowBookmarked === "boolean") {
         updateBookmark(messageId, user.id, isNowBookmarked);
       }
 
@@ -1051,11 +1085,11 @@ export default function ChatRoom() {
         pendingBookmarkRef.current = null;
       }
     } else if (
-      bookmarkFetcher.state === 'idle' &&
+      bookmarkFetcher.state === "idle" &&
       bookmarkFetcher.data &&
       !(
-        'status' in bookmarkFetcher.data &&
-        bookmarkFetcher.data.status === 'success'
+        "status" in bookmarkFetcher.data &&
+        bookmarkFetcher.data.status === "success"
       )
     ) {
       // Handle error case (action threw an error or returned non-success) - revert optimistic update
@@ -1068,11 +1102,11 @@ export default function ChatRoom() {
   }, [bookmarkFetcher.state, bookmarkFetcher.data, user.id, updateBookmark]);
 
   const handleFormSubmit = () => {
-    const hasText = textareaRef.current?.value.trim() !== '';
+    const hasText = textareaRef.current?.value.trim() !== "";
     // stagedFileRef is the source of truth for the file data that will be submitted
     const hasImage = !!stagedFileRef.current;
     if (!hasText && !hasImage) {
-      toast.error('A message must have content or an image.');
+      toast.error("A message must have content or an image.");
       return; // Stop submission
     }
 
@@ -1083,14 +1117,14 @@ export default function ChatRoom() {
     }
   };
 
-  const isDm = room.name.startsWith('dm:');
+  const isDm = room.name.startsWith("dm:");
   let headerTitle: string;
   let headerIcon: React.ReactNode;
 
   if (isDm) {
     // Find the other user in the DM
     const dmPartner = room.members.find((member) => member.id !== user.id);
-    headerTitle = dmPartner?.name ?? 'Direct Message';
+    headerTitle = dmPartner?.name ?? "Direct Message";
     // Use the other user's avatar for the icon
     headerIcon = (
       <Avatar className="h-7 w-7">
@@ -1123,6 +1157,7 @@ export default function ChatRoom() {
               <span translate="yes">{headerTitle}</span>
             </h1>
             <div className="flex items-center gap-1.5">
+              {canGoLive && !liveSession && <GoLiveDialog roomId={room.id} />}
               <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1147,7 +1182,7 @@ export default function ChatRoom() {
                     selected={selectedDate}
                     onSelect={handleDateSelect}
                     disabled={(date) =>
-                      date > new Date() || date < new Date('2000-01-01')
+                      date > new Date() || date < new Date("2000-01-01")
                     }
                     initialFocus
                   />
@@ -1155,7 +1190,7 @@ export default function ChatRoom() {
               </Popover>
               <div className="bg-muted-foreground/20 w-px h-5 mx-1.5" />
               <p className="text-sm font-medium text-muted-foreground hidden sm:block">
-                {format(selectedDate, 'PPP')}
+                {format(selectedDate, "PPP")}
               </p>
               <div className="bg-muted-foreground/20 w-px h-5 mx-1.5 hidden sm:block" />
               <Button
@@ -1164,8 +1199,8 @@ export default function ChatRoom() {
                 onClick={handleToggleUserList}
                 className={
                   isUsersListVisible
-                    ? 'text-foreground cursor-pointer'
-                    : 'text-muted-foreground hover:text-foreground cursor-pointer'
+                    ? "text-foreground cursor-pointer"
+                    : "text-muted-foreground hover:text-foreground cursor-pointer"
                 }
               >
                 <UsersRound className="size-4" />
@@ -1174,271 +1209,329 @@ export default function ChatRoom() {
           </div>
         </header>
 
-        {/* Messages Area - Scrollable container (takes remaining space) */}
-        <div className="flex-1 min-h-0 relative">
-          <div
-            className="absolute inset-0 overflow-auto"
-            style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: 'hsl(var(--border)) transparent',
-            }}
-            ref={scrollViewportRef}
-          >
-            {shouldVirtualize ? (
-              // Virtualized implementation for large lists
-              <div
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: '100%',
-                  position: 'relative',
-                }}
+        {/* Live session: join banner for viewers who haven't joined yet */}
+        {liveSession && !isBroadcaster && !joinedLive && (
+          <JoinBanner
+            session={liveSession}
+            onJoin={() => setJoinedLive(true)}
+          />
+        )}
+
+        {/* Live session: slim audio bar for mic-only sessions */}
+        {liveSession && showAudioBar && (
+          <LiveAudioBar
+            roomId={room.id}
+            broadcasterName={liveSession.broadcasterName}
+            onLeave={() => setJoinedLive(false)}
+          />
+        )}
+
+        <ResizablePanelGroup
+          direction="vertical"
+          autoSaveId="live-stage-layout"
+          className="min-h-0 flex-1"
+        >
+          {/* Live session: screen-share stage above the chat */}
+          {liveSession && showStage && (
+            <>
+              <ResizablePanel
+                id="live-stage"
+                order={1}
+                defaultSize={55}
+                minSize={20}
               >
-                {virtualItems.map((virtualRow) => {
-                  const isLoaderRow = hasMore && virtualRow.index === 0;
-
-                  return (
-                    <div
-                      key={
-                        isLoaderRow
-                          ? 'loader'
-                          : messages[
-                              hasMore ? virtualRow.index - 1 : virtualRow.index
-                            ]?.id
-                      }
-                      data-index={virtualRow.index}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        transform: `translateY(${virtualRow.start}px)`,
-                      }}
-                      ref={rowVirtualizer.measureElement}
-                    >
-                      {isLoaderRow ? (
-                        <div className="flex justify-center py-4">
-                          <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted/20 border-t-muted" />
-                        </div>
-                      ) : (
-                        (() => {
-                          const messageIndex = hasMore
-                            ? virtualRow.index - 1
-                            : virtualRow.index;
-                          const message = messages[messageIndex];
-
-                          if (!message) return null;
-
-                          const previousMessage = messages[messageIndex - 1];
-                          const showDateBadge = shouldShowDateBadge(
-                            new Date(message.createdAt),
-                            previousMessage
-                              ? new Date(previousMessage.createdAt)
-                              : null
-                          );
-
-                          return (
-                            <div className="mx-auto max-w-4xl px-4 py-1">
-                              {showDateBadge && (
-                                <DateBadge
-                                  className="mb-2"
-                                  date={new Date(message.createdAt)}
-                                />
-                              )}
-                              <ChatMessage
-                                message={message}
-                                isCurrentUser={message.user?.id === user.id}
-                                currentUser={user}
-                                onStartReply={handleStartReply}
-                                deleteFetcher={deleteFetcher}
-                                editingMessageId={editingMessageId}
-                                onStartEdit={handleStartEdit}
-                                onCancelEdit={handleCancelEdit}
-                                onBookmarkToggle={handleBookmarkToggle}
-                              />
-                            </div>
-                          );
-                        })()
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              // Simple non-virtualized implementation for small lists
-              <div className="w-full">
-                {hasMore && (
-                  <div className="flex justify-center py-4">
-                    <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted/20 border-t-muted" />
-                  </div>
-                )}
-                {messages.map((message, index) => {
-                  const previousMessage = messages[index - 1];
-                  const showDateBadge = shouldShowDateBadge(
-                    new Date(message.createdAt),
-                    previousMessage ? new Date(previousMessage.createdAt) : null
-                  );
-
-                  return (
-                    <div
-                      key={message.id}
-                      className="mx-auto max-w-4xl px-4 py-1"
-                    >
-                      {showDateBadge && (
-                        <DateBadge
-                          className="mb-2"
-                          date={new Date(message.createdAt)}
-                        />
-                      )}
-                      <ChatMessage
-                        message={message}
-                        isCurrentUser={message.user?.id === user.id}
-                        currentUser={user}
-                        onStartReply={handleStartReply}
-                        deleteFetcher={deleteFetcher}
-                        editingMessageId={editingMessageId}
-                        onStartEdit={handleStartEdit}
-                        onCancelEdit={handleCancelEdit}
-                        onBookmarkToggle={handleBookmarkToggle}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer - Fixed at bottom */}
-        <footer className="flex-shrink-0 border-t border-border/60 p-2 sm:p-4 z-10">
-          <div className="max-w-4xl mx-auto">
-            {replyingTo && (
-              <div className="mb-2 flex items-center justify-between rounded-md border bg-muted p-2 text-sm">
-                <div className="truncate">
-                  <p className="font-semibold text-muted-foreground">
-                    Replying to {replyingTo.user?.name}
-                  </p>
-
-                  {replyingTo.content && (
-                    <p className="truncate text-muted-foreground/80">
-                      "{replyingTo.content}"
-                    </p>
-                  )}
-
-                  {replyingTo.image && (
-                    <div className="flex items-center gap-2 text-muted-foreground/80">
-                      <ImageIcon className="size-4 shrink-0" />
-                      <img
-                        src={getChatImagePath(replyingTo.image.id)}
-                        alt={replyingTo.image.altText ?? 'Replied image'}
-                        className="h-8 w-8 rounded-sm object-cover"
-                      />
-                      {/* Only show the word "Image" if there's no text to avoid redundancy */}
-                      {!replyingTo.content && <span>Image</span>}
-                    </div>
-                  )}
-
-                  {/* 3. Fallback for deleted messages */}
-                  {!replyingTo.content && !replyingTo.image && (
-                    <p className="truncate text-muted-foreground/80 italic">
-                      Message/Image was deleted
-                    </p>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0"
-                  onClick={() => setReplyingTo(null)}
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
-            )}
-            <messageFetcher.Form
-              method="post"
-              encType="multipart/form-data"
-              {...getFormProps(form)}
-              ref={formRef}
-              className="relative flex items-center rounded-lg border shadow-sm bg-textarea"
-            >
-              {replyingTo && (
-                <input type="hidden" name="replyToId" value={replyingTo.id} />
-              )}
-
-              {/* Image Preview */}
-              {previewUrl && (
-                <div className="relative mb-2 w-fit">
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="h-24 w-auto rounded-md object-cover"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
-                    onClick={() => {
-                      setPreviewUrl(null);
-                      stagedFileRef.current = null;
-                      if (imageInputRef.current)
-                        imageInputRef.current.value = '';
+                <LiveStage
+                  roomId={room.id}
+                  broadcasterName={liveSession.broadcasterName}
+                  onLeave={() => setJoinedLive(false)}
+                />
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+            </>
+          )}
+          <ResizablePanel
+            id="chat-column"
+            order={2}
+            defaultSize={liveSession && showStage ? 45 : 100}
+            minSize={25}
+            className="flex flex-col"
+          >
+            {/* Messages Area - Scrollable container (takes remaining space) */}
+            <div className="flex-1 min-h-0 relative">
+              <div
+                className="absolute inset-0 overflow-auto"
+                style={{
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "hsl(var(--border)) transparent",
+                }}
+                ref={scrollViewportRef}
+              >
+                {shouldVirtualize ? (
+                  // Virtualized implementation for large lists
+                  <div
+                    style={{
+                      height: `${rowVirtualizer.getTotalSize()}px`,
+                      width: "100%",
+                      position: "relative",
                     }}
                   >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              )}
+                    {virtualItems.map((virtualRow) => {
+                      const isLoaderRow = hasMore && virtualRow.index === 0;
 
-              {/* Hidden file input */}
-              <input
-                type="file"
-                name="chatImage"
-                ref={imageInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={handleFileChange}
-              />
-              <TextareaAutosize
-                ref={textareaRef}
-                // Use Conform's getInputProps for accessibility and validation
-                {...getInputProps(fields.content, { type: 'text' })}
-                className="flex-1 resize-none border-0 bg-transparent py-3 pl-4 pr-20 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
-                placeholder={`Message #${headerTitle}`}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault(); // Prevent new line on Enter
-                    handleFormSubmit();
-                  }
-                }}
-                onPaste={handlePaste}
-                minRows={1}
-                maxRows={6}
-              />
-              <div className="absolute bottom-1.5 right-2 flex items-center gap-1">
-                {/* Button to trigger the file input */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 text-muted-foreground cursor-pointer hover:bg-card/80 transition-colors duration-300"
-                  onClick={() => imageInputRef.current?.click()}
-                >
-                  <Paperclip className="size-5" />
-                </Button>
+                      return (
+                        <div
+                          key={
+                            isLoaderRow
+                              ? "loader"
+                              : messages[
+                                  hasMore
+                                    ? virtualRow.index - 1
+                                    : virtualRow.index
+                                ]?.id
+                          }
+                          data-index={virtualRow.index}
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                          ref={rowVirtualizer.measureElement}
+                        >
+                          {isLoaderRow ? (
+                            <div className="flex justify-center py-4">
+                              <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted/20 border-t-muted" />
+                            </div>
+                          ) : (
+                            (() => {
+                              const messageIndex = hasMore
+                                ? virtualRow.index - 1
+                                : virtualRow.index;
+                              const message = messages[messageIndex];
 
-                <Button
-                  type="button"
-                  size="icon"
-                  className="size-8 bg-background text-sidebar-accent hover:bg-background/80 cursor-pointer transition-colors duration-300"
-                  disabled={messageFetcher.state !== 'idle'}
-                  onClick={handleFormSubmit}
-                >
-                  <SendHorizonalIcon className="size-4 -rotate-90" />
-                </Button>
+                              if (!message) return null;
+
+                              const previousMessage =
+                                messages[messageIndex - 1];
+                              const showDateBadge = shouldShowDateBadge(
+                                new Date(message.createdAt),
+                                previousMessage
+                                  ? new Date(previousMessage.createdAt)
+                                  : null
+                              );
+
+                              return (
+                                <div className="mx-auto max-w-4xl px-4 py-1">
+                                  {showDateBadge && (
+                                    <DateBadge
+                                      className="mb-2"
+                                      date={new Date(message.createdAt)}
+                                    />
+                                  )}
+                                  <ChatMessage
+                                    message={message}
+                                    isCurrentUser={message.user?.id === user.id}
+                                    currentUser={user}
+                                    onStartReply={handleStartReply}
+                                    deleteFetcher={deleteFetcher}
+                                    editingMessageId={editingMessageId}
+                                    onStartEdit={handleStartEdit}
+                                    onCancelEdit={handleCancelEdit}
+                                    onBookmarkToggle={handleBookmarkToggle}
+                                  />
+                                </div>
+                              );
+                            })()
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  // Simple non-virtualized implementation for small lists
+                  <div className="w-full">
+                    {hasMore && (
+                      <div className="flex justify-center py-4">
+                        <div className="h-6 w-6 animate-spin rounded-full border-4 border-muted/20 border-t-muted" />
+                      </div>
+                    )}
+                    {messages.map((message, index) => {
+                      const previousMessage = messages[index - 1];
+                      const showDateBadge = shouldShowDateBadge(
+                        new Date(message.createdAt),
+                        previousMessage
+                          ? new Date(previousMessage.createdAt)
+                          : null
+                      );
+
+                      return (
+                        <div
+                          key={message.id}
+                          className="mx-auto max-w-4xl px-4 py-1"
+                        >
+                          {showDateBadge && (
+                            <DateBadge
+                              className="mb-2"
+                              date={new Date(message.createdAt)}
+                            />
+                          )}
+                          <ChatMessage
+                            message={message}
+                            isCurrentUser={message.user?.id === user.id}
+                            currentUser={user}
+                            onStartReply={handleStartReply}
+                            deleteFetcher={deleteFetcher}
+                            editingMessageId={editingMessageId}
+                            onStartEdit={handleStartEdit}
+                            onCancelEdit={handleCancelEdit}
+                            onBookmarkToggle={handleBookmarkToggle}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </messageFetcher.Form>
-          </div>
-        </footer>
+            </div>
+
+            {/* Footer - Fixed at bottom */}
+            <footer className="flex-shrink-0 border-t border-border/60 p-2 sm:p-4 z-10">
+              <div className="max-w-4xl mx-auto">
+                {replyingTo && (
+                  <div className="mb-2 flex items-center justify-between rounded-md border bg-muted p-2 text-sm">
+                    <div className="truncate">
+                      <p className="font-semibold text-muted-foreground">
+                        Replying to {replyingTo.user?.name}
+                      </p>
+
+                      {replyingTo.content && (
+                        <p className="truncate text-muted-foreground/80">
+                          "{replyingTo.content}"
+                        </p>
+                      )}
+
+                      {replyingTo.image && (
+                        <div className="flex items-center gap-2 text-muted-foreground/80">
+                          <ImageIcon className="size-4 shrink-0" />
+                          <img
+                            src={getChatImagePath(replyingTo.image.id)}
+                            alt={replyingTo.image.altText ?? "Replied image"}
+                            className="h-8 w-8 rounded-sm object-cover"
+                          />
+                          {/* Only show the word "Image" if there's no text to avoid redundancy */}
+                          {!replyingTo.content && <span>Image</span>}
+                        </div>
+                      )}
+
+                      {/* 3. Fallback for deleted messages */}
+                      {!replyingTo.content && !replyingTo.image && (
+                        <p className="truncate text-muted-foreground/80 italic">
+                          Message/Image was deleted
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0"
+                      onClick={() => setReplyingTo(null)}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                )}
+                <messageFetcher.Form
+                  method="post"
+                  encType="multipart/form-data"
+                  {...getFormProps(form)}
+                  ref={formRef}
+                  className="relative flex items-center rounded-lg border shadow-sm bg-textarea"
+                >
+                  {replyingTo && (
+                    <input
+                      type="hidden"
+                      name="replyToId"
+                      value={replyingTo.id}
+                    />
+                  )}
+
+                  {/* Image Preview */}
+                  {previewUrl && (
+                    <div className="relative mb-2 w-fit">
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="h-24 w-auto rounded-md object-cover"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -right-2 -top-2 h-6 w-6 rounded-full"
+                        onClick={() => {
+                          setPreviewUrl(null);
+                          stagedFileRef.current = null;
+                          if (imageInputRef.current)
+                            imageInputRef.current.value = "";
+                        }}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    name="chatImage"
+                    ref={imageInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                  <TextareaAutosize
+                    ref={textareaRef}
+                    // Use Conform's getInputProps for accessibility and validation
+                    {...getInputProps(fields.content, { type: "text" })}
+                    className="flex-1 resize-none border-0 bg-transparent py-3 pl-4 pr-20 text-sm placeholder:text-muted-foreground focus:ring-0 focus-visible:outline-none"
+                    placeholder={`Message #${headerTitle}`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault(); // Prevent new line on Enter
+                        handleFormSubmit();
+                      }
+                    }}
+                    onPaste={handlePaste}
+                    minRows={1}
+                    maxRows={6}
+                  />
+                  <div className="absolute bottom-1.5 right-2 flex items-center gap-1">
+                    {/* Button to trigger the file input */}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground cursor-pointer hover:bg-card/80 transition-colors duration-300"
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      <Paperclip className="size-5" />
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="icon"
+                      className="size-8 bg-background text-sidebar-accent hover:bg-background/80 cursor-pointer transition-colors duration-300"
+                      disabled={messageFetcher.state !== "idle"}
+                      onClick={handleFormSubmit}
+                    >
+                      <SendHorizonalIcon className="size-4 -rotate-90" />
+                    </Button>
+                  </div>
+                </messageFetcher.Form>
+              </div>
+            </footer>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
 
       {/* Users List Sidebar */}
@@ -1448,11 +1541,11 @@ export default function ChatRoom() {
             className="bg-sidebar flex-none border-l border-border/50  h-full rounded-r-2xl"
             key="user-list-sidebar"
             initial={{ width: 0 }}
-            animate={{ width: '16rem' }}
+            animate={{ width: "16rem" }}
             exit={{ width: 0 }}
-            style={{ overflow: 'hidden' }}
+            style={{ overflow: "hidden" }}
             transition={{
-              type: 'spring',
+              type: "spring",
               stiffness: 250,
               damping: 25,
             }}
