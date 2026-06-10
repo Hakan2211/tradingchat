@@ -77,6 +77,14 @@ function SocketProvider({
   initialLiveSessions: Record<string, PublicLiveSession>;
 }) {
   const revalidator = useRevalidator();
+  // Keep the revalidator in a ref so the socket-creation effect below does not
+  // list it as a dependency. The object returned by useRevalidator() changes
+  // identity on every revalidation (its `state` flips idle<->loading), so
+  // depending on it would tear down and recreate the socket (forceNew) on every
+  // fetcher submit / navigation — causing online/offline flicker and dropped
+  // events. The effect only needs revalidate() as a rare fallback.
+  const revalidatorRef = React.useRef(revalidator);
+  revalidatorRef.current = revalidator;
   const [socket, setSocket] = React.useState<Socket | null>(null);
   const [onlineUserIds, setOnlineUserIds] = React.useState<Set<string>>(
     new Set()
@@ -183,7 +191,7 @@ function SocketProvider({
         });
       } else {
         // Fallback: if no data provided, use revalidation
-        revalidator.revalidate();
+        revalidatorRef.current.revalidate();
       }
     };
 
@@ -289,7 +297,11 @@ function SocketProvider({
     //   console.log('SocketProvider: Sent request for user list.');
     // };
 
-    newSocket.emit("client.ready.get_users");
+    // Request the online-user list now and again on every (re)connect, so a
+    // transient disconnect doesn't leave the presence list stale.
+    const requestUserList = () => newSocket.emit("client.ready.get_users");
+    newSocket.on("connect", requestUserList);
+    requestUserList();
     console.log("SocketProvider: Initial user list request sent.");
 
     // Set up heartbeat/retry mechanism
@@ -306,6 +318,7 @@ function SocketProvider({
     return () => {
       console.log("SocketProvider: Cleaning up stale component instance.");
       clearInterval(heartbeatInterval); // Clear the heartbeat interval
+      newSocket.off("connect", requestUserList);
       newSocket.off("room.live.started", handleLiveStarted);
       newSocket.off("room.live.ended", handleLiveEnded);
       newSocket.off("dm.activated", handleDmActivated);
@@ -320,7 +333,10 @@ function SocketProvider({
       // setIsWaitingForUsers(false);
       // setSocket(null);
     };
-  }, [user?.id, revalidator]);
+    // Intentionally depends only on user.id: the socket should be created once
+    // per user and persist across revalidations. revalidate() is reached via
+    // revalidatorRef so the revalidator object is not a dependency here.
+  }, [user?.id]);
 
   const addDmToList = React.useCallback((dm: DirectMessageItem) => {
     setDirectMessages((prev) => {

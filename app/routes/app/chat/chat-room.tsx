@@ -877,17 +877,30 @@ export default function ChatRoom() {
   // Socket handler: only handle state updates
   React.useEffect(() => {
     if (!socket || !room) return;
-    socket.emit("joinRoom", room.id);
+    const roomId = room.id;
+
+    // Join the room now AND on every (re)connect. socket.io transparently
+    // reconnects after a network blip / server restart / tab wake using the
+    // SAME client Socket object, so this effect does NOT re-run on reconnect.
+    // The server, however, sees a brand-new socket id that has not re-joined
+    // the room, so room-scoped events (newMessage / messageEdited /
+    // messageDeleted, emitted via io.to(roomId)) silently stop arriving until a
+    // full refresh. Re-emitting joinRoom on "connect" keeps live messaging
+    // working across reconnects.
+    const joinRoom = () => socket.emit("joinRoom", roomId);
+    joinRoom();
+    socket.on("connect", joinRoom);
 
     const onNew = (msg: MessageWithUser) => {
-      if (msg.roomId === room.id) addMessage(msg);
+      if (msg.roomId === roomId) addMessage(msg);
     };
     socket.on("newMessage", onNew);
     socket.on("messageDeleted", ({ messageId }) => deleteMessage(messageId));
     socket.on("messageEdited", editMessage);
 
     return () => {
-      socket.emit("leaveRoom", room.id);
+      socket.emit("leaveRoom", roomId);
+      socket.off("connect", joinRoom);
       socket.off("newMessage", onNew);
       socket.off("messageDeleted");
       socket.off("messageEdited");
