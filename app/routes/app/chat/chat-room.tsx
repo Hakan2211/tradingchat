@@ -777,16 +777,30 @@ export default function ChatRoom() {
   // --- Hybrid Virtualization Approach ---
   const shouldVirtualize = messages.length > VIRTUALIZATION_THRESHOLD;
 
+  // Stable per-row keys so measured heights stay attached to the right
+  // message when older messages are PREPENDED during pagination. Without this
+  // the virtualizer caches measurements by array index; loadMore() shifts every
+  // index, so cached heights get applied to the wrong rows -> overlapping
+  // messages until a refresh resets the cache.
+  const getItemKey = React.useCallback(
+    (index: number) => {
+      if (hasMore && index === 0) return "loader";
+      const messageIndex = hasMore ? index - 1 : index;
+      return messages[messageIndex]?.id ?? index;
+    },
+    [messages, hasMore]
+  );
+
   // --- Virtualizer Setup (only when virtualizing) ---
   const rowVirtualizer = useVirtualizer({
     count: hasMore ? messages.length + 1 : messages.length,
     getScrollElement: () => scrollViewportRef.current,
     estimateSize,
+    getItemKey,
     overscan: 3, // Reduced from 5
-    // Enable measuring for accurate heights
-    measureElement: (element) => {
-      return element?.getBoundingClientRect().height ?? 0;
-    },
+    // Use the library default measureElement: it rounds and prefers the
+    // ResizeObserver borderBoxSize, so dynamic content (e.g. images finishing
+    // load) re-measures accurately instead of drifting sub-pixel.
   });
   const virtualItems = rowVirtualizer.getVirtualItems();
 
