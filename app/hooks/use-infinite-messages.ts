@@ -97,6 +97,39 @@ export function useInfiniteMessages(initialData: MessagesLoaderData) {
     }
   }, [fetcher.data, normalizeMessage]);
 
+  // --- Gap recovery ---------------------------------------------------------
+  // Reconcile with the server after we may have missed live socket updates
+  // (disconnect/reconnect, server redeploy, tab/laptop sleep, a "zombie"
+  // socket). Re-joining the room only resumes FUTURE messages; anything sent
+  // while we were away is never replayed over the socket. This fetches the
+  // latest page and MERGES in whatever we don't already have, so it backfills
+  // the gap without resetting scroll or dropping already-loaded history.
+  const syncFetcher = useFetcher<MessagesLoaderData>();
+  const syncFetcherRef = React.useRef(syncFetcher);
+  syncFetcherRef.current = syncFetcher;
+
+  const syncLatest = React.useCallback(() => {
+    // One reconciliation in flight is enough.
+    if (syncFetcherRef.current.state !== 'idle') return;
+    syncFetcherRef.current.load(`/chat/${roomId}`);
+  }, [roomId]);
+
+  React.useEffect(() => {
+    if (!syncFetcher.data?.messages) return;
+    const fetched = syncFetcher.data.messages.map(normalizeMessage);
+    setMessages((prev) => {
+      const existing = new Set(prev.map((m) => m.id));
+      const missing = fetched.filter((m) => !existing.has(m.id));
+      if (missing.length === 0) return prev;
+      const merged = [...prev, ...missing];
+      merged.sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      return merged;
+    });
+  }, [syncFetcher.data, normalizeMessage]);
+
   // Surgical update functions for sockets
   const addMessage = React.useCallback((newMessage: MessageWithUser) => {
     setMessages((prev) => {
@@ -145,6 +178,7 @@ export function useInfiniteMessages(initialData: MessagesLoaderData) {
     hasMore,
     isLoading,
     loadMore,
+    syncLatest,
     addMessage,
     deleteMessage,
     editMessage,

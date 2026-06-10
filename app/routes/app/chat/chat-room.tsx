@@ -664,6 +664,7 @@ export default function ChatRoom() {
     hasMore,
     isLoading,
     loadMore,
+    syncLatest,
     addMessage,
     deleteMessage,
     editMessage,
@@ -906,6 +907,47 @@ export default function ChatRoom() {
       socket.off("messageEdited");
     };
   }, [socket, room?.id, addMessage, deleteMessage, editMessage]);
+
+  // Self-heal: backfill any messages missed while the live feed was down.
+  // Re-joining the room (above) only resumes FUTURE messages, so messages sent
+  // during a disconnect / server redeploy / tab sleep would otherwise stay
+  // missing until a manual refresh. We refetch-and-merge (no scroll reset) on
+  // the moments we might be behind: a genuine socket reconnect, the tab
+  // becoming visible again, or the network coming back online. On tab return we
+  // also re-assert room membership in case we silently fell out of it.
+  React.useEffect(() => {
+    if (!socket || !room) return;
+    const roomId = room.id;
+
+    let sawDisconnect = false;
+    const onConnect = () => {
+      if (sawDisconnect) {
+        sawDisconnect = false;
+        syncLatest();
+      }
+    };
+    const onDisconnect = () => {
+      sawDisconnect = true;
+    };
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      socket.emit("joinRoom", roomId);
+      syncLatest();
+    };
+    const onOnline = () => syncLatest();
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [socket, room?.id, syncLatest]);
 
   // After messages update, if the user is at the bottom, smooth scroll down
   React.useEffect(() => {
