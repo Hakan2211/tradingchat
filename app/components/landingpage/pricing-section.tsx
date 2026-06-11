@@ -15,15 +15,15 @@ import { Check } from 'lucide-react';
 import { Link } from 'react-router';
 
 // You'll need to update these with your actual Stripe price IDs
-const MONTHLY_PRICE_ID = 'price_1Rrb4pKGFIDGl3wFyCy8Wsua'; // Replace with your monthly price ID
-const YEARLY_PRICE_ID = 'price_1Rrb5gKGFIDGl3wFpIHuvGZs'; // Replace with your yearly price ID
+const MONTHLY_PRICE_ID = 'price_1ThAP0KGFIDGl3wFQD5ozKSz'; // $99/mo
+const YEARLY_PRICE_ID = 'price_1ThAPTKGFIDGl3wFADg0Zudc'; // $999/yr
 
 // Data for pricing plans
 const pricingPlans = [
   {
     name: 'Monthly Plan',
-    priceAnnually: 720,
-    priceMonthly: '$60',
+    priceAnnually: 1188,
+    priceMonthly: '$99',
     description: 'Billed monthly',
     features: [
       'Live trading room access',
@@ -38,8 +38,8 @@ const pricingPlans = [
   },
   {
     name: 'Yearly Plan',
-    priceAnnually: 600,
-    priceMonthly: '$600',
+    priceAnnually: 999,
+    priceMonthly: '$999',
     description: 'Billed annually',
     features: [
       'Everything in the monthly plan',
@@ -156,7 +156,7 @@ export function PricingSection() {
                       Save 2 Months
                     </Badge>
                     <span className="block text-xs text-zinc-400/70 mt-1">
-                      vs $720 paid monthly
+                      vs $1188 paid monthly
                     </span>
                   </div>
                 )} */}

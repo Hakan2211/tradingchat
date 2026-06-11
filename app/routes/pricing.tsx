@@ -109,7 +109,7 @@ export default function Pricing() {
                 <div className="p-4 bg-red-800/20 border border-red-800/30 rounded-lg">
                   <p className="text-red-300/80 text-sm">
                     <strong>Reality Check:</strong> A 3% loss on a $25,000
-                    account = $750. That's 15 months of our membership. How many
+                    account = $750. That's over 7 months of our membership. How many
                     of these losses could our community help you avoid?
                   </p>
                 </div>
@@ -130,7 +130,7 @@ export default function Pricing() {
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 bg-[#ccb389] rounded-full flex-shrink-0"></div>
                     <p className="text-zinc-300 text-sm">
-                      <strong className="text-[#ccb389]">$1.67 per day</strong>{' '}
+                      <strong className="text-[#ccb389]">$2.74 per day</strong>{' '}
                       - Less than your morning coffee
                     </p>
                   </div>
@@ -185,7 +185,7 @@ export default function Pricing() {
                 <p className="text-sm text-zinc-400 text-center">
                   <strong className="text-[#ccb389]">Bottom line:</strong> Your
                   trading account is already at risk every day. Isn't it worth
-                  $50/month to dramatically improve your odds?
+                  $83/month to dramatically improve your odds?
                 </p>
               </div>
             </div>

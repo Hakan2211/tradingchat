@@ -366,10 +366,10 @@ export default function About() {
 
           <Card className="bg-transparent ring-1 ring-[#ccb389]/20 dark:ring-[#ccb389]/20 backdrop-blur-10 p-8 text-center border-[#ccb389]/20 dark:border-[#ccb389]/20">
             <p className="text-lg text-zinc-300 leading-relaxed mb-6">
-              At <span className="text-[#ccb389] font-semibold">$60/month</span>{' '}
+              At <span className="text-[#ccb389] font-semibold">$99/month</span>{' '}
               (or{' '}
               <span className="text-[#ccb389] font-semibold">
-                $50/mo with annual
+                $83/mo with annual
               </span>
               ), you're investing in real tools, real support, real growth.
               Every dollar goes back into building features you actually need.
