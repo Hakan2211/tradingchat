@@ -43,6 +43,11 @@ import { getUserListVisibility } from "#/utils/userlist.server";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { useInfiniteMessages } from "#/hooks/use-infinite-messages";
+import {
+  currentTradingDay,
+  isTradingDayKey,
+  tradingDayRange,
+} from "#/utils/trading-time";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -153,18 +158,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const cursor = url.searchParams.get("cursor");
   const dateParam = url.searchParams.get("date");
 
-  // Determine the date range for the query. Default to today if no date is provided or if the format is invalid.
-  const selectedDate =
-    dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
-      ? new Date(dateParam)
-      : new Date();
-
-  // Set timezone to UTC for server-side calculations to avoid timezone issues.
-  const startOfDay = new Date(selectedDate.toISOString().slice(0, 10));
-  startOfDay.setUTCHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(startOfDay);
-  endOfDay.setUTCHours(23, 59, 59, 999);
+  // A day here is a New York trading day, not a UTC or server-local one, so
+  // the range matches the day the date picker and the day separators show.
+  // Defaults to the current trading day when absent or malformed.
+  const selectedDay = isTradingDayKey(dateParam)
+    ? dateParam
+    : currentTradingDay();
+  const { start: startOfDay, end: endOfDay } = tradingDayRange(selectedDay);
 
   const messageQuery = {
     where: {
@@ -683,18 +683,20 @@ export default function ChatRoom() {
     React.useState(userListVisibility);
   const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
 
-  // Memoize the selected date to avoid re-calculating on every render
+  // Memoize the selected date to avoid re-calculating on every render.
+  // The `date` param is a plain trading-day key ('yyyy-MM-dd'); it is read back
+  // as a local midnight purely so the calendar can highlight that square. With
+  // no param we default to the current NEW YORK day — which is what the loader
+  // just queried, and can be a day behind the viewer's own late-night date.
   const selectedDate = React.useMemo(() => {
     const dateParam = searchParams.get("date");
-    const today = new Date();
-    // Use a more robust date parsing and validation
     if (dateParam) {
       const date = new Date(dateParam + "T00:00:00"); // Specify time to avoid timezone shifts
       if (!isNaN(date.getTime())) {
         return date;
       }
     }
-    return today;
+    return new Date(currentTradingDay() + "T00:00:00");
   }, [searchParams]);
 
   const handleDateSelect = (date: Date | undefined) => {

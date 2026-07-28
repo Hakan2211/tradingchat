@@ -1,6 +1,12 @@
 import { cn } from '#/lib/utils';
-import { isToday, isYesterday, format, isSameDay } from 'date-fns';
+import { format } from 'date-fns';
 import { useHydrated } from 'remix-utils/use-hydrated';
+import {
+  currentTradingDay,
+  shiftTradingDay,
+  toTradingWallClock,
+  tradingDay,
+} from '#/utils/trading-time';
 
 export function DateBadge({
   date,
@@ -11,10 +17,14 @@ export function DateBadge({
 }) {
   const isHydrated = useHydrated();
 
+  // Days are New York trading days, so the separator labels the same day the
+  // loader queried — the viewer's own midnight is irrelevant here.
   const getFormattedDate = (d: Date): string => {
-    if (isToday(d)) return 'Today';
-    if (isYesterday(d)) return 'Yesterday';
-    return format(d, 'MMMM d, yyyy'); // A more readable format
+    const day = tradingDay(d);
+    const today = currentTradingDay();
+    if (day === today) return 'Today';
+    if (day === shiftTradingDay(today, -1)) return 'Yesterday';
+    return format(toTradingWallClock(d), 'MMMM d, yyyy'); // A more readable format
   };
 
   return (
@@ -31,10 +41,11 @@ export function shouldShowDateBadge(
   currentMessageDate: Date,
   previousMessageDate: Date | null
 ): boolean {
-  // This logic is safe as it runs on both server and client with the same data
+  // Safe to run on both server and client: the trading day of an instant does
+  // not depend on where the code runs, so SSR and hydration always agree.
   return (
     !previousMessageDate ||
-    !isSameDay(new Date(currentMessageDate), new Date(previousMessageDate))
+    tradingDay(currentMessageDate) !== tradingDay(previousMessageDate)
   );
 }
 
@@ -60,7 +71,9 @@ export function HydratedDate({
   const content = isHydrated ? (
     <>
       {prefix}
-      {format(new Date(date), formatStr)}
+      {/* Rendered in New York time — a message stamped 09:31 is 09:31 at the
+          opening bell, whatever timezone the reader is sitting in. */}
+      {format(toTradingWallClock(date), formatStr)}
       {suffix}
     </>
   ) : (

@@ -16,7 +16,8 @@ import {
 } from '#/components/ui/dialog';
 import { getUserImagePath, getChatImagePath } from '#/utils/misc';
 import { BookmarkIcon, Calendar } from 'lucide-react';
-import { isToday, isYesterday } from 'date-fns';
+import { format } from 'date-fns';
+import { currentTradingDay, shiftTradingDay } from '#/utils/trading-time';
 import { HydratedDate } from '../chat/dateBadge';
 
 type BookmarkedMessageCardProps = {
@@ -145,19 +146,19 @@ export function BookmarkedMessageCard({
   );
 }
 
-// Date header component for grouping bookmarks by date
+// Date header component for grouping bookmarks by date.
+// `date` is a trading-day key ('yyyy-MM-dd') in New York time — already a
+// calendar day, so it is formatted as-is rather than converted from an instant.
 export function BookmarkDateHeader({ date }: { date: string }) {
-  const dateObj = new Date(date);
+  const today = currentTradingDay();
 
   let displayContent: React.ReactNode;
-  if (isToday(dateObj)) {
+  if (date === today) {
     displayContent = 'Today';
-  } else if (isYesterday(dateObj)) {
+  } else if (date === shiftTradingDay(today, -1)) {
     displayContent = 'Yesterday';
   } else {
-    displayContent = (
-      <HydratedDate date={dateObj} formatStr="MMMM d, yyyy" fallback="..." />
-    );
+    displayContent = format(new Date(`${date}T00:00:00`), 'MMMM d, yyyy');
   }
 
   return (

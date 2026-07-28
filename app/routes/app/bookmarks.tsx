@@ -7,6 +7,7 @@ import {
   BookmarkDateHeader,
 } from '#/components/bookmark/bookmarked-message-card';
 import { RedirectBackButton } from '#/components/navigationTracker/redirect-back-button';
+import { tradingDay } from '#/utils/trading-time';
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
@@ -33,9 +34,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     },
   });
 
-  // Group bookmarks by date
+  // Group bookmarks by trading day, so the headings match the day separators
+  // in the chat itself. Grouping here previously used the SERVER's local day.
   const groupedBookmarks = bookmarks.reduce((groups, bookmark) => {
-    const date = new Date(bookmark.createdAt).toDateString();
+    const date = tradingDay(bookmark.createdAt);
     if (!groups[date]) {
       groups[date] = [];
     }
