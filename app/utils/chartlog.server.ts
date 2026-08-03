@@ -17,8 +17,11 @@ export type ChartLogAccess =
   | { allowed: true; userId: string }
   | { allowed: false; userId: string; reason: 'inactive' | 'not-yearly' };
 
+/** Staff run the community, so they get the download regardless of plan. */
+const STAFF_ROLES = ['admin', 'moderator'];
+
 /**
- * Who may download ChartLog: admins, and members on the yearly plan.
+ * Who may download ChartLog: staff, and members on the yearly plan.
  *
  * Redirects to /login when signed out (via `requireUserId`), so callers only
  * ever see an answer for a real, logged-in user.
@@ -38,14 +41,16 @@ export async function getChartLogAccess(
     },
   });
 
+  // Staff first: a moderator is not required to hold a subscription at all, so
+  // checking them after `isUserAuthorized` would reject them as 'inactive'.
+  if (user?.roles.some((role) => STAFF_ROLES.includes(role.name))) {
+    return { allowed: true, userId };
+  }
+
   // Same rule the app layout uses, so an expired member can never slip through
   // here just because they kept the URL.
   if (!isUserAuthorized(user)) {
     return { allowed: false, userId, reason: 'inactive' };
-  }
-
-  if (user!.roles.some((role) => role.name === 'admin')) {
-    return { allowed: true, userId };
   }
 
   // A list, not a single id: old prices stay active in Stripe long after they
