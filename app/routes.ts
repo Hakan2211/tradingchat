@@ -36,11 +36,13 @@ export default [
     route('/themes', 'routes/resources/themes.tsx'),
     route('/live-session', 'routes/resources/live-session.tsx'),
     route('/live-token', 'routes/resources/live-token.tsx'),
+    route('/installer', 'routes/resources/installer.tsx'),
   ]),
 
   //--------------App Routes-----------------------
   layout('routes/layouts/app-layout.tsx', [
     route('/home', 'routes/app/home.tsx'),
+    route('/download', 'routes/app/download.tsx'),
 
     //-----Room Routes------
     route('/chat/:roomId', 'routes/app/chat/chat-room.tsx'),
