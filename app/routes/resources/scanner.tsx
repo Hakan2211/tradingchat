@@ -4,6 +4,7 @@ import { parseWithZod } from '@conform-to/zod';
 import { z } from 'zod';
 import { requireUserId } from '#/utils/auth.server';
 import { prisma } from '#/utils/db.server';
+import { rescoreForWatchlistChange } from '#/utils/news/watchlist.server';
 
 // Helper: check if user has admin or moderator role
 async function requireScannerEditor(request: Request) {
@@ -70,7 +71,10 @@ const DeleteScannerSchema = z.object({
   id: z.string().min(1, 'Entry ID is required'),
 });
 
-export async function action({ request }: ActionFunctionArgs) {
+// `context` carries `io`: a scanner edit changes `onWatchlist`, which is a
+// scoring input, so the recent news window is re-scored and the moved rows are
+// pushed to /news. See app/utils/news/watchlist.server.ts.
+export async function action({ request, context }: ActionFunctionArgs) {
   const formData = await request.formData();
   const intent = formData.get('intent');
 
@@ -99,6 +103,9 @@ export async function action({ request }: ActionFunctionArgs) {
         },
       });
 
+      // A new WATCHING entry is exactly the +15 case.
+      await rescoreForWatchlistChange([entry.ticker], context);
+
       return data({ success: true, entry });
     }
 
@@ -124,6 +131,13 @@ export async function action({ request }: ActionFunctionArgs) {
         priceLevels,
       } = submission.value;
 
+      // Read first: an edit can rename the ticker or close the entry, and both
+      // sides of that change need re-scoring -- the old symbol loses the bonus.
+      const before = await prisma.scannerEntry.findUnique({
+        where: { id },
+        select: { ticker: true },
+      });
+
       const entry = await prisma.scannerEntry.update({
         where: { id },
         data: {
@@ -138,6 +152,8 @@ export async function action({ request }: ActionFunctionArgs) {
           priceLevels: priceLevels || null,
         },
       });
+
+      await rescoreForWatchlistChange([before?.ticker, entry.ticker], context);
 
       return data({ success: true, entry });
     }
@@ -158,6 +174,10 @@ export async function action({ request }: ActionFunctionArgs) {
         data: { status },
       });
 
+      // Only WATCHING entries count towards `onWatchlist`, so moving to or from
+      // PLAYED_OUT flips the bonus for this ticker.
+      await rescoreForWatchlistChange([entry.ticker], context);
+
       return data({ success: true, entry });
     }
 
@@ -170,9 +190,12 @@ export async function action({ request }: ActionFunctionArgs) {
         return data({ result: submission.reply() }, { status: 400 });
       }
 
-      await prisma.scannerEntry.delete({
+      // `delete` returns the row it removed, so the ticker is still in hand.
+      const removed = await prisma.scannerEntry.delete({
         where: { id: submission.value.id },
       });
+
+      await rescoreForWatchlistChange([removed.ticker], context);
 
       return data({ success: true });
     }

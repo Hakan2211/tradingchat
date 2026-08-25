@@ -175,6 +175,23 @@ export async function getNewsSources() {
 }
 
 /**
+ * Active themes, for the "Add to Theme" picker on a news row.
+ *
+ * INACTIVE themes are left out: they are the ones a moderator has retired, and
+ * offering them here would be offering to add a fresh catalyst to a dead theme.
+ * Note this is a UI filter only -- `buildScoreContext` counts a ThemeTicker row
+ * whatever its parent theme's status, so an archived theme still carries its
+ * tickers' +15.
+ */
+export async function getNewsThemes() {
+  return prisma.theme.findMany({
+    where: { status: 'ACTIVE' },
+    select: { id: true, name: true },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+  });
+}
+
+/**
  * A user's watch rules, JSON columns parsed, ready to ship to the client.
  *
  * Ordered oldest-first because `matchWatchRules` takes the first match — so

@@ -5,6 +5,7 @@ import { NewsPage } from '#/components/news/news-page';
 import {
   getNewsPage,
   getNewsSources,
+  getNewsThemes,
   getUserNewsWatches,
   requireNewsAccess,
   type NewsFilters,
@@ -32,7 +33,7 @@ function filtersFrom(url: URL): NewsFilters {
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { userId } = await requireNewsAccess(request);
+  const { userId, isStaff } = await requireNewsAccess(request);
 
   const url = new URL(request.url);
   const cursor = url.searchParams.get('cursor');
@@ -51,6 +52,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Fetched again here so the manager dialog has them without reaching into
     // the parent route's data by id.
     watches: await getUserNewsWatches(userId),
+    // Send-to-Scanner / Add-to-Theme. Staff only: /news is open to every active
+    // subscriber, but the scanner and themes are one shared curated set and
+    // their resource routes already require admin or moderator. Gating here
+    // only avoids showing a button that would 403.
+    canCurate: isStaff,
+    themes: isStaff ? await getNewsThemes() : [],
   };
 }
 
@@ -66,6 +73,8 @@ export default function NewsIndexRoute() {
         'alertThreshold' in data ? data.alertThreshold : DEFAULT_ALERT_THRESHOLD
       }
       watches={'watches' in data ? data.watches : []}
+      canCurate={'canCurate' in data ? data.canCurate : false}
+      themes={'themes' in data ? data.themes : []}
     />
   );
 }

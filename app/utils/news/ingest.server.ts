@@ -524,13 +524,31 @@ const CORROBORATING_KINDS: NewsSourceKind[] = [
  * does not ping twice, and the feed page replaces the row rather than adding it.
  */
 export async function rescoreRecent(
-  options: { now?: Date; windowMs?: number; broadcast?: NewsBroadcast } = {}
+  options: {
+    now?: Date;
+    windowMs?: number;
+    broadcast?: NewsBroadcast;
+    /**
+     * Restrict the sweep to items carrying one of these tickers.
+     *
+     * The ingest path leaves this unset: a new filing can corroborate anything
+     * in the window. A Scanner/Theme edit is the opposite — it changes exactly
+     * one input, `onWatchlist`, and only for its own ticker, so sweeping the
+     * whole hour would re-score hundreds of rows to move at most a handful.
+     */
+    tickers?: string[];
+  } = {}
 ): Promise<{ scanned: number; changed: NewsFeedItem[] }> {
   const now = options.now ?? new Date();
   const since = new Date(now.getTime() - (options.windowMs ?? RESCORE_WINDOW_MS));
 
   const rows = await prisma.newsItem.findMany({
-    where: { publishedAt: { gte: since } },
+    where: {
+      publishedAt: { gte: since },
+      ...(options.tickers?.length
+        ? { tickers: { some: { ticker: { in: options.tickers } } } }
+        : {}),
+    },
     include: { feed: true, tickers: { select: { ticker: true } } },
   });
 

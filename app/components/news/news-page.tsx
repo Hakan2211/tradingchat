@@ -1,13 +1,18 @@
 import * as React from 'react';
 import { useFetcher, useSearchParams } from 'react-router';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Bell, ExternalLink, Newspaper, Radio } from 'lucide-react';
+import { Bell, ExternalLink, Layers, Newspaper, Radar, Radio } from 'lucide-react';
 import { useSocketContext } from '#/routes/layouts/app-layout';
 import type { NewsFeedItem } from '#/utils/news/types';
 import { TRADING_TIME_ZONE } from '#/utils/trading-time';
 import { NEWS_CATALYSTS } from '#/utils/news/constants';
 import type { NewsWatchRule } from '#/utils/news/watch';
 import { NewsAlertsDialog } from './news-alerts-dialog';
+import {
+  NewsCurateDialog,
+  type CurateMode,
+  type CurateTheme,
+} from './news-curate-dialog';
 import { cn } from '#/lib/utils';
 import {
   CatalystBadge,
@@ -35,12 +40,22 @@ export function NewsPage({
   sources,
   alertThreshold,
   watches,
+  canCurate,
+  themes,
 }: {
   initialItems: NewsFeedItem[];
   initialCursor: string | null;
   sources: Source[];
   alertThreshold: number;
   watches: NewsWatchRule[];
+  /**
+   * Whether to offer Send-to-Scanner / Add-to-Theme. Staff only, because the
+   * scanner and the themes are one shared, curated set for the whole community
+   * -- not a per-user watchlist. The resource routes enforce this themselves;
+   * this only decides whether to show a button that would 403.
+   */
+  canCurate: boolean;
+  themes: CurateTheme[];
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { socket } = useSocketContext();
@@ -49,6 +64,10 @@ export function NewsPage({
   const [cursor, setCursor] = React.useState(initialCursor);
   const [liveCount, setLiveCount] = React.useState(0);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
+  const [curating, setCurating] = React.useState<{
+    mode: CurateMode;
+    item: NewsFeedItem;
+  } | null>(null);
   const loadMore = useFetcher<{ items: NewsFeedItem[]; nextCursor: string | null }>();
 
   // A filter change re-runs the loader, which hands back a fresh first page.
@@ -256,7 +275,12 @@ export function NewsPage({
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  <NewsRow item={item} alertThreshold={alertThreshold} />
+                  <NewsRow
+                    item={item}
+                    alertThreshold={alertThreshold}
+                    canCurate={canCurate}
+                    onCurate={(mode) => setCurating({ mode, item })}
+                  />
                 </div>
               );
             })}
@@ -270,56 +294,125 @@ export function NewsPage({
         rules={watches}
         alertThreshold={alertThreshold}
       />
+
+      <NewsCurateDialog
+        mode={curating?.mode ?? null}
+        item={curating?.item ?? null}
+        themes={themes}
+        onClose={() => setCurating(null)}
+      />
     </div>
   );
 }
 
+/**
+ * One feed row.
+ *
+ * The row used to be a single `<a>`. It is now a div wrapping the link, because
+ * the curate buttons cannot live inside an anchor -- nested interactive content
+ * is invalid HTML and every click would have followed the wire link instead.
+ * The anchor still covers the whole reading area, so the click target for
+ * "open the story" is unchanged.
+ */
 function NewsRow({
   item,
   alertThreshold,
+  canCurate,
+  onCurate,
 }: {
   item: NewsFeedItem;
   alertThreshold: number;
+  canCurate: boolean;
+  onCurate: (mode: CurateMode) => void;
 }) {
+  // Nothing to curate without a resolvable symbol -- the scanner and every
+  // theme are keyed by ticker.
+  const curatable = canCurate && item.tickers.length > 0;
+
   return (
-    <a
-      href={item.url}
-      target="_blank"
-      // noreferrer alongside noopener: these are third-party wire links.
-      rel="noopener noreferrer"
+    <div
       className={cn(
-        'group flex items-start gap-2 border-b px-4 py-2 text-sm no-underline',
+        'group flex items-start gap-2 border-b px-4 py-2 text-sm',
         'text-card-foreground hover:bg-accent/40',
         item.score >= alertThreshold && 'bg-primary/[0.04]'
       )}
     >
-      <span className="w-24 shrink-0 pt-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">
-        {timeFormatter.format(new Date(item.publishedAt))}
-      </span>
-      <ScorePill score={item.score} threshold={alertThreshold} />
-      <CatalystBadge catalyst={item.catalyst} />
-      <span className="flex shrink-0 gap-1">
-        {item.tickers.slice(0, 4).map((ticker) => (
-          <TickerChip key={ticker} ticker={ticker} />
-        ))}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block leading-snug">{item.headline}</span>
-        <span className="mt-0.5 flex items-center gap-2">
-          <SourceBadge feedName={item.feedName} tier={item.tier} />
-          {item.formType && (
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {item.formType}
-            </span>
-          )}
-          {item.haltReason && (
-            <span className="font-mono text-[10px] text-red-600 dark:text-red-400">
-              {item.haltReason}
-            </span>
-          )}
+      <a
+        href={item.url}
+        target="_blank"
+        // noreferrer alongside noopener: these are third-party wire links.
+        rel="noopener noreferrer"
+        className="flex min-w-0 flex-1 items-start gap-2 text-card-foreground no-underline"
+      >
+        <span className="w-24 shrink-0 pt-0.5 font-mono text-[11px] text-muted-foreground tabular-nums">
+          {timeFormatter.format(new Date(item.publishedAt))}
         </span>
-      </span>
-      <ExternalLink className="mt-0.5 size-3.5 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-    </a>
+        <ScorePill score={item.score} threshold={alertThreshold} />
+        <CatalystBadge catalyst={item.catalyst} />
+        <span className="flex shrink-0 gap-1">
+          {item.tickers.slice(0, 4).map((ticker) => (
+            <TickerChip key={ticker} ticker={ticker} />
+          ))}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block leading-snug">{item.headline}</span>
+          <span className="mt-0.5 flex items-center gap-2">
+            <SourceBadge feedName={item.feedName} tier={item.tier} />
+            {item.formType && (
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {item.formType}
+              </span>
+            )}
+            {item.haltReason && (
+              <span className="font-mono text-[10px] text-red-600 dark:text-red-400">
+                {item.haltReason}
+              </span>
+            )}
+          </span>
+        </span>
+        <ExternalLink className="mt-0.5 size-3.5 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+      </a>
+
+      {curatable && (
+        // Revealed on hover like the external-link chevron, but kept focusable
+        // so the row is still reachable from the keyboard.
+        <span className="flex shrink-0 items-center gap-1 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100">
+          <CurateButton
+            label={`Send ${item.tickers[0]} to Scanner`}
+            onClick={() => onCurate('scanner')}
+          >
+            <Radar className="size-3.5" />
+          </CurateButton>
+          <CurateButton
+            label={`Add ${item.tickers[0]} to a Theme`}
+            onClick={() => onCurate('theme')}
+          >
+            <Layers className="size-3.5" />
+          </CurateButton>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function CurateButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className="rounded border border-border p-1 text-muted-foreground transition hover:bg-accent hover:text-card-foreground"
+    >
+      {children}
+    </button>
   );
 }

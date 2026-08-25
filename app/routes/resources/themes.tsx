@@ -4,6 +4,7 @@ import { parseWithZod } from '@conform-to/zod';
 import { z } from 'zod';
 import { requireUserId } from '#/utils/auth.server';
 import { prisma } from '#/utils/db.server';
+import { rescoreForWatchlistChange } from '#/utils/news/watchlist.server';
 
 // Helper: check if user has admin or moderator role
 async function requireThemeEditor(request: Request) {
@@ -97,7 +98,14 @@ const RemoveTickerSchema = z.object({
   id: z.string().min(1, 'Ticker entry ID is required'),
 });
 
-export async function action({ request }: ActionFunctionArgs) {
+// `context` carries `io`: theme membership feeds `onWatchlist`, a scoring input,
+// so ticker writes re-score the recent news window and push the moved rows to
+// /news. See app/utils/news/watchlist.server.ts.
+//
+// createTheme and updateTheme are deliberately NOT hooked: `buildScoreContext`
+// looks up ThemeTicker rows without filtering on the parent theme's status, so
+// renaming or archiving a theme changes no ticker's membership.
+export async function action({ request, context }: ActionFunctionArgs) {
   const formData = await request.formData();
   const intent = formData.get('intent');
 
@@ -193,9 +201,21 @@ export async function action({ request }: ActionFunctionArgs) {
         return data({ result: submission.reply() }, { status: 400 });
       }
 
+      // Deleting a theme cascades to its ThemeTicker rows, so every one of its
+      // tickers may lose the bonus. Collect them before they are gone.
+      const orphaned = await prisma.themeTicker.findMany({
+        where: { themeId: submission.value.id },
+        select: { ticker: true },
+      });
+
       await prisma.theme.delete({
         where: { id: submission.value.id },
       });
+
+      await rescoreForWatchlistChange(
+        orphaned.map((row) => row.ticker),
+        context
+      );
 
       return data({ success: true });
     }
@@ -260,6 +280,8 @@ export async function action({ request }: ActionFunctionArgs) {
         },
       });
 
+      await rescoreForWatchlistChange([themeTicker.ticker], context);
+
       return data({ success: true, themeTicker });
     }
 
@@ -284,6 +306,13 @@ export async function action({ request }: ActionFunctionArgs) {
         sortOrder,
       } = submission.value;
 
+      // Read first: an edit can rename the ticker, and the old symbol loses the
+      // bonus at the same moment the new one gains it.
+      const before = await prisma.themeTicker.findUnique({
+        where: { id },
+        select: { ticker: true },
+      });
+
       const themeTicker = await prisma.themeTicker.update({
         where: { id },
         data: {
@@ -298,6 +327,11 @@ export async function action({ request }: ActionFunctionArgs) {
         },
       });
 
+      await rescoreForWatchlistChange(
+        [before?.ticker, themeTicker.ticker],
+        context
+      );
+
       return data({ success: true, themeTicker });
     }
 
@@ -310,9 +344,12 @@ export async function action({ request }: ActionFunctionArgs) {
         return data({ result: submission.reply() }, { status: 400 });
       }
 
-      await prisma.themeTicker.delete({
+      // `delete` returns the row it removed, so the ticker is still in hand.
+      const removed = await prisma.themeTicker.delete({
         where: { id: submission.value.id },
       });
+
+      await rescoreForWatchlistChange([removed.ticker], context);
 
       return data({ success: true });
     }
