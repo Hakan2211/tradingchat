@@ -948,6 +948,164 @@ Three decisions worth keeping:
 
 Second sweep over the same window changes nothing, as it must.
 
+### 7g. M5 — send-to-Scanner / add-to-Theme (2026-08-25)
+
+Shipped. A news row gets **Send to Scanner** and **Add to Theme**, and the two
+of them close the loop the scorer was already half of.
+
+`score.ts` awards +15 when a ticker sits on a Theme or an open `ScannerEntry` —
+the one signal a generic news bot structurally cannot have. Until M5 that bonus
+only fired for tickers somebody had added by hand, elsewhere in the app, for
+unrelated reasons. Now curating a row raises the score of the *next* headline on
+that ticker.
+
+Four decisions worth keeping:
+
+- **The re-score hangs off the Scanner/Theme write path, not off the /news
+  buttons.** `onWatchlist` is the other scoring input, and the only one the news
+  pipeline does not own; §7f's sweep is insert-driven and runs only for halts and
+  filings, so a watchlist edit moved nothing at all. That was invisible while
+  watchlist edits were rare. Hooking only the news-originated route would have
+  left the gap open for a moderator editing from the scanner page, where the
+  effect on scoring is identical.
+- **Every intent that changes membership is wired**, including the awkward ones:
+  a rename needs the ticker read *before* the write (the old symbol loses the
+  bonus), a cascading theme delete needs its tickers collected before they are
+  gone, and a delete gets the ticker back from Prisma's own return value.
+  `createTheme`/`updateTheme` are deliberately NOT wired — `buildScoreContext`
+  does not filter on a theme's status, so renaming or archiving one changes no
+  ticker's membership.
+- **`rescoreRecent` gained a ticker filter.** The ingest path still sweeps the
+  whole window, because a new filing can corroborate anything in it; a watchlist
+  edit changes one input for one symbol. Measured on dev: 1 row swept instead of
+  25.
+- **The buttons post to the existing scanner and theme resource routes with
+  their existing intents.** No parallel write path, so the permission check, the
+  validation and the re-score hook are shared — and the buttons are staff-only by
+  construction, since those routes already require admin or moderator. `/news` is
+  open to every active subscriber, but the scanner and themes are one shared
+  curated set, not a per-user watchlist. The loader gates the buttons so nobody
+  is shown a control that would 403.
+
+It is a prefilled form, not a true one-click write. The fields a headline knows
+(ticker, date, description) are filled; the parts a single click would have to
+guess — which of several tickers, which theme, the setup — are the ones a
+moderator would want to correct.
+
+`NewsRow` is now a div wrapping its link. The row was a single `<a>`, and the
+curate buttons cannot nest inside one: invalid HTML, and every click would have
+followed the wire link instead.
+
+Verified end to end: a stored 6-K on VIPS scores 10, 25 with a WATCHING scanner
+entry, and 10 again once that entry is closed.
+
+### 7h. Alert durability (2026-08-25)
+
+Shipped, and it **inverts §6**: watch rules are matched on the SERVER now, and a
+fired rule is a `NewsAlert` row.
+
+§6 put matching in the browser and M4 kept it there, with the reasoning that the
+fan-out stays dumb and a rule change takes effect without a reconnect. Both are
+true and neither survives contact with what an alert is for. The hook's own
+justification for living in the app layout was "the member is in a chat room
+when the 8-K drops" — but "the member had no tab open at 07:15" is that same
+failure, it is the more common one, and a browser-side match has no answer to
+it. Two tabs each matched, so one event pinged twice. And nothing was left to
+come back to.
+
+`watch.ts` stays shared and unchanged, so the rule editor previews a rule with
+the same predicate the server matches on; the two sides cannot drift.
+
+What the row stores, and why:
+
+- **The rule's label is snapshot, not just referenced.** Members edit and delete
+  rules constantly; an alert in the history still has to say what fired it long
+  after that rule stopped existing.
+- **The score AT FIRE TIME**, which is what explains the match. A later re-score
+  moves `NewsItem.score`, not this.
+- **`@@unique([userId, newsItemId])`** is what makes "emit each alert exactly
+  once" true, and it matters more than it looks. §7f re-emits a changed row under
+  its existing id — deliberately, so a row that gained the score to match a rule
+  gets a second chance at it — and without the constraint any row whose score
+  merely drifted upwards would alert again on every sweep.
+
+Two implementation notes that are easy to undo by accident:
+
+- **Duplicates are pre-filtered with one indexed read**, not left to the
+  constraint. The duplicate is the COMMON path here, and `db.server.ts` logs
+  Prisma errors to stdout — relying on the throw filled the log with
+  unique-constraint stack traces describing normal operation. The catch stays as
+  a race backstop.
+- **The rule list is deliberately not cached.** A short TTL would be cheap, but
+  it would mean a member edits a rule and waits for it to bite, and "change a
+  rule, watch it work" is the one thing the client-side design got right. One
+  indexed read per fan-out batch buys it back.
+
+The app layout no longer ships watch rules on every authed page load; they
+existed solely so the browser could match them.
+
+Two tabs still each render their own toast — inherent to having two tabs. The
+**ping** is claimed once per browser through `localStorage`, because two
+overlapping sounds are the part that actually grates. That claim is not atomic
+across tabs; the window is microseconds against milliseconds of socket delivery,
+and losing the race costs one duplicate ping, so a lock protocol is not worth it.
+Storage that throws falls back to playing — a duplicate ping beats silence.
+
+The backlog surfaces as a **History** tab beside the rules, with an unread badge
+on the bell. Read state is marked explicitly rather than on open: glancing at a
+list is not the same as having dealt with what is in it. Alerts cascade with
+their `NewsItem`, so the nightly purge takes 90-day-old alerts with it and
+retention needs no rule of its own.
+
+`FiredAlert` lives in `news/types.ts`, not beside the matcher — the hook renders
+these in the browser, and importing a `.server` module for a type is erased in
+theory and exactly the mistake that has cost this codebase debugging time.
+
+### 7i. Production enablement and retention (2026-08-25)
+
+`prisma/purge-old-news.ts` existed but nothing ran it. At ~450 rows a day that
+was survivable while the poller only ran on a dev machine; enabling ingestion in
+production is exactly when the table starts growing, so the two shipped
+together.
+
+The deleting moved to `app/utils/news/retention.server.ts`, which now has two
+callers that must not drift: the CLI (unchanged posture — dry run by default,
+boundary check, `--confirm`) and a nightly job behind the same
+`NEWS_INGEST_ENABLED` flag as the poller. Same flag for the same two reasons: a
+process that is not ingesting is not accumulating, and the flag is what keeps
+this single-instance.
+
+- **02:30 ET**, the middle of the only quiet stretch between the 20:00 close and
+  the 04:00 pre-market ramp, because VACUUM takes an exclusive lock. On the
+  spring-forward night that time does not exist and the run lands at 01:30 ET;
+  left as is, since it is still hours short of the ramp.
+- **The nightly job vacuums only past 5k deleted rows.** In steady state it
+  removes one day of items and the next day's inserts reuse those pages, so
+  vacuuming nightly would rewrite the whole database to reclaim nothing. The
+  hand-run CLI keeps the opposite default — a purge you run yourself is usually
+  the big one.
+- `NEWS_RETENTION_DAYS` configures the window (default 90, `off` disables it
+  without disabling ingestion). A malformed value warns and falls back; a typo
+  must not take the boot down.
+
+**`scripts/` was never in the production image.** The Dockerfile copied `build`,
+`prisma`, `server`, `app` and `tsconfig.json` and nothing else, so
+`news:discover` could not run on the Coolify host — which is the only place it
+*can* run, GlobeNewswire and ACCESS Newswire being Cloudflare-blocked from dev
+machines. Now copied.
+
+**Production had never been seeded for news.** `entrypoint.sh` runs `db:seed`
+only on first boot (guarded by `.setup_complete`, which prod passed long ago) and
+`prisma/seed.ts` does not touch news at all — so `NewsFeed` and `SymbolUniverse`
+are both empty there. Flipping the env var alone would start the poller for zero
+feeds, and even with feeds seeded an empty `SymbolUniverse` resolves no ticker,
+so every item scores −15 and the feed is noise. **Order matters:**
+`startNewsIngestion` reads the enabled-feed list once at boot, so seed first,
+flag second. The seeds are deliberately NOT in `entrypoint.sh`: it runs under
+`set -e` and the symbol seed fetches from sec.gov, so an SEC outage would turn a
+boot into a crash loop.
+
+
 ### Before M2
 
 
@@ -990,9 +1148,13 @@ fan-out, virtualized feed, filter bar, sidebar entry.
 **M4 — Watches + alerts.** `NewsWatch` CRUD, settings UI, toast + sound.
 
 **M5 — Integrations.** Send-to-Scanner, add-to-Theme, bookmark a news item.
+✅ *Send-to-Scanner and add-to-Theme shipped 2026-08-25 — see §7g. Bookmarking
+a news item is NOT done.* Alert durability (§7h) shipped alongside it.
 
 **M6 — Hardening.** Nightly retention purge, admin source-health view
 (last poll, failures, items/hour per source), exponential backoff verified.
+*Retention purge shipped early, 2026-08-25 — see §7i; it belonged with
+production enablement. The admin source-health view is still open.*
 
 M1–M2 are where the risk is. M3–M5 are ordinary app work on this codebase.
 
