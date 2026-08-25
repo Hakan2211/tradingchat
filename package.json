@@ -14,6 +14,7 @@
     "news:poll-once": "tsx scripts/news-poll-once.ts",
     "news:discover": "tsx scripts/news-discover-feed.ts",
     "news:measure": "tsx scripts/news-measure-window.ts",
+    "news:check": "tsx scripts/news-check-extraction.ts",
     "news:purge": "tsx prisma/purge-old-news.ts",
     "news:rescore": "tsx prisma/rescore-news.ts",
     "db:deploy": "prisma migrate deploy",

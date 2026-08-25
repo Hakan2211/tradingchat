@@ -108,20 +108,83 @@ export function baseSymbol(ticker: string): string {
  * SEC file only covers US registrants, and a TSXV-only name is not tradeable
  * by this audience anyway.
  */
+/**
+ * Longest venue name first: alternation is left-to-right, so a shorter prefix
+ * listed earlier wins and strands the rest of the name in the capture.
+ *
+ * `TSX-V` is the case that proved it. With `TSXV|TSX`, the prose `(TSX-V:
+ * "DEX")` matched `TSX`, took the `-` as the separator, and captured `V: "DEX"`
+ * — yielding `V`, which is Visa. A Canadian junior miner's drilling update was
+ * being filed under a US payments giant.
+ */
 const EXCHANGE_GROUP =
-  /\(\s*(?:NYSE\s*American|NYSE\s*MKT|NASDAQ[^):]{0,30}|NYSE|AMEX|OTCQB|OTCQX|OTCID|OTC\s*Pink|OTCMKTS|OTC|CBOE|TSXV|TSX|CSE|NEO)\s*[:\-–]\s*([^)]{1,60})\)/gi;
+  /\(\s*(?:NYSE\s*American|NYSE\s*MKT|NASDAQ[^):]{0,30}|NYSE|AMEX|OTCQB|OTCQX|OTCID|OTC\s*Pink|OTCMKTS|OTC|CBOE|TSX\s*-?\s*V|TSX|CSE|NEO)\s*[:\-–]\s*([^)]{1,60})\)/gi;
 
 /** Symbol-shaped tokens inside the group after the colon. */
 const SYMBOL_TOKEN = /\b([A-Z][A-Z0-9]{0,5}(?:[.\-][A-Z]{1,2})?)\b/g;
 
-/** Raw candidates, before universe validation. Exported for testing. */
+/**
+ * Raw candidates, before universe validation. Exported for testing.
+ *
+ * Takes only the FIRST symbol token after each exchange qualifier. Issuers
+ * routinely pack several venues into one parenthesis — `(NYSE American: NVA |
+ * ASX: NVA)`, `(Nasdaq: BZ; HKEX: 2076)` — and tokenizing the whole group
+ * turned the SECOND venue's name into a candidate. `ASX` validated against the
+ * universe and was attached to the item as if it were the company.
+ *
+ * The cost is a genuine two-symbol group (`(NASDAQ: ABCD, EFGH)`), which is
+ * rare and now covered better by structured metadata anyway. That is the same
+ * trade this module makes everywhere: a false negative beats a wrong ticker.
+ */
 export function extractTickerCandidates(text: string): string[] {
   const candidates: string[] = [];
   for (const group of text.matchAll(EXCHANGE_GROUP)) {
-    const body = group[1];
-    for (const token of body.matchAll(SYMBOL_TOKEN)) {
+    for (const token of group[1].matchAll(SYMBOL_TOKEN)) {
       candidates.push(token[1]);
+      break; // First token only — see above.
     }
+  }
+  return candidates;
+}
+
+/**
+ * US venues, as a wire labels them in structured `exchange:symbol` metadata.
+ *
+ * This list is doing real safety work and must not be loosened to "any
+ * exchange". GlobeNewswire tags Loblaw as `TSX:L` — and `L` is Loews on the
+ * NYSE, so it IS in `SymbolUniverse`. Universe validation alone would happily
+ * turn a Canadian grocer's dividend into news about a US insurer. The venue
+ * qualifier is what makes the symbol safe, exactly as the parenthesised
+ * exchange group does for prose.
+ *
+ * A dual-listed name usually states both (`TSX:DNG` and `OTC Markets:DNGDF`);
+ * keeping only the US side is correct, because that is the tradeable one.
+ */
+const US_METADATA_EXCHANGE =
+  /^(?:nasdaq|nyse|nyse\s*american|nyse\s*mkt|amex|otc\s*markets|otcmkts|otcqb|otcqx|otcid|otc\s*pink|cboe)$/i;
+
+/**
+ * Candidates from a wire's structured symbol metadata.
+ *
+ * Worth far more than the prose parser where a feed provides it: in a live
+ * 20-item GlobeNewswire sample, 15 items carried a symbol here while only about
+ * half restated it in the headline or the snippet the extractor can see.
+ *
+ * Values look like `Nasdaq:FCEL`, `TSX-V:DEX`, `OTC Markets:DNGDF`,
+ * `HKSE:2076.HK` — and sometimes with stray whitespace (`Nasdaq:QUCY `).
+ */
+export function extractMetadataTickerCandidates(values: string[]): string[] {
+  const candidates: string[] = [];
+  for (const value of values) {
+    const separator = value.indexOf(':');
+    if (separator < 0) continue;
+    const exchange = value.slice(0, separator).trim();
+    const symbol = value.slice(separator + 1).trim();
+    if (!US_METADATA_EXCHANGE.test(exchange)) continue;
+    // Plain symbols only. A suffixed foreign line (`NVA.AX`, `2076.HK`) is
+    // never a US listing, and its venue would have been rejected above anyway.
+    if (!/^[A-Za-z][A-Za-z0-9]{0,5}$/.test(symbol)) continue;
+    candidates.push(symbol);
   }
   return candidates;
 }

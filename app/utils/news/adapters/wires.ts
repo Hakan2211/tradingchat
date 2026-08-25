@@ -1,9 +1,13 @@
 import { NewsSourceKind, type NewsFeed } from '@prisma/client';
 import { classifyHeadline } from '../classify';
 import { sessionAwareInterval, WIRE_IDLE_POLL_MS } from '../schedule';
-import { extractTickers } from '../tickers';
+import {
+  extractMetadataTickerCandidates,
+  extractTickerCandidates,
+  validateTickers,
+} from '../tickers';
 import type { NewsAdapter, RawItem } from '../types';
-import { blocks, plainText, tagText } from '../xml';
+import { blocks, plainText, tagText, tagTextAll } from '../xml';
 
 /**
  * One generic RSS adapter, N wires. Each wire is a `NewsFeed` row, so adding
@@ -74,6 +78,14 @@ export function parseWireRss(xml: string, feedKey: string): RawItem[] {
     const publishedAt = publishedAtFrom(item);
     if (!headline || !publishedAt) continue;
 
+    // Drop translations. GlobeNewswire republishes the same release in French
+    // or Danish under the same `dc:identifier` but a different headline — so
+    // the headline-hash dedupe cannot collapse them, and the feed would carry
+    // one event twice. Only skip when the wire states a non-English language:
+    // most wires omit the tag entirely and must not be filtered out.
+    const language = tagText(item, 'dc:language').toLowerCase();
+    if (language && !language.startsWith('en')) continue;
+
     // Snippet only — never the full body.
     const summary = plainText(
       tagText(item, 'description') || tagText(item, 'summary'),
@@ -87,6 +99,13 @@ export function parseWireRss(xml: string, feedKey: string): RawItem[] {
       url: link,
       publishedAt,
       summary: summary || undefined,
+      // Structured `exchange:symbol` metadata, where the wire publishes it.
+      // Resolved in `enrich`, not here: validation needs the database and this
+      // parser is sync and pure so it can be tested against fixtures.
+      symbolHints: tagTextAll(item, 'category', {
+        attribute: 'domain',
+        contains: '/rss/stock',
+      }),
       // Wire items keep the headline-hash dedupe key (the ingest default):
       // unlike filings and halts these genuinely are republished across feeds,
       // which is exactly what that key exists to collapse.
@@ -131,7 +150,18 @@ export const wireAdapter: NewsAdapter = {
     // Headline AND snippet: wires routinely put the exchange:ticker in the
     // body's dateline rather than in the title.
     const searchText = `${item.headline} ${item.summary ?? ''}`;
-    item.tickers = await extractTickers(searchText);
+
+    // Structured metadata first, prose second. Both go through the same
+    // universe validation, so a wire that publishes neither still resolves
+    // nothing and a wire that publishes both cannot contradict itself.
+    //
+    // This is the difference between GlobeNewswire being worth polling and not:
+    // in a live 20-item sample, 15 items named a symbol in metadata and only
+    // about half restated it in the text the prose parser can see.
+    item.tickers = await validateTickers([
+      ...extractMetadataTickerCandidates(item.symbolHints ?? []),
+      ...extractTickerCandidates(searchText),
+    ]);
     item.catalyst = classifyHeadline(searchText);
   },
 };

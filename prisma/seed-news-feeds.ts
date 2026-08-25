@@ -106,10 +106,10 @@ const FEEDS: FeedSeed[] = [
     kind: NewsSourceKind.WIRE,
     tier: WireTier.MAJOR,
     url: 'https://www.globenewswire.com/RssFeed/orgclass/1/feedTitle/GlobeNewswire-News-about-Public-Companies',
-    enabled: false,
+    enabled: true,
     pollIntervalSec: 20,
     userAgent: BROWSER_USER_AGENT,
-    note: 'RE-PROBED 2026-08-25: homepage now loads from the dev machine but every /RssFeed/ path still connection-resets. Still needs a Coolify-host probe. Highest-priority wire',
+    note: 'VERIFIED 2026-08-25 from a real browser: this URL serves valid RSS, 20 items, "Contains the last 20 releases". The dev machine\'s connection resets were a network-level block, not a dead feed. Publishes exchange:symbol in <category domain=".../rss/stock"> — 15 of 20 items carried a US symbol there vs ~half in prose, which is why the adapter reads it',
   },
   {
     key: 'accessnewswire',

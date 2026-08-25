@@ -26,6 +26,15 @@ export type RawItem = {
   summary?: string;
   /** Only when the source states the symbols outright (halts, EDGAR CIK). */
   tickers?: string[];
+  /**
+   * Raw `exchange:symbol` pairs a source published as structured metadata,
+   * before any validation — GlobeNewswire's `<category domain=".../rss/stock">`.
+   *
+   * Separate from `tickers` because these are candidates, not answers: the
+   * venue still has to be a US one and the symbol still has to exist in
+   * `SymbolUniverse`. `enrich` resolves them; nothing else should read this.
+   */
+  symbolHints?: string[];
   /** Set when the source is unambiguous about it; otherwise the classifier decides. */
   catalyst?: NewsCatalyst;
   formType?: string;

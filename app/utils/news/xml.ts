@@ -74,6 +74,41 @@ export function tagText(block: string, tag: string): string {
   return paired ? decodeEntities(stripCdata(paired[1])).trim() : '';
 }
 
+/**
+ * Text of EVERY `<tag>` in a block, optionally only those carrying a given
+ * attribute value.
+ *
+ * `tagText` returns the first match, which is right for the one-per-item fields
+ * (title, link, pubDate). Categories are the exception: a wire emits several,
+ * and which one matters is decided by an attribute — GlobeNewswire tags its
+ * symbol categories with `domain=".../rss/stock"` and its topic categories with
+ * something else, and reading the first one gets you "Dividend Reports".
+ *
+ * `contains` rather than an equality test because the domain is a full URL that
+ * differs per feed; the discriminating part is the path.
+ */
+export function tagTextAll(
+  block: string,
+  tag: string,
+  filter?: { attribute: string; contains: string }
+): string[] {
+  const name = escapeForRegex(tag);
+  const pattern = new RegExp(
+    String.raw`<${name}((?:\s[^>]*)?)>([\s\S]*?)</${name}>`,
+    'g'
+  );
+  const found: string[] = [];
+  for (const match of block.matchAll(pattern)) {
+    if (filter) {
+      const key = escapeForRegex(filter.attribute);
+      const attr = match[1].match(new RegExp(String.raw`\b${key}="([^"]*)"`));
+      if (!attr || !attr[1].includes(filter.contains)) continue;
+    }
+    found.push(decodeEntities(stripCdata(match[2])).trim());
+  }
+  return found;
+}
+
 /** Value of an attribute on the first matching tag, or ''. */
 export function tagAttr(block: string, tag: string, attribute: string): string {
   const name = escapeForRegex(tag);
