@@ -97,7 +97,7 @@ domain="https://www.globenewswire.com/rss/stock">OTC Markets:DNGDF</category>
 <link>https://www.globenewswire.com/news-release/2026/08/25/3350338/en/swvl.html</link>
 <category
 domain="https://www.globenewswire.com/rss/stock">Nasdaq:SWVL</category>
-<title>Swvl Announces $13 Million Registered Direct Offering Priced At-The-Market Under Nasdaq Rules</title>
+<title>Swvl Announces $13 Million Strategic Investment Round Priced At-The-Market Under Nasdaq Rules led by the Sawiris Family and Coefficient LP</title>
 <description><![CDATA[<p>Swvl Holdings Corp (Nasdaq: SWVL) entered a definitive securities purchase agreement for a $13 million private placement.</p>]]></description>
 <pubDate>Tue, 25 Aug 2026 11:30 GMT</pubDate>
 <dc:language>en</dc:language>
