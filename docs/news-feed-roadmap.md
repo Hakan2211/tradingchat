@@ -1203,25 +1203,72 @@ Worth knowing when picking the score: GlobeNewswire is `MAJOR` tier, so an
 offering headline there scores 70 base + 10 major wire + 10 NASDAQ = **90**. A
 routine 6-K sits at 10–20. 60 is a wide gap in the right place.
 
-### 9b. Act on the 07:00–09:00 promotional-wire sample
+### 9b. The promotional-wire premise failed its own test — cut three feeds
 
-`scripts/news-measure-window.ts` was run across the 2026-08-25 pre-market window
-to settle the question §7c left open: whether ABNewswire, KissPR and the other
-promotional wires earn their poll. **The result has not been read yet.**
+**Measured 2026-08-25, 07:00–09:00 ET, 45 sweeps, 130 items.** This is the
+re-measure §7c asked for before disabling anything, taken at exactly the hour
+§3c predicted promotional releases would cluster. Read it as the answer.
 
-§3c justified ingesting them on the grounds that a paid-placement release on a
-3M-float ticker at 07:15 ET is exactly this app's setup. The only sample taken
-before this one was at 05:15 ET — an hour before promotional releases are
-supposed to cluster — and found 0% ticker density.
+```
+feed             tier          items  ticker  density  alerts
+abnewswire       PROMOTIONAL       3       0       0%       0
+acnnewswire      STANDARD          0       0        —       0
+kisspr           PROMOTIONAL       0       0        —       0
+nasdaq-halts     —                 0       0        —       0
+newsdirect       STANDARD          3       3     100%       0
+newswire-com     STANDARD         19       0       0%       0
+prnewswire       MAJOR            41       8      20%       0
+sec-edgar        —                64      63      98%       4
+webwire          STANDARD          0       0        —       0
+```
 
-If they come back at 0% again, disabling them is a seed edit and a re-seed, the
-same path GlobeNewswire took in reverse: set `enabled: false` in
-`prisma/seed-news-feeds.ts`… **except that disabling does NOT propagate through
-the upsert** (see `seedNewsFeeds` — enabling propagates, disabling does not, so
-that a feed switched on against the live database stays on). Flip those rows in
-the database directly, or the registry and production will disagree.
+All four items clearing the alert threshold were EDGAR filings (S-1/A on SDOT,
+424B5 on BBVA, S-3 on CTRN, S-1 on ENHA). Every wire combined produced none —
+the same shape as §7b's 18-of-19, now confirmed on an independent window.
 
-Half an hour of work, not a milestone. Do not let it grow into one.
+**§3c's premise is dead.** It justified ingesting the cheap wires on the grounds
+that "a $50 paid-placement release on a 3M-float ticker at 07:15 ET is precisely
+the setup this app's users trade". Measured at that hour, ABNewswire's entire
+output was:
+
+```
+Denver Laundry Service Expands Convenient Laundry Pickup and Delivery
+Top Car Accident Attorney in Port St. Lucie, FL, Notes Firm's Litigation…
+Early Atlanta Heat Puts New Focus on Shade: Softek Awnings Designs…
+```
+
+Local-business SEO spam, not micro-cap promotion. And the corroboration
+escalation — the mechanism that was supposed to redeem these wires when a halt
+or filing backs them up — **fired zero times, and could not have fired**: no
+promotional item carried a ticker to corroborate. The tier cap also suppressed
+nothing, for the same reason. The safety net was never load-bearing because
+there was never anything to catch.
+
+**Cut these three.** Each has two independent readings, discovery plus this
+window, not one bad morning:
+
+| feed | discovery | this window | why |
+|---|---|---|---|
+| `abnewswire` | 0% at 05:15 ET | 0% of 3 | Not finance at all |
+| `kisspr` | 0 of 10 | 0 items in 2h | Its own seed note said "watch whether it earns its poll". It did not |
+| `newswire-com` | 4 of 50 (8%) | 0% of 19 | The highest-volume zero-signal feed here, and STANDARD tier so it is not even score-capped |
+
+**Keep** `newsdirect` (3 of 3, and 7 of 10 at discovery — the best density
+probed), `prnewswire` (20% and MAJOR tier, where real filers post), and both
+`webwire` and `acnnewswire` — those two published *nothing* in the window, which
+is absence of output rather than noise, and costs one request per poll.
+
+**How to disable — this is the trap:** editing `enabled: false` in
+`prisma/seed-news-feeds.ts` will NOT turn them off. `seedNewsFeeds`' upsert
+propagates enabling and deliberately never propagates disabling, so that a feed
+switched on against the live database survives a re-seed. The registry edit is
+still worth making so a fresh environment starts correct, but production needs
+the rows flipped directly.
+
+Cutting these does not shrink the feed's value — it removes 22 of 130 items,
+none of which carried a ticker, so none could ever alert and all of them were
+hidden behind the default `withTickerOnly` filter anyway. What it buys is three
+fewer polls, a smaller table, and a registry that reflects what was measured.
 
 ### 9c. Bookmark a news item — the rest of M5
 
