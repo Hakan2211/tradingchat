@@ -1181,3 +1181,101 @@ M1–M2 are where the risk is. M3–M5 are ordinary app work on this codebase.
   active Theme) also drop into a chat room? Deliberately deferred — considered
   and rejected for v1 to keep the message table clean, but it is the obvious M7
   if people ask for it.
+
+---
+
+## 9. Open items — pick up here
+
+Live state as of **2026-08-25**: ingestion is running in production, 10 feeds
+enabled, retention purging nightly at 02:30 ET, M5 integrations and durable
+alerts shipped. What is left, roughly in the order it is worth doing.
+
+### 9a. Create a watch rule (5 minutes, do this first)
+
+Nothing in the feed can page anyone until a `NewsWatch` rule exists, and there
+are currently none. The whole alert pipeline — server-side matching, persisted
+fires, unread history — is running and matching against an empty rule set.
+
+On `/news` → **Alerts** → new rule: min score 60, no ticker list, no catalyst
+list. That fires on anything clearing the alert threshold and nothing else.
+
+Worth knowing when picking the score: GlobeNewswire is `MAJOR` tier, so an
+offering headline there scores 70 base + 10 major wire + 10 NASDAQ = **90**. A
+routine 6-K sits at 10–20. 60 is a wide gap in the right place.
+
+### 9b. Act on the 07:00–09:00 promotional-wire sample
+
+`scripts/news-measure-window.ts` was run across the 2026-08-25 pre-market window
+to settle the question §7c left open: whether ABNewswire, KissPR and the other
+promotional wires earn their poll. **The result has not been read yet.**
+
+§3c justified ingesting them on the grounds that a paid-placement release on a
+3M-float ticker at 07:15 ET is exactly this app's setup. The only sample taken
+before this one was at 05:15 ET — an hour before promotional releases are
+supposed to cluster — and found 0% ticker density.
+
+If they come back at 0% again, disabling them is a seed edit and a re-seed, the
+same path GlobeNewswire took in reverse: set `enabled: false` in
+`prisma/seed-news-feeds.ts`… **except that disabling does NOT propagate through
+the upsert** (see `seedNewsFeeds` — enabling propagates, disabling does not, so
+that a feed switched on against the live database stays on). Flip those rows in
+the database directly, or the registry and production will disagree.
+
+Half an hour of work, not a milestone. Do not let it grow into one.
+
+### 9c. Bookmark a news item — the rest of M5
+
+M5 shipped send-to-Scanner and add-to-Theme; bookmarking was in the original
+scope and was not built. The app already has a bookmark feature for chat
+messages (`app/components/bookmark/`), so the question to answer first is
+whether news bookmarks join that table or get their own.
+
+### 9d. M6 — admin source-health view
+
+Last poll, consecutive failures, items/hour per source. Every field it needs is
+already on `NewsFeed` (`lastPolledAt`, `lastItemAt`, `lastError`,
+`consecutiveFailures`) — this is a read-only page over columns the poller has
+been maintaining since M1, not new plumbing.
+
+The retention purge that was also part of M6 shipped early with production
+enablement; see §7i.
+
+### 9e. ACCESS Newswire — low priority, and say no if it grows
+
+Feed URL still unknown; the homepage returns a Cloudflare challenge from the dev
+machine. **Try loading it in a real browser first** — that is what settled
+GlobeNewswire, whose URL had been correct in the registry the whole time while
+node-fetch got connection-reset.
+
+Bounded at one attempt. EDGAR produced 18 of 19 alerting items in the M2 sample
+and all eight wires combined produced one; this is the 5%.
+
+---
+
+## 10. Found while shipping this, NOT part of this feature
+
+### 10a. Express `trust proxy` is off behind Traefik
+
+Spotted in the production log during news enablement on 2026-08-25:
+
+```
+ValidationError: The 'X-Forwarded-For' header is set but the Express
+'trust proxy' setting is false (default).
+  code: 'ERR_ERL_UNEXPECTED_X_FORWARDED_FOR'
+```
+
+Every request reaches the app through Traefik, so `express-rate-limit` sees the
+proxy's IP for all of them and buckets the entire community into **one shared
+limit** instead of one per user. A single noisy client can exhaust it for
+everyone, and a genuine abuser is never individually limited.
+
+The fix is one line in `server/server.ts` — `app.set('trust proxy', 1)`. The `1`
+matters: blanket `true` trusts the whole `X-Forwarded-For` chain, which lets a
+client spoof its own address by sending the header. `1` trusts exactly one hop,
+which is what sits in front of this app.
+
+It is small but it changes how EVERY request is identified, including the login
+and password-reset limiters, so it wants its own change and its own verification
+— not a line slipped into a news commit. Nothing to do with the news feed; it
+was already true before any of this and is recorded here only because this is
+where it was noticed.
