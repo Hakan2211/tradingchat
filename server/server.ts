@@ -11,6 +11,7 @@ import { type ServerBuild } from "react-router";
 import { prisma } from "app/utils/db.server";
 import { liveSessions } from "app/utils/live-session.server";
 import { startNewsIngestion } from "app/utils/news/ingest.server";
+import { startNewsRetention } from "app/utils/news/retention.server";
 import { userHasNewsAccess } from "app/utils/news.server";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { UserStatus } from "@prisma/client";
@@ -215,6 +216,12 @@ if (process.env.NEWS_INGEST_ENABLED === "true") {
     // row rather than showing the halt twice.
     for (const item of items) io.to("news").emit("news.item", item);
   });
+
+  // Nightly retention, behind the same flag for the same two reasons: a process
+  // that is not ingesting is not accumulating, and the flag is what keeps this
+  // single-instance. Configure with NEWS_RETENTION_DAYS (default 90, `off` to
+  // disable). See app/utils/news/retention.server.ts.
+  startNewsRetention();
 }
 
 // Standard middleware

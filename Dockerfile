@@ -33,6 +33,10 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/entrypoint.sh .
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/app ./app
+# Operational scripts (news:poll-once, news:discover, news:measure). Not used
+# by the running app, but several of them can only be run FROM this host --
+# GlobeNewswire and ACCESS Newswire are Cloudflare-blocked from dev machines.
+COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/tsconfig.json .
 
 RUN chmod +x ./entrypoint.sh
