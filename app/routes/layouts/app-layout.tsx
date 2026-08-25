@@ -18,6 +18,9 @@ import { type Socket, io as socketIo } from "socket.io-client";
 import React from "react";
 import { UserStatus } from "@prisma/client";
 import { toast } from "sonner";
+import { getUserNewsWatches } from "#/utils/news.server";
+import type { NewsWatchRule } from "#/utils/news/watch";
+import { useNewsAlerts } from "#/components/news/use-news-alerts";
 import { redirectWithToast } from "#/utils/toaster.server";
 import { isUserAuthorized } from "#/utils/permission.server";
 import { snapshotLiveSessions } from "#/utils/live-session.server";
@@ -69,12 +72,14 @@ function SocketProvider({
   initialDms,
   initialUnreadCounts,
   initialLiveSessions,
+  newsWatches,
 }: {
   user: { id: string };
   children: React.ReactNode;
   initialDms: DirectMessageItem[];
   initialUnreadCounts: Record<string, number>;
   initialLiveSessions: Record<string, PublicLiveSession>;
+  newsWatches: NewsWatchRule[];
 }) {
   const revalidator = useRevalidator();
   // Keep the revalidator in a ref so the socket-creation effect below does not
@@ -86,6 +91,10 @@ function SocketProvider({
   const revalidatorRef = React.useRef(revalidator);
   revalidatorRef.current = revalidator;
   const [socket, setSocket] = React.useState<Socket | null>(null);
+
+  // News watch-rule alerts. Lives here rather than on /news so a matching
+  // headline reaches the member wherever they are in the app.
+  useNewsAlerts(socket, newsWatches);
   const [onlineUserIds, setOnlineUserIds] = React.useState<Set<string>>(
     new Set()
   );
@@ -505,13 +514,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     directMessages,
     unreadCounts,
     liveSessions: snapshotLiveSessions(),
+    // Shipped with every authed page load so alerts work outside /news. Cheap:
+    // one indexed lookup returning at most MAX_WATCH_RULES rows, and a rule
+    // edit revalidates this loader automatically.
+    newsWatches: await getUserNewsWatches(userId),
   };
 }
 
 // --- 2. LAYOUT COMPONENT (No changes needed here) ---
 export default function AppLayout() {
-  const { user, groupRooms, directMessages, unreadCounts, liveSessions } =
-    useLoaderData<typeof loader>();
+  const {
+    user,
+    groupRooms,
+    directMessages,
+    unreadCounts,
+    liveSessions,
+    newsWatches,
+  } = useLoaderData<typeof loader>();
 
   useTranslationProtection();
 
@@ -521,6 +540,7 @@ export default function AppLayout() {
       initialDms={directMessages}
       initialUnreadCounts={unreadCounts}
       initialLiveSessions={liveSessions}
+      newsWatches={newsWatches}
     >
       <SidebarProvider className="h-svh overflow-hidden">
         <AppSidebar

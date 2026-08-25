@@ -54,6 +54,7 @@ model User {
   tradeEntries   TradeEntry[]
   unreadMessages UnreadMessage[]
   image          UserImage?
+  newsWatches    NewsWatch[]
   scannerEntries ScannerEntry[]  @relation("ScannerEntries")
   themes         Theme[]         @relation("ThemeEntries")
   themeTickers   ThemeTicker[]   @relation("ThemeTickerEntries")
@@ -380,4 +381,129 @@ model ThemeTicker {
   @@unique([themeId, ticker])
   @@index([themeId])
   @@index([ticker])
+}
+
+// --- News feed -------------------------------------------------------------
+// See docs/news-feed-roadmap.md. The wire list is data, not code: adding a
+// source is an INSERT into NewsFeed, not a migration. Only the structurally
+// different source *kinds* are an enum.
+
+enum NewsSourceKind {
+  SEC_EDGAR     // filings — bespoke adapter
+  EXCHANGE_HALT // halt feed — bespoke adapter
+  WIRE          // generic RSS — N rows share one adapter
+  VENDOR_API    // Finnhub etc. — env-gated, off by default
+}
+
+// Signal quality of a wire. Drives scoring and the UI badge — NOT whether we
+// ingest it. Promotional wires are ingested deliberately: they are where the
+// tradeable low-float pumps break. They are score-capped instead of filtered.
+enum WireTier {
+  MAJOR         // real filers use these; correlates with 8-K-worthy events
+  STANDARD      // legitimate, lower volume
+  PROMOTIONAL   // paid-placement wires — high beta, low trust
+  SYNDICATOR    // redistributes others' releases; mostly duplicates
+}
+
+enum NewsCatalyst {
+  OFFERING        // 424B5, registered direct, ATM, "pricing of public offering"
+  SHELF           // S-3, S-1 — dilution incoming, not yet priced
+  REVERSE_SPLIT
+  HALT
+  RESUMPTION
+  FDA             // Phase 1/2/3, IND, NDA, 510(k), Fast Track, orphan drug
+  MERGER
+  CONTRACT        // contract award, LOI, partnership
+  EARNINGS
+  INSIDER         // 13D/G, Form 4 clusters
+  UPLISTING
+  OTHER
+}
+
+model NewsFeed {
+  key                 String         @id          // "sec-edgar", "prnewswire"
+  name                String
+  kind                NewsSourceKind
+  tier                WireTier?                   // null for non-WIRE kinds
+  url                 String
+  enabled             Boolean        @default(true)
+  pollIntervalSec     Int            @default(20)
+  // Several wires 403 on a bare node-fetch UA; the SEC wants an identifying
+  // one with a contact address. So User-Agent is per-feed config, not global.
+  userAgent           String?
+  // cursor + health, per feed
+  lastPolledAt        DateTime?
+  lastItemAt          DateTime?
+  lastError           String?
+  consecutiveFailures Int            @default(0)
+  items               NewsItem[]
+
+  @@index([enabled])
+}
+
+model NewsItem {
+  id          String       @id @default(cuid())
+  feedKey     String
+  feed        NewsFeed     @relation(fields: [feedKey], references: [key])
+  externalId  String       // wire guid, EDGAR accession no., halt symbol+time
+  dedupeKey   String       // normalized-headline hash, cross-source
+  headline    String
+  summary     String?      // short snippet only — never the full body
+  url         String
+  publishedAt DateTime
+  ingestedAt  DateTime     @default(now())
+  catalyst    NewsCatalyst @default(OTHER)
+  score       Int          @default(0)   // 0-100 priority
+  formType    String?      // 8-K, 424B5, 6-K
+  haltReason  String?      // T1, T12, LUDP, H11
+  // Feed keys that later republished the same story. First-seen wins the row;
+  // duplicates append here rather than creating a second entry in the feed.
+  alsoSeenOn  String?      // JSON array of feed keys
+  raw         String?      // JSON of the source payload, for debugging
+  tickers     NewsTicker[]
+
+  @@unique([feedKey, externalId])
+  @@index([publishedAt])
+  @@index([dedupeKey])
+  @@index([catalyst])
+}
+
+model NewsTicker {
+  id         String   @id @default(cuid())
+  ticker     String
+  newsItemId String
+  newsItem   NewsItem @relation(fields: [newsItemId], references: [id], onDelete: Cascade)
+
+  @@unique([newsItemId, ticker])
+  @@index([ticker])
+}
+
+// Per-user alert rules. Client-side matching, so this is just storage.
+model NewsWatch {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String   @default("My alerts")
+  tickers   String?  // JSON array of symbols; null = any
+  catalysts String?  // JSON array of NewsCatalyst; null = any
+  minScore  Int      @default(0)
+  sound     Boolean  @default(true)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Guards ticker extraction against false positives: without validating every
+// candidate symbol against this table, bare-word matching turns CEO, AI, FDA
+// and NEWS into tickers.
+model SymbolUniverse {
+  ticker    String   @id
+  name      String
+  exchange  String   // NASDAQ, NYSE, AMEX, OTC
+  cik       String?
+  updatedAt DateTime @updatedAt
+
+  @@index([cik])
 }

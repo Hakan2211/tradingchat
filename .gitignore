@@ -29,3 +29,8 @@
 
 tmp.ignored.js
 tmp.ignored.sql
+
+# SQLite WAL sidecars. Created since db.server.ts enables journal_mode=WAL;
+# they are transient and must never be committed alongside the .db file.
+*.db-wal
+*.db-shm

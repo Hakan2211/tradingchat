@@ -10,6 +10,8 @@ import rateLimit from "express-rate-limit";
 import { type ServerBuild } from "react-router";
 import { prisma } from "app/utils/db.server";
 import { liveSessions } from "app/utils/live-session.server";
+import { startNewsIngestion } from "app/utils/news/ingest.server";
+import { userHasNewsAccess } from "app/utils/news.server";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { UserStatus } from "@prisma/client";
 
@@ -132,6 +134,17 @@ io.on("connection", (socket) => {
   if (userId) {
     (async () => {
       socket.join(`user:${userId}`);
+
+      // News is subscriber-gated, so entitlement is resolved ONCE here rather
+      // than filtered per item on every emit. Everyone in the room gets every
+      // item and the client applies the user's own filters — which keeps the
+      // server dumb and lets a filter change apply instantly.
+      try {
+        if (await userHasNewsAccess(userId)) socket.join("news");
+      } catch (error) {
+        // A failed entitlement check must not break presence below.
+        console.warn("Could not resolve news access for", userId, error);
+      }
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { status: true },
@@ -187,6 +200,21 @@ if (process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY) {
       }
     }
   }, 45_000);
+}
+
+// --- News ingestion --------------------------------------------------------
+// Same shape as the sweep above: a background loop in the single long-lived
+// Node process. Env-flagged and default OFF — local dev must not poll the SEC
+// continuously, and only ONE process may ever poll (two would double-write;
+// the @@unique([feedKey, externalId]) constraint makes that safe rather than
+// corrupting, but it is still wasted requests against a rate-limited source).
+if (process.env.NEWS_INGEST_ENABLED === "true") {
+  startNewsIngestion((items) => {
+    // One event per item, keyed by id on the client. A halt that gains its
+    // resumption time re-emits under the SAME id, so the client replaces the
+    // row rather than showing the halt twice.
+    for (const item of items) io.to("news").emit("news.item", item);
+  });
 }
 
 // Standard middleware

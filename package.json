@@ -9,6 +9,13 @@
     "typecheck": "react-router typegen && tsc",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:admin": "tsx prisma/adminSeed.ts",
+    "db:seed:news": "tsx prisma/seed-news-feeds.ts",
+    "db:seed:symbols": "tsx prisma/seed-symbol-universe.ts",
+    "news:poll-once": "tsx scripts/news-poll-once.ts",
+    "news:discover": "tsx scripts/news-discover-feed.ts",
+    "news:measure": "tsx scripts/news-measure-window.ts",
+    "news:purge": "tsx prisma/purge-old-news.ts",
+    "news:rescore": "tsx prisma/rescore-news.ts",
     "db:deploy": "prisma migrate deploy",
     "db:studio:prod": "npx prisma studio --port 5556 --hostname 0.0.0.0"
   },

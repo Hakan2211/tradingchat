@@ -96,14 +96,42 @@ export function shiftTradingDay(day: string, deltaDays: number): string {
   )}`;
 }
 
+/**
+ * The inverse of `toTradingWallClock`: a New York wall-clock reading turned
+ * back into the real instant it names.
+ *
+ * Sources that publish ET wall clock rather than an offset need this — the
+ * Nasdaq halt feed states `08/24/2026` + `19:50:00.000` with no zone, and
+ * reading that as UTC would misplace every halt by four or five hours.
+ */
+export function fromTradingWallClock(parts: {
+  year: number;
+  month: number;
+  day: number;
+  hour?: number;
+  minute?: number;
+  second?: number;
+  millisecond?: number;
+}): Date {
+  const asIfUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour ?? 0,
+    parts.minute ?? 0,
+    parts.second ?? 0,
+    parts.millisecond ?? 0
+  );
+  // Guess using the offset around that date, then re-resolve at the guessed
+  // instant: on a DST switch the first guess can land on the wrong side of it.
+  const guess = asIfUtc - offsetAt(new Date(asIfUtc));
+  return new Date(asIfUtc - offsetAt(new Date(guess)));
+}
+
 /** The instant a trading day begins (its 00:00:00.000 in New York). */
 function startOfTradingDay(day: string): Date {
   const [year, month, dayOfMonth] = day.split('-').map(Number);
-  const midnightAsIfUtc = Date.UTC(year, month - 1, dayOfMonth, 0, 0, 0, 0);
-  // Guess using the offset around that date, then re-resolve at the guessed
-  // instant: on a DST switch the first guess can land on the wrong side of it.
-  const guess = midnightAsIfUtc - offsetAt(new Date(midnightAsIfUtc));
-  return new Date(midnightAsIfUtc - offsetAt(new Date(guess)));
+  return fromTradingWallClock({ year, month, day: dayOfMonth });
 }
 
 /**

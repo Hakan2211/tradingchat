@@ -33,6 +33,7 @@ export default [
     route('/change-password', 'routes/resources/change-password.tsx'),
     route('/journal-images/:imageId', 'routes/resources/journal-images.tsx'),
     route('/scanner', 'routes/resources/scanner.tsx'),
+    route('/news-watch', 'routes/resources/news-watch.tsx'),
     route('/themes', 'routes/resources/themes.tsx'),
     route('/live-session', 'routes/resources/live-session.tsx'),
     route('/live-token', 'routes/resources/live-token.tsx'),
@@ -52,6 +53,9 @@ export default [
       route('edit', 'routes/user/user-edit.tsx'),
     ]),
     route('/bookmarks', 'routes/app/bookmarks.tsx'),
+
+    //-----News Routes------
+    route('/news', 'routes/app/news/news-index.tsx'),
 
     //-----Scanner Routes------
     route('/scanner', 'routes/app/scanner/scanner-index.tsx'),
