@@ -11,6 +11,7 @@ import {
   type NewsFilters,
 } from '#/utils/news.server';
 import { DEFAULT_ALERT_THRESHOLD } from '#/utils/news/constants';
+import { countUnreadAlerts, getUserAlerts } from '#/utils/news/alerts.server';
 
 /**
  * The `/news` feed.
@@ -58,6 +59,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // only avoids showing a button that would 403.
     canCurate: isStaff,
     themes: isStaff ? await getNewsThemes() : [],
+    // Alert history. This is what a member comes back to after being away --
+    // the alerts that fired while no tab was open. The socket only carries what
+    // fires while connected, so the backlog has to arrive with the page.
+    alerts: await getUserAlerts(userId),
+    unreadAlerts: await countUnreadAlerts(userId),
   };
 }
 
@@ -75,6 +81,8 @@ export default function NewsIndexRoute() {
       watches={'watches' in data ? data.watches : []}
       canCurate={'canCurate' in data ? data.canCurate : false}
       themes={'themes' in data ? data.themes : []}
+      initialAlerts={'alerts' in data ? data.alerts : []}
+      initialUnread={'unreadAlerts' in data ? data.unreadAlerts : 0}
     />
   );
 }

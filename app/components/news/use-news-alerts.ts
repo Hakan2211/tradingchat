@@ -1,59 +1,91 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import type { Socket } from 'socket.io-client';
-import type { NewsFeedItem } from '#/utils/news/types';
-import { matchWatchRules, type NewsWatchRule } from '#/utils/news/watch';
+import type { FiredAlert } from '#/utils/news/types';
 import { playAlertPing } from '#/utils/news/alert-sound';
 
 /**
- * Fires watch-rule alerts for `news.item` pushes.
+ * Renders watch-rule alerts pushed by the server.
  *
- * Mounted in the app layout, NOT on the /news page. The roadmap put matching in
- * the feed's loader, but an alert you only receive while staring at the feed is
- * not an alert — the member is in a chat room when the 8-K drops. The layout
- * already owns the socket and every other global listener (DM toasts, live
- * sessions), so this sits beside them and reaches every authed page.
+ * Mounted in the app layout, NOT on the /news page: an alert you only receive
+ * while staring at the feed is not an alert — the member is in a chat room when
+ * the 8-K drops. The layout already owns the socket and every other global
+ * listener (DM toasts, live sessions), so this sits beside them.
  *
- * The server emits to everyone in the `news` room and lets each client filter;
- * a member without feed access is never joined to that room, so an empty rule
- * list here simply never matches.
+ * MATCHING NO LONGER HAPPENS HERE. It used to: this hook received every
+ * `news.item` and ran the rules itself, which meant a member with no tab open
+ * at 07:15 simply never got the alert, and a member with two tabs got it twice.
+ * The server now decides, persists the fire, and emits `news.alert` to that
+ * member's own room — so this hook only renders. `alerts.server.ts` has the
+ * reasoning; `watch.ts` still holds the shared predicate, which the rule editor
+ * uses to preview a rule.
+ *
+ * What this hook still owns is presentation: burst collapsing, and making sure
+ * two tabs do not both play the ping.
  */
 
 /** Toasts allowed per rolling window before the rest collapse into one. */
 const BURST_LIMIT = 10;
 const BURST_WINDOW_MS = 60_000;
 
-export function useNewsAlerts(
-  socket: Socket | null,
-  rules: NewsWatchRule[]
-): void {
-  // Rules live in a ref so that editing one does not tear down and re-add the
-  // socket listener — the same reasoning as the revalidator ref above it.
-  const rulesRef = React.useRef(rules);
-  rulesRef.current = rules;
+/** How long a sound claim stays in localStorage before it is pruned. */
+const CLAIM_TTL_MS = 10 * 60_000;
+const CLAIM_PREFIX = 'news-alert-sound:';
 
-  // Item ids already alerted on. A halt that later gains its resumption time
-  // is re-emitted under the SAME id to update its row; without this it would
-  // ping twice for one event.
-  const alertedRef = React.useRef<Set<string>>(new Set());
+/**
+ * Claim the right to play the ping for this alert, once per browser.
+ *
+ * The server now fires an alert once per USER, but every tab that user has open
+ * receives it — so without this, two tabs mean two pings for one event. Each
+ * tab renders its own toast, which is inherent to having two tabs and is not
+ * worth suppressing; two overlapping sounds are the part that actually grates.
+ *
+ * The read-then-write is not atomic across tabs, so two tabs handling the event
+ * in the very same instant could both claim it. In practice socket delivery is
+ * milliseconds apart and this window is microseconds; the cost of losing the
+ * race is the old behaviour for one alert, so a lock protocol is not worth it.
+ *
+ * Storage can throw outright (Safari private mode, blocked site data). Falling
+ * back to "play it" is the right failure: a duplicate ping beats silence.
+ */
+function claimSoundFor(alertId: string): boolean {
+  try {
+    const key = `${CLAIM_PREFIX}${alertId}`;
+    if (window.localStorage.getItem(key)) return false;
+    window.localStorage.setItem(key, String(Date.now()));
+    pruneClaims();
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+/** Claims are per-alert, so they would accumulate forever without this. */
+function pruneClaims(): void {
+  try {
+    const now = Date.now();
+    const stale: string[] = [];
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key?.startsWith(CLAIM_PREFIX)) continue;
+      const at = Number(window.localStorage.getItem(key));
+      if (!Number.isFinite(at) || now - at > CLAIM_TTL_MS) stale.push(key);
+    }
+    for (const key of stale) window.localStorage.removeItem(key);
+  } catch {
+    // Pruning is housekeeping; never let it break an alert.
+  }
+}
+
+export function useNewsAlerts(socket: Socket | null): void {
   const recentRef = React.useRef<number[]>([]);
   const suppressedRef = React.useRef(0);
 
   React.useEffect(() => {
     if (!socket) return;
 
-    const onItem = (item: NewsFeedItem) => {
-      if (!rulesRef.current.length) return;
-      if (alertedRef.current.has(item.id)) return;
-
-      const rule = matchWatchRules(item, rulesRef.current);
-      if (!rule) return;
-
-      alertedRef.current.add(item.id);
-      // The set is per-session and only grows on matches, but a member who
-      // leaves the tab open all week with a loose rule should not accumulate
-      // forever.
-      if (alertedRef.current.size > 5000) alertedRef.current.clear();
+    const onAlert = (alert: FiredAlert) => {
+      const { item } = alert;
 
       const now = Date.now();
       recentRef.current = recentRef.current.filter(
@@ -74,12 +106,14 @@ export function useNewsAlerts(
       recentRef.current.push(now);
       if (recentRef.current.length === 1) suppressedRef.current = 0;
 
-      if (rule.sound) playAlertPing();
+      if (alert.sound && claimSoundFor(alert.id)) playAlertPing();
 
       const tickers = item.tickers.slice(0, 3).join(' ');
       toast(tickers ? `${tickers} — ${item.headline}` : item.headline, {
-        id: `news-alert-${item.id}`,
-        description: `${rule.label} · ${item.catalyst} · ${item.feedName} · score ${item.score}`,
+        // Keyed by alert, not item: the server guarantees one alert per item
+        // per user, so this cannot collide with itself.
+        id: `news-alert-${alert.id}`,
+        description: `${alert.watchLabel} · ${item.catalyst} · ${item.feedName} · score ${alert.score}`,
         duration: 12_000,
         action: {
           label: 'Open',
@@ -91,9 +125,9 @@ export function useNewsAlerts(
       });
     };
 
-    socket.on('news.item', onItem);
+    socket.on('news.alert', onAlert);
     return () => {
-      socket.off('news.item', onItem);
+      socket.off('news.alert', onAlert);
     };
   }, [socket]);
 }

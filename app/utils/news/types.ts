@@ -76,3 +76,27 @@ export type NewsFeedItem = {
   haltReason: string | null;
   tickers: string[];
 };
+
+/**
+ * A watch rule that actually fired, for one user, on one item.
+ *
+ * Lives here rather than beside the matcher in `alerts.server.ts` because the
+ * alert hook renders these in the browser, and this file is already the
+ * client-safe half of the news types (its only import is type-only). Importing
+ * the server module for its type would be erased at build time in theory and is
+ * exactly the mistake that has cost this codebase debugging time in practice.
+ */
+export type FiredAlert = {
+  id: string;
+  userId: string;
+  item: NewsFeedItem;
+  watchId: string | null;
+  /** Snapshot of the rule's label, so a deleted rule still explains itself. */
+  watchLabel: string;
+  /** Whether the rule asked for a ping. Always false when replaying history. */
+  sound: boolean;
+  /** The score AT FIRE TIME, which is what explains why the rule matched. */
+  score: number;
+  firedAt: string;
+  readAt: string | null;
+};

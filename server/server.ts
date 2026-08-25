@@ -12,6 +12,7 @@ import { prisma } from "app/utils/db.server";
 import { liveSessions } from "app/utils/live-session.server";
 import { startNewsIngestion } from "app/utils/news/ingest.server";
 import { startNewsRetention } from "app/utils/news/retention.server";
+import { recordAlerts } from "app/utils/news/alerts.server";
 import { userHasNewsAccess } from "app/utils/news.server";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { UserStatus } from "@prisma/client";
@@ -215,6 +216,27 @@ if (process.env.NEWS_INGEST_ENABLED === "true") {
     // resumption time re-emits under the SAME id, so the client replaces the
     // row rather than showing the halt twice.
     for (const item of items) io.to("news").emit("news.item", item);
+
+    // Watch rules are matched HERE, not in the browser. A rule evaluated only
+    // by an open tab cannot fire for the member who had no tab open at 07:15,
+    // and two tabs each matched the same item. Persisting the fire fixes both
+    // and leaves an unread history behind. See app/utils/news/alerts.server.ts.
+    //
+    // Fire-and-forget with its own catch: the broadcast contract is
+    // synchronous, and a failed alert must cost a late ping, never a lost row
+    // or a stalled poll cycle.
+    void recordAlerts(items)
+      .then((fired) => {
+        // Per-user room, the same one the DM toasts use. Only the alerts this
+        // call actually created are emitted, so a re-scored row that already
+        // pinged cannot ping again.
+        for (const alert of fired) {
+          io.to(`user:${alert.userId}`).emit("news.alert", alert);
+        }
+      })
+      .catch((error) => {
+        console.warn("[news] alert fan-out failed (items are stored):", error);
+      });
   });
 
   // Nightly retention, behind the same flag for the same two reasons: a process

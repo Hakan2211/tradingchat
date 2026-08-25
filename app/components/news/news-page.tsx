@@ -3,7 +3,7 @@ import { useFetcher, useSearchParams } from 'react-router';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Bell, ExternalLink, Layers, Newspaper, Radar, Radio } from 'lucide-react';
 import { useSocketContext } from '#/routes/layouts/app-layout';
-import type { NewsFeedItem } from '#/utils/news/types';
+import type { FiredAlert, NewsFeedItem } from '#/utils/news/types';
 import { TRADING_TIME_ZONE } from '#/utils/trading-time';
 import { NEWS_CATALYSTS } from '#/utils/news/constants';
 import type { NewsWatchRule } from '#/utils/news/watch';
@@ -42,6 +42,8 @@ export function NewsPage({
   watches,
   canCurate,
   themes,
+  initialAlerts,
+  initialUnread,
 }: {
   initialItems: NewsFeedItem[];
   initialCursor: string | null;
@@ -56,6 +58,14 @@ export function NewsPage({
    */
   canCurate: boolean;
   themes: CurateTheme[];
+  /**
+   * Alerts that already fired for this member, newest first, and how many are
+   * unread. These arrive with the page rather than over the socket because the
+   * socket only carries what fires while connected — and the whole point of
+   * persisting alerts is the ones that fired while nothing was open.
+   */
+  initialAlerts: FiredAlert[];
+  initialUnread: number;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { socket } = useSocketContext();
@@ -68,6 +78,8 @@ export function NewsPage({
     mode: CurateMode;
     item: NewsFeedItem;
   } | null>(null);
+  const [alerts, setAlerts] = React.useState(initialAlerts);
+  const [unread, setUnread] = React.useState(initialUnread);
   const loadMore = useFetcher<{ items: NewsFeedItem[]; nextCursor: string | null }>();
 
   // A filter change re-runs the loader, which hands back a fresh first page.
@@ -96,6 +108,40 @@ export function NewsPage({
     socket.on('news.item', onItem);
     return () => {
       socket.off('news.item', onItem);
+    };
+  }, [socket]);
+
+  // Alert ids already on screen. The server records one alert per item per
+  // member, so a duplicate can only come from a redelivery — but the badge
+  // counts, and a redelivered alert that incremented it would leave the member
+  // hunting for an unread row that is not there.
+  const seenAlertsRef = React.useRef<Set<string>>(
+    new Set(initialAlerts.map((alert) => alert.id))
+  );
+
+  // A revalidation (a rule edit, a filter change) hands back a fresh backlog.
+  React.useEffect(() => {
+    setAlerts(initialAlerts);
+    setUnread(initialUnread);
+    seenAlertsRef.current = new Set(initialAlerts.map((alert) => alert.id));
+  }, [initialAlerts, initialUnread]);
+
+  // Alerts that fire while this page is open. A separate event from
+  // `news.item`, and a per-member room: the server matched it and addressed it,
+  // so there is nothing to decide here. The toast is fired by `useNewsAlerts`
+  // up in the layout; this only keeps the badge and the history list honest
+  // without a round trip.
+  React.useEffect(() => {
+    if (!socket) return;
+    const onAlert = (alert: FiredAlert) => {
+      if (seenAlertsRef.current.has(alert.id)) return;
+      seenAlertsRef.current.add(alert.id);
+      setAlerts((current) => [alert, ...current]);
+      setUnread((count) => count + 1);
+    };
+    socket.on('news.alert', onAlert);
+    return () => {
+      socket.off('news.alert', onAlert);
     };
   }, [socket]);
 
@@ -186,6 +232,13 @@ export function NewsPage({
             Alerts
             {activeWatchCount > 0 && (
               <span className="tabular-nums">({activeWatchCount})</span>
+            )}
+            {unread > 0 && (
+              // The count of alerts that fired and have not been looked at --
+              // including the ones that fired with no tab open at all.
+              <span className="ml-0.5 rounded-full bg-sky-500 px-1.5 text-[10px] font-semibold text-white tabular-nums">
+                {unread}
+              </span>
             )}
           </button>
           <input
@@ -293,6 +346,18 @@ export function NewsPage({
         onOpenChange={setAlertsOpen}
         rules={watches}
         alertThreshold={alertThreshold}
+        alerts={alerts}
+        unread={unread}
+        onAllRead={() => {
+          setUnread(0);
+          setAlerts((current) =>
+            current.map((alert) =>
+              alert.readAt
+                ? alert
+                : { ...alert, readAt: new Date().toISOString() }
+            )
+          );
+        }}
       />
 
       <NewsCurateDialog

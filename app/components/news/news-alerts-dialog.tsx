@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import {
   Bell,
   BellOff,
+  CheckCheck,
+  ExternalLink,
   Loader2,
   Pencil,
   Plus,
@@ -23,6 +25,8 @@ import {
   DialogTitle,
 } from '#/components/ui/dialog';
 import { NEWS_CATALYSTS } from '#/utils/news/constants';
+import type { FiredAlert } from '#/utils/news/types';
+import { TRADING_TIME_ZONE } from '#/utils/trading-time';
 import { MAX_WATCH_RULES, type NewsWatchRule } from '#/utils/news/watch';
 import {
   disableAlertSound,
@@ -32,6 +36,17 @@ import {
 import { cn } from '#/lib/utils';
 
 const ACTION = '/resources/news-watch';
+const ALERTS_ACTION = '/resources/news-alerts';
+
+/** ET, because the whole app runs on the trading clock. */
+const firedAtFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: TRADING_TIME_ZONE,
+  hour12: false,
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 /**
  * Watch-rule management.
@@ -45,20 +60,30 @@ export function NewsAlertsDialog({
   onOpenChange,
   rules,
   alertThreshold,
+  alerts,
+  unread,
+  onAllRead,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rules: NewsWatchRule[];
   alertThreshold: number;
+  /** What actually fired, newest first. Server-recorded; see alerts.server.ts. */
+  alerts: FiredAlert[];
+  unread: number;
+  /** Lets the page clear its badge without waiting for a revalidation. */
+  onAllRead: () => void;
 }) {
   const [editing, setEditing] = React.useState<NewsWatchRule | null>(null);
   const [creating, setCreating] = React.useState(false);
+  const [view, setView] = React.useState<'rules' | 'history'>('rules');
 
   // Reopening lands on the list, never on a half-finished form.
   React.useEffect(() => {
     if (!open) {
       setEditing(null);
       setCreating(false);
+      setView('rules');
     }
   }, [open]);
 
@@ -72,9 +97,30 @@ export function NewsAlertsDialog({
           <DialogDescription>
             {showForm
               ? 'A headline fires this rule when it clears the score AND matches the tickers AND matches the catalysts. Leave a list empty to match any.'
-              : 'Rules are matched in your browser against the live feed, so they fire anywhere in the app — not only on the news page.'}
+              : view === 'history'
+              ? 'Every alert that fired for you, including the ones that fired while you had nothing open.'
+              : 'Rules are matched on the server, so they fire whether or not you have a tab open — and anything you missed is waiting under History.'}
           </DialogDescription>
         </DialogHeader>
+
+        {!showForm && (
+          <div className="flex gap-1 border-b">
+            <TabButton active={view === 'rules'} onClick={() => setView('rules')}>
+              Rules
+            </TabButton>
+            <TabButton
+              active={view === 'history'}
+              onClick={() => setView('history')}
+            >
+              History
+              {unread > 0 && (
+                <span className="ml-1.5 rounded-full bg-sky-500 px-1.5 text-[10px] font-semibold text-white tabular-nums">
+                  {unread}
+                </span>
+              )}
+            </TabButton>
+          </div>
+        )}
 
         {showForm ? (
           <RuleForm
@@ -85,6 +131,8 @@ export function NewsAlertsDialog({
               setCreating(false);
             }}
           />
+        ) : view === 'history' ? (
+          <AlertHistory alerts={alerts} unread={unread} onAllRead={onAllRead} />
         ) : (
           <RuleList
             rules={rules}
@@ -405,4 +453,127 @@ function describeRule(rule: NewsWatchRule): string {
   if (!rule.sound) parts.push('silent');
 
   return parts.join(' · ');
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex items-center border-b-2 px-3 py-2 text-sm transition',
+        active
+          ? 'border-sky-500 font-medium text-card-foreground'
+          : 'border-transparent text-muted-foreground hover:text-card-foreground'
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * The backlog.
+ *
+ * This is the half of alert durability a member actually sees: a rule that
+ * fired at 07:15 while they were asleep is here when they open the app. Before
+ * alerts were persisted there was nothing to come back to at all -- an alert
+ * that fired into a closed tab simply never existed.
+ *
+ * The score shown is the score AT FIRE TIME. That is what explains why the rule
+ * matched; a later re-score may have moved the item's current one.
+ *
+ * Read state is marked explicitly rather than on open: glancing at the list is
+ * not the same as having dealt with what is in it.
+ */
+function AlertHistory({
+  alerts,
+  unread,
+  onAllRead,
+}: {
+  alerts: FiredAlert[];
+  unread: number;
+  onAllRead: () => void;
+}) {
+  const fetcher = useFetcher();
+  const marking = fetcher.state !== 'idle';
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {alerts.length === 0
+            ? 'Nothing has fired yet.'
+            : `${alerts.length} recent · ${unread} unread`}
+        </p>
+        {unread > 0 && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={marking}
+            onClick={() => {
+              // Optimistic: the badge clears now, the write lands behind it.
+              onAllRead();
+              fetcher.submit(
+                { intent: 'markRead' },
+                { method: 'post', action: ALERTS_ACTION }
+              );
+            }}
+          >
+            {marking ? (
+              <Loader2 className="mr-1.5 size-4 animate-spin" />
+            ) : (
+              <CheckCheck className="mr-1.5 size-4" />
+            )}
+            Mark all read
+          </Button>
+        )}
+      </div>
+
+      <div className="max-h-[340px] space-y-2 overflow-y-auto">
+        {alerts.map((alert) => (
+          <a
+            key={alert.id}
+            href={alert.item.url}
+            target="_blank"
+            // Third-party wire links, same as the feed rows.
+            rel="noopener noreferrer"
+            className={cn(
+              'group flex items-start gap-2 rounded-md border px-3 py-2 no-underline',
+              'text-card-foreground transition hover:bg-accent/40',
+              alert.readAt === null && 'border-sky-500/60 bg-sky-500/[0.06]'
+            )}
+          >
+            <span className="w-20 shrink-0 pt-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+              {firedAtFormatter.format(new Date(alert.firedAt))}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm leading-snug">
+                {alert.item.tickers.length > 0 && (
+                  <span className="mr-1.5 font-mono font-semibold">
+                    {alert.item.tickers.slice(0, 3).join(' ')}
+                  </span>
+                )}
+                {alert.item.headline}
+              </span>
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                {alert.watchLabel} {'·'} {alert.item.catalyst} {'·'}{' '}
+                {alert.item.feedName} {'·'} score {alert.score}
+              </span>
+            </span>
+            <ExternalLink className="mt-0.5 size-3.5 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
 }
